@@ -7,7 +7,7 @@ from win11toast import notify
 from logger import logger
 from push import push
 import requests
-from PIL import Image
+# from PIL import Image
 from os.path import realpath
 from colorama import Fore, Style
 from os import environ
