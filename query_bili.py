@@ -101,7 +101,7 @@ def query_bilidynamic(uid, cookie):
             USER_FACE_DICT[uid] = face
         if sign != USER_SIGN_DICT[uid]:
             logger.info(Fore.LIGHTGREEN_EX +
-                        f'【查询动态状态】【{uname}】修改了签名：【{USER_SIGN_DICT[uid]}】 -> 【{sign}】' + 
+                        f'【查询动态状态】【{uname}】修改了签名：【{USER_SIGN_DICT[uid]}】 -> 【{sign}】' +
                         Style.RESET_ALL)
             notify(f'【{uname}】修改了签名', f'【{USER_SIGN_DICT[uid]}】 -> 【{sign}】',
                    duration='long', icon=icon_path,
@@ -251,7 +251,7 @@ def query_live_status_batch(uid_list, cookie):
                             f'【查询直播状态】【{uname}】修改了直播间标题：【{ROOM_TITLE_DICT[uid]}】 -> 【{room_title}】' +
                             Style.RESET_ALL)
                 notify(f'【{uname}】修改了直播间标题', f'【{ROOM_TITLE_DICT[uid]}】->【{room_title}】',
-                       duration='long', icon=icon_path, on_click=url, app_id='vtb_dynamic')
+                       icon=icon_path, on_click=url, app_id='vtb_dynamic')
                 ROOM_TITLE_DICT[uid] = room_title
             if LIVING_STATUS_DICT[uid] != live_status:
                 LIVING_STATUS_DICT[uid] = live_status
@@ -268,12 +268,12 @@ def query_live_status_batch(uid_list, cookie):
                                 f'【查询直播状态】【{uname}】下播了'+Style.RESET_ALL)
             elif live_status == 1:
                 logger.info(Fore.LIGHTGREEN_EX +
-                             f'【查询直播状态】【{uname}】【{room_title}】直播中'+
-                             Style.RESET_ALL)
+                            f'【查询直播状态】【{uname}】【{room_title}】直播中' +
+                            Style.RESET_ALL)
             else:
                 logger.info(Fore.LIGHTBLUE_EX +
-                             f'【查询直播状态】【{uname}】【{room_title}】未开播'+
-                             Style.RESET_ALL)
+                            f'【查询直播状态】【{uname}】【{room_title}】未开播' +
+                            Style.RESET_ALL)
 
 
 def get_headers(uid):

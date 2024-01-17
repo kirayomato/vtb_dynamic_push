@@ -160,7 +160,7 @@ def query_weibodynamic(uid, cookie):
             'raw_text', None) is not None else text
         pic_url = mblog.get('original_pic', None)
         jump_url = card['scheme']
-        logger.info(Fore.LIGHTGREEN_EX+f'【查询微博状态】【{uname}】微博有更新，准备推送：{content[:30]}' +
+        logger.info(Fore.LIGHTGREEN_EX+f'【查询微博状态】【{uname}】微博有更新，准备推送：{content}' +
                     Style.RESET_ALL)
         notify(f"【{uname}】微博更新", content, duration='long',
                on_click=jump_url, icon=icon_path, app_id='vtb_dynamic')
