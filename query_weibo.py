@@ -47,8 +47,7 @@ def get_icon(uid, face):
     return realpath(icon)
 
 
-def query_valid(cookie):
-    uid = 1794972577
+def query_valid(uid, cookie):
     query_url = 'https://m.weibo.cn/api/container/getIndex?type=uid&value={uid}&containerid=107603{uid}&count=25'.format(
         uid=uid)
     headers = get_headers(uid)

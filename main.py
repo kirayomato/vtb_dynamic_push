@@ -16,6 +16,7 @@ def load_cookie(path):
         cookies = {}
         for cookie in ck:
             cookies[cookie.get('name')] = cookie.get('value')
+        logger.info(Fore.GREEN+f'【Cookies】读取{path}'+Style.RESET_ALL)
         return cookies
     except BaseException:
         return {}
@@ -24,6 +25,11 @@ def load_cookie(path):
 def weibo():
     enable_dynamic_push = global_config.get_raw(
         'weibo', 'enable_dynamic_push')
+    cookies_check = global_config.get_raw(
+        'weibo', 'enable_cookies_check')
+    if cookies_check == 'true':
+        check_uid = global_config.get_raw(
+            'weibo', 'cookies_check_uid')
     if enable_dynamic_push != 'true':
         logger.info(Fore.YELLOW+'【查询微博状态】未开启微博推送功能'+Style.RESET_ALL)
         return
@@ -31,12 +37,12 @@ def weibo():
     logger.info(Fore.GREEN+'【查询微博状态】开始检测微博'+Style.RESET_ALL)
     test = 0
     while True:
-        WeiboCookies = load_cookie('WeiboCookies.txt')
+        WeiboCookies = load_cookie('WeiboCookies.json')
         uid_list = global_config.get_raw('weibo', 'uid_list')
         if uid_list:
             uid_list = uid_list.split(',')
             try:
-                if not query_valid(WeiboCookies):
+                if cookies_check == 'true' and not query_valid(check_uid, WeiboCookies):
                     test += 1
                     if test > 5:
                         logger.warning(
@@ -67,7 +73,7 @@ def bili_dy():
     intervals_second = int(global_config.get_raw('bili', 'intervals_second'))
     logger.info(Fore.GREEN+'【查询动态状态】开始检测动态'+Style.RESET_ALL)
     while True:
-        BiliCookies = load_cookie('BiliCookies.txt')
+        BiliCookies = load_cookie('BiliCookies.json')
         uid_list = global_config.get_raw('bili', 'dynamic_uid_list')
         if uid_list:
             uid_list = uid_list.split(',')
@@ -93,7 +99,7 @@ def bili_live():
     intervals_second = int(global_config.get_raw('bili', 'intervals_second'))
     logger.info(Fore.GREEN+'【查询直播状态】开始检测直播'+Style.RESET_ALL)
     while True:
-        BiliCookies = load_cookie('BiliCookies.txt')
+        BiliCookies = load_cookie('BiliCookies.json')
         uid_list = global_config.get_raw('bili', 'live_uid_list')
         if uid_list:
             uid_list = uid_list.split(',')
@@ -116,6 +122,7 @@ def update_config():
         global_config = Config()
         logger.info(Fore.GREEN+'【Config】更新Config'+Style.RESET_ALL)
         sleep(30)
+
 
 if __name__ == '__main__':
     global_config = Config()
