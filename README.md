@@ -9,7 +9,7 @@
 
 1. 支持填写cookies，获取仅粉丝可见内容，且在cookies失效时进行提示
 
-    检测微博cookies有效的原理为尝试获取一个微博全为粉丝可见的账号的微博，如果能成功获取到微博则说明cookies有效，需要先关注对应账号
+    检测微博cookies是否有效的原理为尝试获取一个微博全为粉丝可见的账号的微博，如果能成功获取到微博则说明cookies有效，需要先关注对应账号
 
     B站填写cookies后或许可以获取到充电动态，但是还没有测试过，只是先把功能做上
 
@@ -40,7 +40,7 @@
 - `intervals_second`为扫描间隔秒数，不建议过于频繁，必填
 - `enable_cookies_check`是否启用cookies检测功能，默认关闭
 - `cookies_check_uid`检测cookies使用的账号，默认为[Hitomi浅川瞳poi
-](https://weibo.com/u/1794972577)
+](https://weibo.com/u/1794972577)。要求公开微博小于5条，公开+仅粉丝可见微博大于5条。
 
 `bili`下的参数
 - `enable_dynamic_push`是否启用微博推送
