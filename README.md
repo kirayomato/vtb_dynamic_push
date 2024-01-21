@@ -31,7 +31,7 @@
 ## 使用教程
 
 #### 0. 下载
-下载[压缩包](https://codeload.github.com/kirayomato/vtb_dynamic_push/zip/refs/heads/main)并解压到一个文件夹中
+在[Releases](https://github.com/kirayomato/vtb_dynamic_push/releases)下载最新版本代码压缩包并解压到一个文件夹中
 
 #### 1. 填写config.ini配置信息
 
