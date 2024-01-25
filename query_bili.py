@@ -2,18 +2,20 @@ import json
 import time
 import requests
 from collections import deque
-from win11toast import notify
+from util import notify0
 from logger import logger
 from push import push
 # from PIL import Image
-from os.path import realpath
+from os.path import realpath, exists
 from colorama import Fore, Style
 from os import environ
 from random import choice
+from datetime import datetime
 environ['NO_PROXY'] = '*'
 DYNAMIC_DICT = {}
 LIVING_STATUS_DICT = {}
 ROOM_TITLE_DICT = {}
+ROOM_COVER_DICT = {}
 USER_SIGN_DICT = {}
 USER_FACE_DICT = {}
 LEN_OF_DEQUE = 20
@@ -23,8 +25,8 @@ proxies = {
 }
 
 
-def get_icon(uid, face):
-    icon = f'icon/bili_{uid}.jpg'
+def get_icon(uid, face, path=''):
+    icon = f'icon/{path}bili_{uid}.jpg'
     r = requests.get(face, timeout=5)
     with open(icon, 'wb') as f:
         f.write(r.content)
@@ -72,6 +74,9 @@ def query_bilidynamic(uid, cookie):
         except KeyError:
             logger.error(Fore.RED+f'【查询动态状态】【{uid}】获取不到用户信息'+Style.RESET_ALL)
             return
+        print(' '*100+'\r', end='')
+        print(datetime.now().strftime('%Y-%m-%d %H:%M:%S')+' - '+Fore.LIGHTBLUE_EX+f'【查询动态状态】查询{uname}动态' +
+              Style.RESET_ALL+'\r', end='')
         if DYNAMIC_DICT.get(uid, None) is None:
             DYNAMIC_DICT[uid] = deque(maxlen=LEN_OF_DEQUE)
             USER_FACE_DICT[uid] = face
@@ -94,19 +99,18 @@ def query_bilidynamic(uid, cookie):
             get_icon(uid, face)
             logger.info(Fore.LIGHTGREEN_EX +
                         f'【查询动态状态】【{uname}】修改了头像' + Style.RESET_ALL)
-            notify(f'【{uname}】修改了头像', '',
-                   duration='long', icon=icon_path,
-                   on_click=f'https://space.bilibili.com/{uid}',
-                   app_id='vtb_dynamic')
+            notify0(f'【{uname}】修改了头像', '',
+                    icon=icon_path, on_click=f'https://space.bilibili.com/{uid}'
+                    )
             USER_FACE_DICT[uid] = face
         if sign != USER_SIGN_DICT[uid]:
             logger.info(Fore.LIGHTGREEN_EX +
                         f'【查询动态状态】【{uname}】修改了签名：【{USER_SIGN_DICT[uid]}】 -> 【{sign}】' +
                         Style.RESET_ALL)
-            notify(f'【{uname}】修改了签名', f'【{USER_SIGN_DICT[uid]}】 -> 【{sign}】',
-                   duration='long', icon=icon_path,
-                   on_click=f'https://space.bilibili.com/{uid}',
-                   app_id='vtb_dynamic')
+            notify0(f'【{uname}】修改了签名', f'【{USER_SIGN_DICT[uid]}】 -> 【{sign}】',
+                    icon=icon_path,
+                    on_click=f'https://space.bilibili.com/{uid}'
+                    )
             USER_SIGN_DICT[uid] = sign
         if dynamic_id not in DYNAMIC_DICT[uid]:
             previous_dynamic_id = DYNAMIC_DICT[uid].pop()
@@ -150,8 +154,8 @@ def query_bilidynamic(uid, cookie):
             logger.info(Fore.LIGHTGREEN_EX+'【查询动态状态】【{uname}】动态有更新，准备推送：{content}'.format(
                 uname=uname, content=content[:30])+Style.RESET_ALL)
             url = f'https://www.bilibili.com/opus/{dynamic_id}'
-            notify(f"【{uname}】动态更新", content, duration='long',
-                   icon=icon_path, on_click=url, app_id='vtb_dynamic')
+            notify0(f"【{uname}】动态更新", content,
+                    icon=icon_path, on_click=url)
             push.push_for_bili_dynamic(
                 uname, dynamic_id, content, pic_url, dynamic_type, dynamic_time)
 
@@ -225,55 +229,82 @@ def query_live_status_batch(uid_list, cookie):
                 uname = item_info['uname']
                 face = item_info['face']
                 live_status = item_info['live_status']
+                room_id = item_info['room_id']
+                room_title = item_info['title']
+                room_cover_url = item_info['cover_from_user']
+                keyframe = item_info['keyframe']
             except (KeyError, TypeError):
                 logger.error(
-                    Fore.RED+f'【查询动态状态】【{uid}】获取不到live_status'+Style.RESET_ALL)
+                    Fore.RED+f'【查询动态状态】【{uid}】获取不到直播信息'+Style.RESET_ALL)
                 continue
-            room_id = item_info['room_id']
-            room_title = item_info['title']
-            room_cover_url = item_info['cover_from_user']
             url = f'https://live.bilibili.com/{room_id}'
+            print(' '*100+'\r', end='')
+            print(datetime.now().strftime('%Y-%m-%d %H:%M:%S')+' - '+Fore.CYAN+f'【查询直播状态】查询{uname}' +
+                  Style.RESET_ALL+'\r', end='')
             if LIVING_STATUS_DICT.get(uid, None) is None:
                 ROOM_TITLE_DICT[uid] = room_title
                 LIVING_STATUS_DICT[uid] = live_status
+                ROOM_COVER_DICT[uid] = room_cover_url
                 get_icon(uid, face)
+                if room_cover_url != '':
+                    get_icon(uid, room_cover_url, 'cover/')
+                elif keyframe != '':
+                    get_icon(uid, keyframe, 'cover/')
                 if live_status == 1:
                     logger.info(Fore.LIGHTGREEN_EX +
                                 f'【查询直播状态】【{uname}】【{room_title}】直播中' +
                                 Style.RESET_ALL)
                 else:
-                    logger.info(Fore.LIGHTBLUE_EX +
+                    logger.info(Fore.CYAN +
                                 f'【查询直播状态】【{uname}】【{room_title}】未开播'+Style.RESET_ALL)
                 continue
             icon_path = realpath(f'icon/bili_{uid}.jpg')
+            cover_path = realpath(f'icon/cover/bili_{uid}.jpg')
+            if not exists(cover_path):
+                cover_path = ""
             if ROOM_TITLE_DICT[uid] != room_title:
                 logger.info(Fore.LIGHTGREEN_EX +
                             f'【查询直播状态】【{uname}】修改了直播间标题：【{ROOM_TITLE_DICT[uid]}】 -> 【{room_title}】' +
                             Style.RESET_ALL)
-                notify(f'【{uname}】修改了直播间标题', f'【{ROOM_TITLE_DICT[uid]}】->【{room_title}】',
-                       icon=icon_path, on_click=url, app_id='vtb_dynamic')
+                notify0(f'【{uname}】修改了直播间标题', f'【{ROOM_TITLE_DICT[uid]}】->【{room_title}】',
+                        icon=icon_path, on_click=url)
                 ROOM_TITLE_DICT[uid] = room_title
+            if ROOM_COVER_DICT[uid] != room_cover_url and room_cover_url != '':
+                get_icon(uid, room_cover_url, 'cover/')
+                logger.info(Fore.LIGHTGREEN_EX +
+                            f'【查询直播状态】【{uname}】修改了直播间封面' +
+                            Style.RESET_ALL)
+                notify0(f'【{uname}】修改了直播间封面', '', on_click=url,
+                        image={
+                            'src': cover_path,
+                            'placement': 'hero'
+                        }, icon=icon_path)
+                ROOM_COVER_DICT[uid] = room_cover_url
             if LIVING_STATUS_DICT[uid] != live_status:
                 LIVING_STATUS_DICT[uid] = live_status
                 if live_status == 1:
                     logger.info(Fore.LIGHTGREEN_EX +
                                 f'【查询直播状态】【{uname}】【{room_title}】开播了' +
                                 Style.RESET_ALL)
-                    notify(f"【{uname}】开播了", room_title, duration='long',
-                           icon=icon_path, on_click=url, app_id='vtb_dynamic')
+                    notify0(f"【{uname}】开播了", room_title,
+                            on_click=url,
+                            image={
+                                'src': cover_path,
+                                'placement': 'hero'
+                            }, icon=icon_path)
                     push.push_for_bili_live(
                         uname, room_id, room_title, room_cover_url)
                 else:
                     logger.info(Fore.LIGHTGREEN_EX +
                                 f'【查询直播状态】【{uname}】下播了'+Style.RESET_ALL)
             elif live_status == 1:
-                logger.info(Fore.LIGHTGREEN_EX +
-                            f'【查询直播状态】【{uname}】【{room_title}】直播中' +
-                            Style.RESET_ALL)
+                logger.debug(Fore.LIGHTGREEN_EX +
+                             f'【查询直播状态】【{uname}】【{room_title}】直播中' +
+                             Style.RESET_ALL)
             else:
-                logger.info(Fore.LIGHTBLUE_EX +
-                            f'【查询直播状态】【{uname}】【{room_title}】未开播' +
-                            Style.RESET_ALL)
+                logger.debug(Fore.CYAN +
+                             f'【查询直播状态】【{uname}】【{room_title}】未开播' +
+                             Style.RESET_ALL)
 
 
 def get_headers(uid):

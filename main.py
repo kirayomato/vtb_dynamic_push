@@ -7,7 +7,7 @@ from logger import logger
 from query_weibo import query_weibodynamic, query_valid
 from query_bili import query_bilidynamic, query_live_status_batch
 from colorama import Fore, Style, init
-from win11toast import notify
+from util import notify0
 
 
 def load_cookie(path):
@@ -16,7 +16,7 @@ def load_cookie(path):
         cookies = {}
         for cookie in ck:
             cookies[cookie.get('name')] = cookie.get('value')
-        logger.info(Fore.GREEN+f'【Cookies】读取{path}'+Style.RESET_ALL)
+        logger.debug(Fore.GREEN+f'【Cookies】读取{path}'+Style.RESET_ALL)
         return cookies
     except BaseException:
         return {}
@@ -41,24 +41,23 @@ def weibo():
         uid_list = global_config.get_raw('weibo', 'uid_list')
         if uid_list:
             uid_list = uid_list.split(',')
-            try:
-                if cookies_check == 'true' and not query_valid(check_uid, WeiboCookies):
-                    test += 1
-                    if test > 5:
-                        logger.warning(
-                            Fore.YELLOW + '【查询微博状态】微博Cookies无效' + Style.RESET_ALL)
-                        notify("微博Cookies无效", "", duration='long',
-                               app_id='vtb_dynamic', on_click='https://m.weibo.cn/')
-                else:
-                    test = 0
-                for uid in uid_list:
+            if cookies_check == 'true' and not query_valid(check_uid, WeiboCookies):
+                test += 1
+                if test > 5:
+                    logger.warning(
+                        Fore.YELLOW + '【查询微博状态】微博Cookies无效' + Style.RESET_ALL)
+                    notify0("微博Cookies无效", "", on_click='https://m.weibo.cn/')
+            else:
+                test = 0
+            for uid in uid_list:
+                try:
                     query_weibodynamic(uid, WeiboCookies)
                     sleep(intervals_second/len(uid_list))
-            except KeyboardInterrupt:
-                return
-            except BaseException as e:
-                logger.error(
-                    Fore.RED + f'【查询微博状态】【出错【{e}】' + Style.RESET_ALL)
+                except KeyboardInterrupt:
+                    return
+                except BaseException as e:
+                    logger.error(
+                        Fore.RED + f'【查询微博状态】【出错【{e}】' + Style.RESET_ALL)
         else:
             logger.info('【查询微博状态】未填写UID')
             sleep(intervals_second)
@@ -77,15 +76,15 @@ def bili_dy():
         uid_list = global_config.get_raw('bili', 'dynamic_uid_list')
         if uid_list:
             uid_list = uid_list.split(',')
-            try:
-                for uid in uid_list:
+            for uid in uid_list:
+                try:
                     query_bilidynamic(uid, BiliCookies)
                     sleep(intervals_second/len(uid_list))
-            except KeyboardInterrupt:
-                return
-            except BaseException as e:
-                logger.error(
-                    Fore.RED + f'【查询动态状态】【出错【{e}】' + Style.RESET_ALL)
+                except KeyboardInterrupt:
+                    return
+                except BaseException as e:
+                    logger.error(
+                        Fore.RED + f'【查询动态状态】【出错【{e}】' + Style.RESET_ALL)
         else:
             logger.info('【查询动态状态】未填写UID')
             sleep(intervals_second)
@@ -120,14 +119,14 @@ def update_config():
     while True:
         global global_config
         global_config = Config()
-        logger.info(Fore.GREEN+'【Config】更新Config'+Style.RESET_ALL)
+        logger.debug(Fore.GREEN+'【Config】更新Config'+Style.RESET_ALL)
         sleep(30)
 
 
 if __name__ == '__main__':
     global_config = Config()
-    if not os.path.exists('icon'):
-        os.mkdir('icon')
+    if not os.path.exists('icon/cover'):
+        os.makedirs('icon/cover')
     init(autoreset=True)
     thread1 = threading.Thread(target=bili_dy)
     thread2 = threading.Thread(target=bili_live)

@@ -1,9 +1,9 @@
-import datetime
+from datetime import datetime, timedelta
 import json
 import re
 import time
 from collections import deque
-from win11toast import notify
+from util import notify0
 from logger import logger
 from push import push
 import requests
@@ -51,8 +51,12 @@ def query_valid(uid, cookie):
     query_url = 'https://m.weibo.cn/api/container/getIndex?type=uid&value={uid}&containerid=107603{uid}&count=25'.format(
         uid=uid)
     headers = get_headers(uid)
-    response = requests.get(query_url, headers=headers,
-                            cookies=cookie, proxies=proxies, timeout=5)
+    try:
+        response = requests.get(query_url, headers=headers,
+                                cookies=cookie, proxies=proxies, timeout=5)
+    except BaseException as e:
+        logger.error(Fore.RED + f'【查询微博状态】【出错【{e}】' + Style.RESET_ALL)
+        return False
     if response.status_code == 200:
         result = json.loads(str(response.content, 'utf-8'))
         cards = result['data']['cards']
@@ -76,7 +80,7 @@ def query_weibodynamic(uid, cookie):
     cards = result['data']['cards']
     n = len(cards)
     if n == 0:
-        logger.warning(
+        logger.debug(
             Fore.YELLOW + f'【查询微博状态】【{uid}】微博列表为空' + Style.RESET_ALL)
         return
     # 跳过置顶
@@ -93,6 +97,9 @@ def query_weibodynamic(uid, cookie):
     face = user['profile_image_url']
     face = face[:face.find('?')]
     sign = user['description']
+    print(' '*100+'\r', end='')
+    print(datetime.now().strftime('%Y-%m-%d %H:%M:%S')+' - '+Fore.LIGHTYELLOW_EX+f'【查询微博状态】查询{uname}微博' +
+          Style.RESET_ALL+'\r', end='')
     if DYNAMIC_DICT.get(uid, None) is None:
         DYNAMIC_DICT[uid] = deque(maxlen=LEN_OF_DEQUE)
         USER_FACE_DICT[uid] = face
@@ -115,19 +122,16 @@ def query_weibodynamic(uid, cookie):
         get_icon(uid, face)
         logger.info(Fore.LIGHTGREEN_EX +
                     f'【查询微博状态】【{uname}】修改了头像' + Style.RESET_ALL)
-        notify(f'【{uname}】修改了头像', '',
-               duration='long', icon=icon_path,
-               on_click=f'https://weibo.com/u/{uid}',
-               app_id='vtb_dynamic')
+        notify0(f'【{uname}】修改了头像', '', icon=icon_path,
+                on_click=f'https://weibo.com/u/{uid}')
         USER_FACE_DICT[uid] = face
     if sign != USER_SIGN_DICT[uid]:
         logger.info(Fore.LIGHTGREEN_EX +
                     f'【查询动态状态】【{uname}】修改了签名：【{USER_SIGN_DICT[uid]}】 -> 【{sign}】' +
                     Style.RESET_ALL)
-        notify(f'【{uname}】修改了签名', f'【{USER_SIGN_DICT[uid]}】 -> 【{sign}】',
-               duration='long', icon=icon_path,
-               on_click=f'https://weibo.com/u/{uid}',
-               app_id='vtb_dynamic')
+        notify0(f'【{uname}】修改了签名', f'【{USER_SIGN_DICT[uid]}】 -> 【{sign}】',
+                icon=icon_path,
+                on_click=f'https://weibo.com/u/{uid}')
         USER_SIGN_DICT[uid] = sign
     if mblog_id not in DYNAMIC_DICT[uid]:
         previous_mblog_id = DYNAMIC_DICT[uid].pop()
@@ -145,8 +149,8 @@ def query_weibodynamic(uid, cookie):
         created_at = time.strptime(
             mblog['created_at'], '%a %b %d %H:%M:%S %z %Y')
         created_at_ts = time.mktime(created_at)
-        yesterday = (datetime.datetime.now() +
-                     datetime.timedelta(days=-1)).strftime("%Y-%m-%d")
+        yesterday = (datetime.now() +
+                     timedelta(days=-1)).strftime("%Y-%m-%d")
         yesterday_ts = time.mktime(time.strptime(yesterday, '%Y-%m-%d'))
         if created_at_ts < yesterday_ts:
             logger.info(Fore.LIGHTYELLOW_EX+'【查询微博状态】【{screen_name}】微博有更新，但微博发送时间早于今天，可能是历史微博，不予推送'.format(
@@ -162,8 +166,8 @@ def query_weibodynamic(uid, cookie):
         jump_url = card['scheme']
         logger.info(Fore.LIGHTGREEN_EX+f'【查询微博状态】【{uname}】微博有更新，准备推送：{content}' +
                     Style.RESET_ALL)
-        notify(f"【{uname}】微博更新", content, duration='long',
-               on_click=jump_url, icon=icon_path, app_id='vtb_dynamic')
+        notify0(f"【{uname}】微博更新", content,
+                on_click=jump_url, icon=icon_path)
         push.push_for_weibo_dynamic(
             uname, mblog_id, content, pic_url, jump_url, dynamic_time)
 

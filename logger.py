@@ -6,7 +6,7 @@ logger = logging.getLogger()
 
 
 def set_logger():
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(logging.INFO)
     logging.getLogger('urllib3').setLevel(logging.INFO)
     formatter = logging.Formatter(
         '%(asctime)s - %(filename)s[line:%(lineno)d] - %(levelname)s: %(message)s')
