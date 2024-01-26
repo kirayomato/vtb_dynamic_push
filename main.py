@@ -52,12 +52,12 @@ def weibo():
             for uid in uid_list:
                 try:
                     query_weibodynamic(uid, WeiboCookies)
-                    sleep(intervals_second/len(uid_list))
                 except KeyboardInterrupt:
                     return
                 except BaseException as e:
                     logger.error(
                         Fore.RED + f'【查询微博状态】【出错【{e}】' + Style.RESET_ALL)
+                sleep(intervals_second/len(uid_list))
         else:
             logger.info('【查询微博状态】未填写UID')
             sleep(intervals_second)
@@ -79,12 +79,12 @@ def bili_dy():
             for uid in uid_list:
                 try:
                     query_bilidynamic(uid, BiliCookies)
-                    sleep(intervals_second/len(uid_list))
                 except KeyboardInterrupt:
                     return
                 except BaseException as e:
                     logger.error(
                         Fore.RED + f'【查询动态状态】【出错【{e}】' + Style.RESET_ALL)
+                sleep(intervals_second/len(uid_list))
         else:
             logger.info('【查询动态状态】未填写UID')
             sleep(intervals_second)
@@ -104,12 +104,12 @@ def bili_live():
             uid_list = uid_list.split(',')
             try:
                 query_live_status_batch(uid_list, BiliCookies)
-                sleep(intervals_second)
             except KeyboardInterrupt:
                 return
             except BaseException as e:
                 logger.error(
                     Fore.RED + f'【查询直播状态】【出错【{e}】' + Style.RESET_ALL)
+            sleep(intervals_second)
         else:
             logger.info('【查询直播状态】未填写UID')
             sleep(intervals_second)
