@@ -12,6 +12,7 @@ from os.path import realpath
 from colorama import Fore, Style
 from os import environ
 
+
 environ['NO_PROXY'] = '*'
 DYNAMIC_DICT = {}
 USER_FACE_DICT = {}
@@ -97,7 +98,8 @@ def query_weibodynamic(uid, cookie, msg):
     face = user['profile_image_url']
     face = face[:face.find('?')]
     sign = user['description']
-    msg[1] = Fore.LIGHTYELLOW_EX+f'【查询微博状态】查询{uname}微博' + Style.RESET_ALL
+    msg[1] = datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' - ' + \
+        Fore.LIGHTYELLOW_EX+f'【查询微博状态】查询{uname}微博' + Style.RESET_ALL
     if DYNAMIC_DICT.get(uid, None) is None:
         DYNAMIC_DICT[uid] = deque(maxlen=LEN_OF_DEQUE)
         USER_FACE_DICT[uid] = face

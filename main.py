@@ -1,4 +1,3 @@
-from datetime import datetime
 import json
 import threading
 import os
@@ -142,8 +141,7 @@ def print_state():
             global output_list
             for i in range(3):
                 if msg[i]:
-                    output_list[i] = datetime.now().strftime(
-                        '%Y-%m-%d %H:%M:%S') + ' - '+msg[i]
+                    output_list[i] = msg[i]
 
 
 if __name__ == '__main__':

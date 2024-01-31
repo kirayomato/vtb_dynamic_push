@@ -10,6 +10,9 @@ from os.path import realpath, exists
 from colorama import Fore, Style
 from os import environ
 from random import choice
+from datetime import datetime
+
+
 environ['NO_PROXY'] = '*'
 DYNAMIC_DICT = {}
 LIVING_STATUS_DICT = {}
@@ -73,7 +76,8 @@ def query_bilidynamic(uid, cookie, msg):
         except KeyError:
             logger.error(Fore.RED+f'【查询动态状态】【{uid}】获取不到用户信息'+Style.RESET_ALL)
             return
-        msg[0] = Fore.LIGHTBLUE_EX+f'【查询动态状态】查询{uname}动态' + Style.RESET_ALL
+        msg[0] = datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' - ' + \
+            Fore.LIGHTBLUE_EX+f'【查询动态状态】查询{uname}动态' + Style.RESET_ALL
         if DYNAMIC_DICT.get(uid, None) is None:
             DYNAMIC_DICT[uid] = deque(maxlen=LEN_OF_DEQUE)
             USER_FACE_DICT[uid] = face
@@ -235,7 +239,8 @@ def query_live_status_batch(uid_list, cookie, msg):
                     Fore.RED+f'【查询动态状态】【{uid}】获取不到直播信息'+Style.RESET_ALL)
                 continue
             url = f'https://live.bilibili.com/{room_id}'
-            msg[2] = Fore.CYAN+f'【查询直播状态】查询{uname}直播状态' + Style.RESET_ALL
+            msg[2] = datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' - ' + \
+                Fore.CYAN+f'【查询直播状态】查询{uname}直播状态' + Style.RESET_ALL
             if LIVING_STATUS_DICT.get(uid, None) is None:
                 ROOM_TITLE_DICT[uid] = room_title
                 LIVING_STATUS_DICT[uid] = live_status
