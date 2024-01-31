@@ -134,14 +134,12 @@ def update_config():
 
 def print_state():
     while True:
-        # print('\033[F\033[J', end='')
-        # print(datetime.now().strftime('%Y-%m-%d %H:%M:%S') +
-        #       ' - '+' '.join(msg), end='')
         if sum(swi) == cnt:
             global output_list
             for i in range(3):
                 if msg[i]:
                     output_list[i] = msg[i]
+        sleep(0.1)
 
 
 if __name__ == '__main__':
