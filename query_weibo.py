@@ -64,7 +64,7 @@ def query_valid(uid, cookie):
     return False
 
 
-def query_weibodynamic(uid, cookie):
+def query_weibodynamic(uid, cookie, msg):
     if uid is None:
         return
     query_url = 'https://m.weibo.cn/api/container/getIndex?type=uid&value={uid}&containerid=107603{uid}&count=25'.format(
@@ -97,9 +97,7 @@ def query_weibodynamic(uid, cookie):
     face = user['profile_image_url']
     face = face[:face.find('?')]
     sign = user['description']
-    print(' '*100+'\r', end='')
-    print(datetime.now().strftime('%Y-%m-%d %H:%M:%S')+' - '+Fore.LIGHTYELLOW_EX+f'【查询微博状态】查询{uname}微博' +
-          Style.RESET_ALL+'\r', end='')
+    msg[1] = Fore.LIGHTYELLOW_EX+f'【查询微博状态】查询{uname}微博' + Style.RESET_ALL
     if DYNAMIC_DICT.get(uid, None) is None:
         DYNAMIC_DICT[uid] = deque(maxlen=LEN_OF_DEQUE)
         USER_FACE_DICT[uid] = face
@@ -123,7 +121,7 @@ def query_weibodynamic(uid, cookie):
         logger.info(Fore.LIGHTGREEN_EX +
                     f'【查询微博状态】【{uname}】修改了头像' + Style.RESET_ALL)
         notify0(f'【{uname}】修改了头像', '', icon=icon_path,
-                on_click=f'https://weibo.com/u/{uid}')
+                on_click=f'https://m.weibo.cn/profile/{uid}')
         USER_FACE_DICT[uid] = face
     if sign != USER_SIGN_DICT[uid]:
         logger.info(Fore.LIGHTGREEN_EX +
@@ -131,7 +129,7 @@ def query_weibodynamic(uid, cookie):
                     Style.RESET_ALL)
         notify0(f'【{uname}】修改了签名', f'【{USER_SIGN_DICT[uid]}】 -> 【{sign}】',
                 icon=icon_path,
-                on_click=f'https://weibo.com/u/{uid}')
+                on_click=f'https://m.weibo.cn/profile/{uid}')
         USER_SIGN_DICT[uid] = sign
     if mblog_id not in DYNAMIC_DICT[uid]:
         previous_mblog_id = DYNAMIC_DICT[uid].pop()
