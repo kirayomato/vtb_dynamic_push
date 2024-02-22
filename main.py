@@ -46,10 +46,11 @@ def weibo():
             uid_list = uid_list.split(',')
             if cookies_check == 'true' and not query_valid(check_uid, WeiboCookies):
                 test += 1
-                if test > 5:
+                if test == 5:
                     logger.warning(
                         Fore.YELLOW + '【查询微博状态】微博Cookies无效' + Style.RESET_ALL)
                     notify0("微博Cookies无效", "", on_click='https://m.weibo.cn/')
+                    test = 0
             else:
                 test = 0
             for uid in uid_list:
