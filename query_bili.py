@@ -203,7 +203,7 @@ def query_bilidynamic(uid, cookie, msg):
 #                         name, room_id, room_title, room_cover_url)
 
 
-def query_live_status_batch(uid_list, cookie, msg):
+def query_live_status_batch(uid_list, cookie, msg, special):
     if uid_list is None:
         uid_list = []
     if len(uid_list) == 0:
@@ -286,12 +286,21 @@ def query_live_status_batch(uid_list, cookie, msg):
                     logger.info(Fore.LIGHTGREEN_EX +
                                 f'【查询直播状态】【{uname}】【{room_title}】开播了' +
                                 Style.RESET_ALL)
-                    notify0(f"【{uname}】开播了", room_title,
-                            on_click=url,
+                    if uid in special:
+                        notify0(f"【{uname}】开播了", room_title,
+                            on_click=url, scenario='alarm',
+                            audio={'src': 'ms-winsoundevent:Notification.Looping.Alarm', 'loop': 'true'},
                             image={
                                 'src': cover_path,
                                 'placement': 'hero'
                             }, icon=icon_path)
+                    else:
+                        notify0(f"【{uname}】开播了", room_title,
+                                on_click=url,
+                                image={
+                                    'src': cover_path,
+                                    'placement': 'hero'
+                                }, icon=icon_path)
                     push.push_for_bili_live(
                         uname, room_id, room_title, room_cover_url)
                 else:

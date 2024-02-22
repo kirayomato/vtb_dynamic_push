@@ -110,10 +110,15 @@ def bili_live():
     while True:
         BiliCookies = load_cookie('BiliCookies.json')
         uid_list = global_config.get_raw('bili', 'live_uid_list')
+        special = global_config.get_raw('bili', 'special_list')
+        if special:
+            special = set(special.split(','))
+        else:
+            special = set()
         if uid_list:
             uid_list = uid_list.split(',')
             try:
-                query_live_status_batch(uid_list, BiliCookies, msg)
+                query_live_status_batch(uid_list, BiliCookies, msg, special)
             except KeyboardInterrupt:
                 return
             except BaseException as e:
