@@ -152,6 +152,8 @@ if __name__ == '__main__':
     global_config = Config()
     if not os.path.exists('icon/cover'):
         os.makedirs('icon/cover')
+    if not os.path.exists('icon/opus'):
+        os.makedirs('icon/opus')
     msg = [""]*3
     swi = [0]*3
     cnt = 0

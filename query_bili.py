@@ -155,8 +155,18 @@ def query_bilidynamic(uid, cookie, msg):
             logger.info(Fore.LIGHTGREEN_EX+'【查询动态状态】【{uname}】动态有更新，准备推送：{content}'.format(
                 uname=uname, content=content[:30])+Style.RESET_ALL)
             url = f'https://www.bilibili.com/opus/{dynamic_id}'
-            notify0(f"【{uname}】动态更新", content,
-                    icon=icon_path, on_click=url)
+            if pic_url is None:
+                notify0(f"【{uname}】动态更新", content,
+                        icon=icon_path, on_click=url)
+            else:
+                get_icon(uid, pic_url, 'opus/')
+                opus_path = realpath(f'icon/opus/bili_{uid}.jpg')
+                notify0(f"【{uname}】动态更新", content,
+                        on_click=url,
+                        image={
+                            'src': opus_path,
+                            'placement': 'hero'
+                        }, icon=icon_path)
             push.push_for_bili_dynamic(
                 uname, dynamic_id, content, pic_url, dynamic_type, dynamic_time)
 
