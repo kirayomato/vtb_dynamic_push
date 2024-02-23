@@ -24,7 +24,7 @@ proxies = {
 }
 
 
-def get_icon(uid, face):
+def get_icon(uid, face, path=''):
     headrs = {
         'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
         'Accept-Encoding': 'gzip, deflate, br',
@@ -38,7 +38,7 @@ def get_icon(uid, face):
         'Sec-Fetch-Site': 'cross-site',
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
     }
-    icon = f'icon/wb_{uid}.jpg'
+    icon = f'icon/{path}wb_{uid}.jpg'
     r = requests.get(face, headers=headrs, timeout=5)
     with open(icon, 'wb') as f:
         f.write(r.content)
@@ -163,13 +163,23 @@ def query_weibodynamic(uid, cookie, msg):
         content = mblog['raw_text'] if mblog.get(
             'raw_text', None) is not None else text
         pic_url = mblog.get('original_pic', None)
-        jump_url = card['scheme']
+        url = card['scheme']
         logger.info(Fore.LIGHTGREEN_EX+f'【查询微博状态】【{uname}】微博有更新，准备推送：{content}' +
                     Style.RESET_ALL)
-        notify0(f"【{uname}】微博更新", content,
-                on_click=jump_url, icon=icon_path)
+        if pic_url is None:
+            notify0(f"【{uname}】微博更新", content,
+                    icon=icon_path, on_click=url)
+        else:
+            get_icon(uid, pic_url, 'opus/')
+            opus_path = realpath(f'icon/opus/wb_{uid}.jpg')
+            notify0(f"【{uname}】微博更新", content,
+                    on_click=url,
+                    image={
+                        'src': opus_path,
+                        'placement': 'hero'
+                    }, icon=icon_path)
         push.push_for_weibo_dynamic(
-            uname, mblog_id, content, pic_url, jump_url, dynamic_time)
+            uname, mblog_id, content, pic_url, url, dynamic_time)
 
 
 def get_headers(uid):
