@@ -39,8 +39,12 @@ def weibo():
     intervals_second = int(global_config.get_raw('weibo', 'intervals_second'))
     logger.info(Fore.GREEN+'【查询微博状态】开始检测微博'+Style.RESET_ALL)
     test = 0
+    WeiboCookies = {}
     while True:
-        WeiboCookies = load_cookie('WeiboCookies.json')
+        ck = load_cookie('WeiboCookies.json')
+        if WeiboCookies != ck:
+            WeiboCookies = ck
+            test = 0
         uid_list = global_config.get_raw('weibo', 'uid_list')
         if uid_list:
             uid_list = uid_list.split(',')
@@ -50,7 +54,6 @@ def weibo():
                     logger.warning(
                         Fore.YELLOW + '【查询微博状态】微博Cookies无效' + Style.RESET_ALL)
                     notify0("微博Cookies无效", "", on_click='https://m.weibo.cn/')
-                    test = 0
             else:
                 test = 0
             for uid in uid_list:
@@ -60,8 +63,8 @@ def weibo():
                     return
                 except BaseException as e:
                     logger.error(
-                        Fore.RED + f'【查询微博状态】【出错【{e}】' + Style.RESET_ALL)
-                sleep(intervals_second/len(uid_list))
+                        Fore.RED + f'【查询微博状态】出错【{e}】' + Style.RESET_ALL)
+                sleep(max(1, intervals_second/len(uid_list)))
         else:
             logger.info('【查询微博状态】未填写UID')
             sleep(intervals_second)
@@ -90,8 +93,8 @@ def bili_dy():
                     return
                 except BaseException as e:
                     logger.error(
-                        Fore.RED + f'【查询动态状态】【出错【{e}】' + Style.RESET_ALL)
-                sleep(intervals_second/len(uid_list))
+                        Fore.RED + f'【查询动态状态】出错【{e}】' + Style.RESET_ALL)
+                sleep(max(1, intervals_second/len(uid_list)))
         else:
             logger.info('【查询动态状态】未填写UID')
             sleep(intervals_second)
@@ -123,7 +126,7 @@ def bili_live():
                 return
             except BaseException as e:
                 logger.error(
-                    Fore.RED + f'【查询直播状态】【出错【{e}】' + Style.RESET_ALL)
+                    Fore.RED + f'【查询直播状态】出错【{e}】' + Style.RESET_ALL)
         else:
             logger.info('【查询直播状态】未填写UID')
         swi[2] = 1

@@ -7,6 +7,7 @@ from util import notify0
 from logger import logger
 from push import push
 import requests
+from requests.exceptions import RequestException
 # from PIL import Image
 from os.path import realpath
 from colorama import Fore, Style
@@ -39,7 +40,12 @@ def get_icon(uid, face, path=''):
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
     }
     icon = f'icon/{path}wb_{uid}.jpg'
-    r = requests.get(face, headers=headrs, timeout=5)
+    try:
+        r = requests.get(face, headers=headrs, timeout=5)
+    except RequestException as e:
+        logger.error(
+            Fore.RED + f'【查询微博状态】请求错误 url:{face},error:{e}' + Style.RESET_ALL)
+        return
     with open(icon, 'wb') as f:
         f.write(r.content)
     # img = Image.open(icon)
@@ -55,14 +61,18 @@ def query_valid(uid, cookie):
     try:
         response = requests.get(query_url, headers=headers,
                                 cookies=cookie, proxies=proxies, timeout=5)
-    except BaseException as e:
-        logger.error(Fore.RED + f'【查询微博状态】【出错【{e}】' + Style.RESET_ALL)
-        return False
+    except RequestException as e:
+        logger.error(
+            Fore.RED + f'【查询微博状态】请求错误 url:{query_url},error:{e}' + Style.RESET_ALL)
+        return True
     if response.status_code == 200:
         result = json.loads(str(response.content, 'utf-8'))
         cards = result['data']['cards']
         return len(cards) > 5
-    return False
+    else:
+        logger.error(
+            Fore.RED + f'【查询微博状态】请求错误 url:{query_url},status:{response.status_code}' + Style.RESET_ALL)
+        return True
 
 
 def query_weibodynamic(uid, cookie, msg):
@@ -71,8 +81,14 @@ def query_weibodynamic(uid, cookie, msg):
     query_url = 'https://m.weibo.cn/api/container/getIndex?type=uid&value={uid}&containerid=107603{uid}&count=25'.format(
         uid=uid)
     headers = get_headers(uid)
-    response = requests.get(query_url, headers=headers,
-                            cookies=cookie, proxies=proxies, timeout=5)
+    try:
+        response = requests.get(query_url, headers=headers,
+                                cookies=cookie, proxies=proxies, timeout=5)
+    except RequestException as e:
+        logger.error(
+            Fore.RED + f'【查询微博状态】请求错误 url:{query_url},error:{e},休眠一分钟' + Style.RESET_ALL)
+        time.sleep(60)
+        return False
     if response.status_code != 200:
         logger.error(
             Fore.RED+f'【查询微博状态】请求错误 url:{query_url} status:{response.status_code}'+Style.RESET_ALL)

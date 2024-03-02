@@ -1,6 +1,7 @@
 import json
 import time
 import requests
+from requests.exceptions import RequestException
 from collections import deque
 from util import notify0
 from logger import logger
@@ -29,7 +30,12 @@ proxies = {
 
 def get_icon(uid, face, path=''):
     icon = f'icon/{path}bili_{uid}.jpg'
-    r = requests.get(face, timeout=5)
+    try:
+        r = requests.get(face, timeout=5)
+    except RequestException as e:
+        logger.error(
+            Fore.RED + f'【查询动态状态】请求错误 url:{face},error:{e}' + Style.RESET_ALL)
+        return
     with open(icon, 'wb') as f:
         f.write(r.content)
     # img = Image.open(icon)
@@ -46,9 +52,19 @@ def query_bilidynamic(uid, cookie, msg):
                 '?host_uid={uid}&offset_dynamic_id=0&need_top=0&platform=web&my_ts={my_ts}'.format(
                     uid=uid, my_ts=int(time.time()))
     headers = get_headers(uid)
-    response = requests.get(query_url, headers=headers,
-                            cookies=cookie, proxies=proxies, timeout=5)
-    if response.status_code != 200:
+    try:
+        response = requests.get(query_url, headers=headers,
+                                cookies=cookie, proxies=proxies, timeout=5)
+    except RequestException as e:
+        logger.error(
+            Fore.RED + f'【查询动态状态】请求错误 url:{query_url},error:{e}' + Style.RESET_ALL)
+        return
+    if response.status_code == 412:
+        logger.error(
+            Fore.RED+f'【查询直播状态】status:{response.status_code}, 触发风控休眠五分钟'+Style.RESET_ALL)
+        time.sleep(300)
+        return
+    elif response.status_code != 200:
         logger.error(
             Fore.RED+f'【查询动态状态】请求错误 url:{query_url} status:{response.status_code}'+Style.RESET_ALL)
         return
@@ -137,6 +153,9 @@ def query_bilidynamic(uid, cookie, msg):
             if dynamic_type == 1:
                 # 转发动态
                 content = card['item']['content']
+                origin = json.loads(card['origin'])['item']
+                if 'pictures' in origin:
+                    pic_url = origin['pictures'][0]['img_src']
             elif dynamic_type == 2:
                 # 图文动态
                 content = card['item']['description']
@@ -223,8 +242,13 @@ def query_live_status_batch(uid_list, cookie, msg, special):
     data = json.dumps({
         "uids": list(map(int, uid_list))
     })
-    response = requests.post(
-        query_url, headers=headers, data=data, cookies=cookie, timeout=5)
+    try:
+        response = requests.post(
+            query_url, headers=headers, data=data, cookies=cookie, timeout=5)
+    except RequestException as e:
+        logger.error(
+            Fore.RED + f'【查询直播状态】请求错误 url:{query_url},error:{e}' + Style.RESET_ALL)
+        return
     if response.status_code != 200:
         logger.error(
             Fore.RED+f'【查询直播状态】请求错误 url:{query_url} status:{response.status_code}'+Style.RESET_ALL)
@@ -298,12 +322,13 @@ def query_live_status_batch(uid_list, cookie, msg, special):
                                 Style.RESET_ALL)
                     if uid in special:
                         notify0(f"【{uname}】开播了", room_title,
-                            on_click=url, scenario='alarm',
-                            audio={'src': 'ms-winsoundevent:Notification.Looping.Alarm', 'loop': 'true'},
-                            image={
-                                'src': cover_path,
-                                'placement': 'hero'
-                            }, icon=icon_path)
+                                on_click=url, scenario='alarm',
+                                audio={
+                                    'src': 'ms-winsoundevent:Notification.Looping.Alarm', 'loop': 'true'},
+                                image={
+                                    'src': cover_path,
+                                    'placement': 'hero'
+                                }, icon=icon_path)
                     else:
                         notify0(f"【{uname}】开播了", room_title,
                                 on_click=url,
