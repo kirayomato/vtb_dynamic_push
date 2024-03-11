@@ -1,7 +1,7 @@
 import random
 import requests
 from logger import logger
-from win11toast import notify
+from win11toast import notify as _notify
 
 USER_AGENTS = [
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_7_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/27.0.1453.93 Safari/537.36",
@@ -51,12 +51,12 @@ USER_AGENTS = [
 ]
 
 
-def notify0(title, body, on_click=None, duration='long', scenario='Reminder', **kwargs):
+def notify(title, body, on_click=None, duration='long', scenario='Reminder', **kwargs):
     if on_click is None:
-        return notify(title=title, body=body, duration=duration, scenario=scenario,
+        return _notify(title=title, body=body, duration=duration, scenario=scenario,
                       app_id='vtb_dynamic', **kwargs)
     else:
-        return notify(title=title, body=body, duration=duration, scenario=scenario,
+        return _notify(title=title, body=body, duration=duration, scenario=scenario,
                       button={'activationType': 'protocol',
                               'arguments': on_click, 'content': '打开页面'},
                       on_click=on_click, app_id='vtb_dynamic', **kwargs)

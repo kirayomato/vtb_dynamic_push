@@ -3,7 +3,7 @@ import json
 import re
 import time
 from collections import deque
-from util import notify0
+from util import notify
 from logger import logger
 from push import push
 import requests
@@ -18,7 +18,8 @@ environ['NO_PROXY'] = '*'
 DYNAMIC_DICT = {}
 USER_FACE_DICT = {}
 USER_SIGN_DICT = {}
-LEN_OF_DEQUE = 50
+USER_NAME_DICT = {}
+LEN_OF_DEQUE = 20
 proxies = {
     "http": "",
     "https": "",
@@ -43,8 +44,7 @@ def get_icon(uid, face, path=''):
     try:
         r = requests.get(face, headers=headrs, timeout=5)
     except RequestException as e:
-        logger.error(
-            Fore.RED + f'【查询微博状态】请求错误 url:{face},error:{e}' + Style.RESET_ALL)
+        logger.error(f'请求错误 url:{face},error:{e}', '【下载微博图片】')
         return
     with open(icon, 'wb') as f:
         f.write(r.content)
@@ -55,6 +55,7 @@ def get_icon(uid, face, path=''):
 
 
 def query_valid(uid, cookie):
+    prefix = '【查询微博状态】'
     query_url = 'https://m.weibo.cn/api/container/getIndex?type=uid&value={uid}&containerid=107603{uid}&count=25'.format(
         uid=uid)
     headers = get_headers(uid)
@@ -62,8 +63,7 @@ def query_valid(uid, cookie):
         response = requests.get(query_url, headers=headers,
                                 cookies=cookie, proxies=proxies, timeout=5)
     except RequestException as e:
-        logger.error(
-            Fore.RED + f'【查询微博状态】请求错误 url:{query_url},error:{e}' + Style.RESET_ALL)
+        logger.error(f'请求错误 url:{query_url},error:{e}', prefix)
         return True
     if response.status_code == 200:
         result = json.loads(str(response.content, 'utf-8'))
@@ -71,11 +71,12 @@ def query_valid(uid, cookie):
         return len(cards) > 5
     else:
         logger.error(
-            Fore.RED + f'【查询微博状态】请求错误 url:{query_url},status:{response.status_code}' + Style.RESET_ALL)
+            f'请求错误 url:{query_url},status:{response.status_code}', prefix)
         return True
 
 
 def query_weibodynamic(uid, cookie, msg):
+    prefix = '【查询微博状态】'
     if uid is None:
         return
     query_url = 'https://m.weibo.cn/api/container/getIndex?type=uid&value={uid}&containerid=107603{uid}&count=25'.format(
@@ -85,20 +86,19 @@ def query_weibodynamic(uid, cookie, msg):
         response = requests.get(query_url, headers=headers,
                                 cookies=cookie, proxies=proxies, timeout=5)
     except RequestException as e:
-        logger.error(
-            Fore.RED + f'【查询微博状态】请求错误 url:{query_url},error:{e},休眠一分钟' + Style.RESET_ALL)
+        logger.error(f'请求错误 url:{query_url},error:{e},休眠一分钟', prefix)
         time.sleep(60)
         return False
     if response.status_code != 200:
         logger.error(
-            Fore.RED+f'【查询微博状态】请求错误 url:{query_url} status:{response.status_code}'+Style.RESET_ALL)
+            Fore.RED+f'请求错误 url:{query_url} status:{response.status_code}', prefix)
         return
     result = json.loads(str(response.content, 'utf-8'))
     cards = result['data']['cards']
     n = len(cards)
     if n == 0:
-        logger.debug(
-            Fore.YELLOW + f'【查询微博状态】【{uid}】微博列表为空' + Style.RESET_ALL)
+        if DYNAMIC_DICT.get(uid, None) is not None:
+            logger.warning(f'【{uid}】微博列表为空', prefix, Fore.YELLOW)
         return
     # 跳过置顶
     for i in range(n):
@@ -107,7 +107,11 @@ def query_weibodynamic(uid, cookie, msg):
             continue
         else:
             break
-    mblog = card['mblog']
+    try:
+        mblog = card['mblog']
+    except KeyError:
+        logger.error(f'【{uid}】返回数据不全', prefix)
+        return
     mblog_id = mblog['id']
     user = mblog['user']
     uname = user['screen_name']
@@ -115,51 +119,45 @@ def query_weibodynamic(uid, cookie, msg):
     face = face[:face.find('?')]
     sign = user['description']
     msg[1] = datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' - ' + \
-        Fore.LIGHTYELLOW_EX+f'【查询微博状态】查询{uname}微博' + Style.RESET_ALL
+        Fore.LIGHTYELLOW_EX+f'查询{uname}微博' + Style.RESET_ALL
     if DYNAMIC_DICT.get(uid, None) is None:
         DYNAMIC_DICT[uid] = deque(maxlen=LEN_OF_DEQUE)
         USER_FACE_DICT[uid] = face
         USER_SIGN_DICT[uid] = sign
+        USER_NAME_DICT[uid] = uname
         get_icon(uid, face)
         for index in range(LEN_OF_DEQUE):
             if index < len(cards):
                 if cards[index]['card_type'] != 9:
                     continue
                 DYNAMIC_DICT[uid].appendleft(cards[index]['mblog']['id'])
-        logger.info(Fore.LIGHTYELLOW_EX +
-                    f'【查询微博状态】【{uname}】微博初始化,len = {len(DYNAMIC_DICT[uid])}' + Style.RESET_ALL)
-        logger.debug(Fore.LIGHTYELLOW_EX +
-                     f'【查询微博状态】【{uname}】微博初始化 {DYNAMIC_DICT[uid]}' + Style.RESET_ALL)
+        logger.info(
+            f'【{uname}】微博初始化,len = {len(DYNAMIC_DICT[uid])}', prefix, Fore.LIGHTYELLOW_EX)
+        logger.debug(
+            f'【{uname}】微博初始化 {DYNAMIC_DICT[uid]}', prefix, Fore.LIGHTYELLOW_EX)
         return
-    logger.debug(Fore.LIGHTYELLOW_EX+'【查询微博状态】【{}】上一条微博id[{}]，本条微博id[{}]'.format(
-        uname, DYNAMIC_DICT[uid][-1], mblog_id) + Style.RESET_ALL)
+    logger.debug(f'【{uname}】上一条微博id[{DYNAMIC_DICT[uid][-1]}]，本条微博id[{mblog_id}]',
+                 prefix, Fore.LIGHTYELLOW_EX)
     icon_path = realpath(f'icon/wb_{uid}.jpg')
     if face != USER_FACE_DICT[uid]:
         get_icon(uid, face)
-        logger.info(Fore.LIGHTGREEN_EX +
-                    f'【查询微博状态】【{uname}】修改了头像' + Style.RESET_ALL)
-        notify0(f'【{uname}】修改了头像', '', icon=icon_path,
-                on_click=f'https://m.weibo.cn/profile/{uid}')
+        logger.info(f'【{uname}】修改了头像', prefix, Fore.LIGHTGREEN_EX)
+        notify(f'【{uname}】修改了头像', '', icon=icon_path,
+               on_click=f'https://m.weibo.cn/profile/{uid}')
         USER_FACE_DICT[uid] = face
     if sign != USER_SIGN_DICT[uid]:
-        logger.info(Fore.LIGHTGREEN_EX +
-                    f'【查询动态状态】【{uname}】修改了签名：【{USER_SIGN_DICT[uid]}】 -> 【{sign}】' +
-                    Style.RESET_ALL)
-        notify0(f'【{uname}】修改了签名', f'【{USER_SIGN_DICT[uid]}】 -> 【{sign}】',
-                icon=icon_path,
-                on_click=f'https://m.weibo.cn/profile/{uid}')
+        logger.info(f'【查询动态状态】【{uname}】修改了签名：【{USER_SIGN_DICT[uid]}】 -> 【{sign}】',
+                    prefix, Fore.LIGHTGREEN_EX)
+        notify(f'【{uname}】修改了签名', f'【{USER_SIGN_DICT[uid]}】 -> 【{sign}】',
+               icon=icon_path,
+               on_click=f'https://m.weibo.cn/profile/{uid}')
         USER_SIGN_DICT[uid] = sign
     if mblog_id not in DYNAMIC_DICT[uid]:
-        previous_mblog_id = DYNAMIC_DICT[uid].pop()
-        DYNAMIC_DICT[uid].append(previous_mblog_id)
-        DYNAMIC_DICT[uid].append(mblog_id)
-        logger.debug(Fore.LIGHTYELLOW_EX+str(DYNAMIC_DICT[uid]))
-
-        card_type = card['card_type']
-        if card_type not in [9]:
-            logger.info(Fore.LIGHTYELLOW_EX+'【查询微博状态】【{screen_name}】微博有更新，但不在需要推送的微博类型列表中'.format(
-                screen_name=uname) + Style.RESET_ALL)
-            return
+        # card_type = card['card_type']
+        # if card_type not in [9]:
+        #     logger.info(f'【{uname}】微博有更新，但不在需要推送的微博类型列表中',
+        #                 prefix, Fore.LIGHTYELLOW_EX)
+        #     return
 
         # 如果微博发送日期早于昨天，则跳过（既能避免因api返回历史内容导致的误推送，也可以兼顾到前一天停止检测后产生的微博）
         created_at = time.strptime(
@@ -169,8 +167,8 @@ def query_weibodynamic(uid, cookie, msg):
                      timedelta(days=-1)).strftime("%Y-%m-%d")
         yesterday_ts = time.mktime(time.strptime(yesterday, '%Y-%m-%d'))
         if created_at_ts < yesterday_ts:
-            logger.info(Fore.LIGHTYELLOW_EX+'【查询微博状态】【{screen_name}】微博有更新，但微博发送时间早于今天，可能是历史微博，不予推送'.format(
-                screen_name=uname) + Style.RESET_ALL)
+            logger.info(f'【{uname}】微博有更新，但微博发送时间早于今天，可能是历史微博，不予推送',
+                        prefix, Fore.LIGHTYELLOW_EX)
             return
         dynamic_time = time.strftime('%Y-%m-%d %H:%M:%S', created_at)
 
@@ -180,20 +178,22 @@ def query_weibodynamic(uid, cookie, msg):
             'raw_text', None) is not None else text
         pic_url = mblog.get('original_pic', None)
         url = card['scheme']
-        logger.info(Fore.LIGHTGREEN_EX+f'【查询微博状态】【{uname}】微博有更新，准备推送：{content}' +
-                    Style.RESET_ALL)
+        logger.info(f'【{uname}】微博更新：{content}，url:{url}',
+                    prefix, Fore.LIGHTGREEN_EX)
         if pic_url is None:
-            notify0(f"【{uname}】微博更新", content,
-                    icon=icon_path, on_click=url)
+            notify(f"【{uname}】微博更新", content,
+                   icon=icon_path, on_click=url)
         else:
             get_icon(uid, pic_url, 'opus/')
             opus_path = realpath(f'icon/opus/wb_{uid}.jpg')
-            notify0(f"【{uname}】微博更新", content,
-                    on_click=url,
-                    image={
-                        'src': opus_path,
-                        'placement': 'hero'
-                    }, icon=icon_path)
+            notify(f"【{uname}】微博更新", content,
+                   on_click=url,
+                   image={
+                       'src': opus_path,
+                       'placement': 'hero'
+                   }, icon=icon_path)
+        DYNAMIC_DICT[uid].append(mblog_id)
+        logger.debug(str(DYNAMIC_DICT[uid]), prefix, Fore.LIGHTYELLOW_EX)
         push.push_for_weibo_dynamic(
             uname, mblog_id, content, pic_url, url, dynamic_time)
 

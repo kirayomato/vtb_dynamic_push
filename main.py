@@ -2,12 +2,13 @@ import json
 import threading
 import os
 from time import sleep
+import traceback
 from config import Config
 from logger import logger
-from query_weibo import query_weibodynamic, query_valid
-from query_bili import query_bilidynamic, query_live_status_batch
-from colorama import Fore, Style, init
-from util import notify0
+from query_weibo import query_weibodynamic, query_valid, USER_NAME_DICT
+from query_bili import query_bilidynamic, query_live_status_batch, DYNAMIC_NAME_DICT, LIVE_NAME_DICT
+from colorama import Fore, init
+from util import notify
 from reprint import output
 
 
@@ -17,19 +18,20 @@ def load_cookie(path):
         cookies = {}
         for cookie in ck:
             cookies[cookie.get('name')] = cookie.get('value')
-        logger.debug(Fore.GREEN+f'【Cookies】读取{path}'+Style.RESET_ALL)
+        logger.debug(f'读取{path}', '【Cookies】', Fore.GREEN)
         return cookies
     except BaseException:
         return {}
 
 
 def weibo():
+    prefix = '【查询微博状态】'
     enable_dynamic_push = global_config.get_raw(
         'weibo', 'enable_dynamic_push')
     cookies_check = global_config.get_raw(
         'weibo', 'enable_cookies_check')
     if enable_dynamic_push != 'true':
-        logger.info(Fore.YELLOW+'【查询微博状态】未开启微博推送功能'+Style.RESET_ALL)
+        logger.warning('未开启微博推送功能', prefix)
         return
     if cookies_check == 'true':
         check_uid = global_config.get_raw(
@@ -37,7 +39,7 @@ def weibo():
     global cnt
     cnt += 1
     intervals_second = int(global_config.get_raw('weibo', 'intervals_second'))
-    logger.info(Fore.GREEN+'【查询微博状态】开始检测微博'+Style.RESET_ALL)
+    logger.info('开始检测微博', prefix, Fore.GREEN)
     test = 0
     WeiboCookies = {}
     while True:
@@ -47,13 +49,12 @@ def weibo():
             test = 0
         uid_list = global_config.get_raw('weibo', 'uid_list')
         if uid_list:
-            uid_list = uid_list.split(',')
+            uid_list = set(uid_list.split(','))
             if cookies_check == 'true' and not query_valid(check_uid, WeiboCookies):
                 test += 1
-                if test == 5:
-                    logger.warning(
-                        Fore.YELLOW + '【查询微博状态】微博Cookies无效' + Style.RESET_ALL)
-                    notify0("微博Cookies无效", "", on_click='https://m.weibo.cn/')
+                if test == 10:
+                    logger.warning('微博Cookies无效', prefix)
+                    notify("微博Cookies无效", "", on_click='https://m.weibo.cn/')
             else:
                 test = 0
             for uid in uid_list:
@@ -62,54 +63,62 @@ def weibo():
                 except KeyboardInterrupt:
                     return
                 except BaseException as e:
-                    logger.error(
-                        Fore.RED + f'【查询微博状态】出错【{e}】' + Style.RESET_ALL)
+                    traceback.print_exc()
+                    logger.error(f'出错【{e}】，uid:{uid}', prefix)
                 sleep(max(1, intervals_second/len(uid_list)))
         else:
-            logger.info('【查询微博状态】未填写UID')
+            logger.warning('未填写UID', prefix)
             sleep(intervals_second)
-        swi[1] = 1
+        if not swi[1]:
+            swi[1] = 1
+            logger.info(f'监控列表({len(USER_NAME_DICT)}):{",".join(USER_NAME_DICT.values())}',
+                        prefix, Fore.LIGHTYELLOW_EX)
 
 
 def bili_dy():
+    prefix = '【查询动态状态】'
     enable_dynamic_push = global_config.get_raw(
         'bili', 'enable_dynamic_push')
     if enable_dynamic_push != 'true':
-        logger.info(Fore.YELLOW+'【查询动态状态】未开启动态推送功能'+Style.RESET_ALL)
+        logger.warning('未开启动态推送功能', prefix)
         return
     global cnt
     cnt += 1
     intervals_second = int(global_config.get_raw('bili', 'intervals_second'))
-    logger.info(Fore.GREEN+'【查询动态状态】开始检测动态'+Style.RESET_ALL)
+    logger.info('开始检测动态', prefix, Fore.GREEN)
     while True:
         BiliCookies = load_cookie('BiliCookies.json')
         uid_list = global_config.get_raw('bili', 'dynamic_uid_list')
         if uid_list:
-            uid_list = uid_list.split(',')
+            uid_list = set(uid_list.split(','))
             for uid in uid_list:
                 try:
                     query_bilidynamic(uid, BiliCookies, msg)
                 except KeyboardInterrupt:
                     return
                 except BaseException as e:
-                    logger.error(
-                        Fore.RED + f'【查询动态状态】出错【{e}】' + Style.RESET_ALL)
+                    traceback.print_exc()
+                    logger.error(f'【{uid}】出错【{e}】', prefix)
                 sleep(max(1, intervals_second/len(uid_list)))
         else:
-            logger.info('【查询动态状态】未填写UID')
+            logger.warning('未填写UID', prefix)
             sleep(intervals_second)
-        swi[0] = 1
+        if not swi[0]:
+            swi[0] = 1
+            logger.info(f'监控列表({len(DYNAMIC_NAME_DICT)}):{",".join(DYNAMIC_NAME_DICT.values())}',
+                        prefix, Fore.LIGHTBLUE_EX)
 
 
 def bili_live():
+    prefix = '【查询直播状态】'
     enable_living_push = global_config.get_raw('bili', 'enable_living_push')
     if enable_living_push != 'true':
-        logger.info(Fore.YELLOW+'【查询直播状态】未开启直播推送功能'+Style.RESET_ALL)
+        logger.warning('未开启直播推送功能', prefix)
         return
     global cnt
     cnt += 1
     intervals_second = int(global_config.get_raw('bili', 'intervals_second'))
-    logger.info(Fore.GREEN+'【查询直播状态】开始检测直播'+Style.RESET_ALL)
+    logger.info('开始检测直播', prefix, Fore.GREEN)
     while True:
         BiliCookies = load_cookie('BiliCookies.json')
         uid_list = global_config.get_raw('bili', 'live_uid_list')
@@ -119,17 +128,20 @@ def bili_live():
         else:
             special = set()
         if uid_list:
-            uid_list = uid_list.split(',')
+            uid_list = set(uid_list.split(','))
             try:
                 query_live_status_batch(uid_list, BiliCookies, msg, special)
             except KeyboardInterrupt:
                 return
             except BaseException as e:
-                logger.error(
-                    Fore.RED + f'【查询直播状态】出错【{e}】' + Style.RESET_ALL)
+                traceback.print_exc()
+                logger.error(f'出错【{e}】', prefix)
         else:
-            logger.info('【查询直播状态】未填写UID')
-        swi[2] = 1
+            logger.warning('未填写UID', prefix)
+        if not swi[2]:
+            swi[2] = 1
+            logger.info(f'监控列表({len(LIVE_NAME_DICT)}):{",".join(LIVE_NAME_DICT.values())}',
+                        prefix, Fore.CYAN)
         sleep(intervals_second)
 
 
@@ -137,7 +149,7 @@ def update_config():
     while True:
         global global_config
         global_config = Config()
-        logger.debug(Fore.GREEN+'【Config】更新Config'+Style.RESET_ALL)
+        logger.debug('更新Config', '【Config】', Fore.GREEN)
         sleep(30)
 
 

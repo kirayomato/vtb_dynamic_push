@@ -3,7 +3,7 @@ import time
 import requests
 from requests.exceptions import RequestException
 from collections import deque
-from util import notify0
+from util import notify
 from logger import logger
 from push import push
 # from PIL import Image
@@ -21,6 +21,8 @@ ROOM_TITLE_DICT = {}
 ROOM_COVER_DICT = {}
 USER_SIGN_DICT = {}
 USER_FACE_DICT = {}
+DYNAMIC_NAME_DICT = {}
+LIVE_NAME_DICT = {}
 LEN_OF_DEQUE = 20
 proxies = {
     "http": "",
@@ -33,8 +35,7 @@ def get_icon(uid, face, path=''):
     try:
         r = requests.get(face, timeout=5)
     except RequestException as e:
-        logger.error(
-            Fore.RED + f'【查询动态状态】请求错误 url:{face},error:{e}' + Style.RESET_ALL)
+        logger.error(f'请求错误 url:{face},error:{e}', '【下载B站图片】')
         return
     with open(icon, 'wb') as f:
         f.write(r.content)
@@ -45,6 +46,7 @@ def get_icon(uid, face, path=''):
 
 
 def query_bilidynamic(uid, cookie, msg):
+    prefix = '【查询动态状态】'
     if uid is None:
         return
     uid = str(uid)
@@ -56,138 +58,138 @@ def query_bilidynamic(uid, cookie, msg):
         response = requests.get(query_url, headers=headers,
                                 cookies=cookie, proxies=proxies, timeout=5)
     except RequestException as e:
-        logger.error(
-            Fore.RED + f'【查询动态状态】请求错误 url:{query_url},error:{e}' + Style.RESET_ALL)
+        logger.error(f'请求错误 url:{query_url},error:{e}', prefix)
         return
     if response.status_code == 412:
-        logger.error(
-            Fore.RED+f'【查询直播状态】status:{response.status_code}, 触发风控休眠五分钟'+Style.RESET_ALL)
+        logger.error(f'status:{response.status_code}, 触发风控休眠五分钟', prefix)
         time.sleep(300)
         return
     elif response.status_code != 200:
         logger.error(
-            Fore.RED+f'【查询动态状态】请求错误 url:{query_url} status:{response.status_code}'+Style.RESET_ALL)
+            f'请求错误 url:{query_url} status:{response.status_code}', prefix)
         return
     try:
         result = json.loads(str(response.content, 'utf-8'))
     except UnicodeDecodeError:
-        logger.error(Fore.RED+f'【查询动态状态】【{uid}】解析content出错'+Style.RESET_ALL)
+        logger.error(f'【{uid}】解析content出错', prefix)
         return
     if result['code'] != 0:
-        logger.error(
-            Fore.RED+f'【查询动态状态】请求返回数据code错误：{result["code"]}'+Style.RESET_ALL)
-
-    else:
-        data = result['data']
+        logger.error(f'【{uid}】请求返回数据code错误：{result["code"]}', prefix)
+        return
+    data = result['data']
+    try:
         if len(data['cards']) == 0:
-            logger.warn(Fore.YELLOW+f'【查询动态状态】【{uid}】动态列表为空'+Style.RESET_ALL)
+            if DYNAMIC_DICT.get(uid, None) is not None:
+                logger.warning(f'{uid}】动态列表为空', prefix)
             return
+    except KeyError:
+        logger.error(f'【{uid}】返回数据不全', prefix)
+        return
+    item = data['cards'][0]
+    dynamic_id = item['desc']['dynamic_id']
+    try:
+        uname = item['desc']['user_profile']['info']['uname']
+        face = item['desc']['user_profile']['info']['face']
+        sign = item['desc']['user_profile']['sign']
+    except KeyError:
+        logger.error(f'【{uid}】获取不到用户信息', prefix)
+        return
+    msg[0] = datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' - ' + \
+        Fore.LIGHTBLUE_EX+f'查询{uname}动态' + Style.RESET_ALL
+    if DYNAMIC_DICT.get(uid, None) is None:
+        DYNAMIC_DICT[uid] = deque(maxlen=LEN_OF_DEQUE)
+        DYNAMIC_NAME_DICT[uid] = uname
+        USER_FACE_DICT[uid] = face
+        get_icon(uid, face)
+        USER_SIGN_DICT[uid] = sign
+        cards = data['cards']
+        for index in range(LEN_OF_DEQUE):
+            if index < len(cards):
+                DYNAMIC_DICT[uid].appendleft(
+                    cards[index]['desc']['dynamic_id'])
+        logger.info(
+            f'【{uname}】动态初始化,len = {len(DYNAMIC_DICT[uid])}', prefix, Fore.LIGHTBLUE_EX)
+        logger.debug(
+            f'【{uname}】动态初始化 {DYNAMIC_DICT[uid]}', prefix, Fore.LIGHTBLUE_EX)
+        return
+    logger.debug(f'【{uname}】上一条动态id[{DYNAMIC_DICT[uid][-1]}]，本条动态id[{dynamic_id}]',
+                 prefix, Fore.LIGHTBLUE_EX)
+    icon_path = realpath(f'icon/bili_{uid}.jpg')
+    if face != USER_FACE_DICT[uid]:
+        get_icon(uid, face)
+        logger.info(f'【{uname}】修改了头像', prefix, Fore.LIGHTGREEN_EX)
+        notify(f'【{uname}】修改了头像', '',
+               icon=icon_path, on_click=f'https://space.bilibili.com/{uid}'
+               )
+        USER_FACE_DICT[uid] = face
+    if sign != USER_SIGN_DICT[uid]:
+        logger.info(f'【{uname}】修改了签名：【{USER_SIGN_DICT[uid]}】 -> 【{sign}】',
+                    prefix, Fore.LIGHTGREEN_EX)
+        notify(f'【{uname}】修改了签名', f'【{USER_SIGN_DICT[uid]}】 -> 【{sign}】',
+               icon=icon_path,
+               on_click=f'https://space.bilibili.com/{uid}'
+               )
+        USER_SIGN_DICT[uid] = sign
+    if dynamic_id not in DYNAMIC_DICT[uid]:
+        dynamic_type = item['desc']['type']
+        # if dynamic_type not in [2, 4, 8, 64]:
+        #     logger.info(Fore.LIGHTBLUE_EX+
+        #         '【{uname}】动态有更新，但不在需要推送的动态类型列表中'.format(uname=uname))
+        #     return
 
-        item = data['cards'][0]
-        dynamic_id = item['desc']['dynamic_id']
-        try:
-            uname = item['desc']['user_profile']['info']['uname']
-            face = item['desc']['user_profile']['info']['face']
-            sign = item['desc']['user_profile']['sign']
-        except KeyError:
-            logger.error(Fore.RED+f'【查询动态状态】【{uid}】获取不到用户信息'+Style.RESET_ALL)
-            return
-        msg[0] = datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' - ' + \
-            Fore.LIGHTBLUE_EX+f'【查询动态状态】查询{uname}动态' + Style.RESET_ALL
-        if DYNAMIC_DICT.get(uid, None) is None:
-            DYNAMIC_DICT[uid] = deque(maxlen=LEN_OF_DEQUE)
-            USER_FACE_DICT[uid] = face
-            get_icon(uid, face)
-            USER_SIGN_DICT[uid] = sign
-            cards = data['cards']
-            for index in range(LEN_OF_DEQUE):
-                if index < len(cards):
-                    DYNAMIC_DICT[uid].appendleft(
-                        cards[index]['desc']['dynamic_id'])
-            logger.info(
-                Fore.LIGHTBLUE_EX+f'【查询动态状态】【{uname}】动态初始化,len = {len(DYNAMIC_DICT[uid])}'+Style.RESET_ALL)
-            logger.debug(
-                Fore.LIGHTBLUE_EX+f'【查询动态状态】【{uname}】动态初始化 {DYNAMIC_DICT[uid]}'+Style.RESET_ALL)
-            return
-        logger.debug(Fore.LIGHTBLUE_EX+'【查询动态状态】【{}】上一条动态id[{}]，本条动态id[{}]'.format(
-            uname, DYNAMIC_DICT[uid][-1], dynamic_id)+Style.RESET_ALL)
-        icon_path = realpath(f'icon/bili_{uid}.jpg')
-        if face != USER_FACE_DICT[uid]:
-            get_icon(uid, face)
-            logger.info(Fore.LIGHTGREEN_EX +
-                        f'【查询动态状态】【{uname}】修改了头像' + Style.RESET_ALL)
-            notify0(f'【{uname}】修改了头像', '',
-                    icon=icon_path, on_click=f'https://space.bilibili.com/{uid}'
-                    )
-            USER_FACE_DICT[uid] = face
-        if sign != USER_SIGN_DICT[uid]:
-            logger.info(Fore.LIGHTGREEN_EX +
-                        f'【查询动态状态】【{uname}】修改了签名：【{USER_SIGN_DICT[uid]}】 -> 【{sign}】' +
-                        Style.RESET_ALL)
-            notify0(f'【{uname}】修改了签名', f'【{USER_SIGN_DICT[uid]}】 -> 【{sign}】',
-                    icon=icon_path,
-                    on_click=f'https://space.bilibili.com/{uid}'
-                    )
-            USER_SIGN_DICT[uid] = sign
-        if dynamic_id not in DYNAMIC_DICT[uid]:
-            previous_dynamic_id = DYNAMIC_DICT[uid].pop()
-            DYNAMIC_DICT[uid].append(previous_dynamic_id)
-            DYNAMIC_DICT[uid].append(dynamic_id)
-            logger.debug(Fore.LIGHTBLUE_EX +
-                         str(DYNAMIC_DICT[uid])+Style.RESET_ALL)
+        timestamp = item['desc']['timestamp']
+        dynamic_time = time.strftime(
+            "%Y-%m-%d %H:%M:%S", time.localtime(timestamp))
+        card_str = item['card']
+        card = json.loads(card_str)
+        content = None
+        pic_url = None
+        if dynamic_type == 1:
+            # 转发动态
+            content = card['item']['content']
+            origin = json.loads(card['origin'])
+            if 'videos' in origin:
+                pic_url = origin['pic']
+            elif 'item' in origin:
+                if 'pictures' in origin['item']:
+                    pic_url = origin['item']['pictures'][0]['img_src']
+            elif 'title' in origin:
+                pic_url = origin['image_urls'][0]
+        elif dynamic_type == 2:
+            # 图文动态
+            content = card['item']['description']
+            pic_url = card['item']['pictures'][0]['img_src']
+        elif dynamic_type == 4:
+            # 文字动态
+            content = card['item']['content']
+        elif dynamic_type == 8:
+            # 投稿动态
+            content = card['title']
+            pic_url = card['pic']
+        elif dynamic_type == 64:
+            # 专栏动态
+            content = card['title']
+            pic_url = card['image_urls'][0]
 
-            dynamic_type = item['desc']['type']
-            # if dynamic_type not in [2, 4, 8, 64]:
-            #     logger.info(Fore.LIGHTBLUE_EX+
-            #         '【查询动态状态】【{uname}】动态有更新，但不在需要推送的动态类型列表中'.format(uname=uname))
-            #     return
-
-            timestamp = item['desc']['timestamp']
-            dynamic_time = time.strftime(
-                "%Y-%m-%d %H:%M:%S", time.localtime(timestamp))
-            card_str = item['card']
-            card = json.loads(card_str)
-
-            content = None
-            pic_url = None
-            if dynamic_type == 1:
-                # 转发动态
-                content = card['item']['content']
-                origin = json.loads(card['origin'])['item']
-                if 'pictures' in origin:
-                    pic_url = origin['pictures'][0]['img_src']
-            elif dynamic_type == 2:
-                # 图文动态
-                content = card['item']['description']
-                pic_url = card['item']['pictures'][0]['img_src']
-            elif dynamic_type == 4:
-                # 文字动态
-                content = card['item']['content']
-            elif dynamic_type == 8:
-                # 投稿动态
-                content = card['title']
-                pic_url = card['pic']
-            elif dynamic_type == 64:
-                # 专栏动态
-                content = card['title']
-                pic_url = card['image_urls'][0]
-            logger.info(Fore.LIGHTGREEN_EX+'【查询动态状态】【{uname}】动态有更新，准备推送：{content}'.format(
-                uname=uname, content=content[:30])+Style.RESET_ALL)
-            url = f'https://www.bilibili.com/opus/{dynamic_id}'
-            if pic_url is None:
-                notify0(f"【{uname}】动态更新", content,
-                        icon=icon_path, on_click=url)
-            else:
-                get_icon(uid, pic_url, 'opus/')
-                opus_path = realpath(f'icon/opus/bili_{uid}.jpg')
-                notify0(f"【{uname}】动态更新", content,
-                        on_click=url,
-                        image={
-                            'src': opus_path,
-                            'placement': 'hero'
-                        }, icon=icon_path)
-            push.push_for_bili_dynamic(
-                uname, dynamic_id, content, pic_url, dynamic_type, dynamic_time)
+        url = f'https://www.bilibili.com/opus/{dynamic_id}'
+        logger.info(f'【{uname}】动态更新：{content}，url:{url}',
+                    prefix, Fore.LIGHTGREEN_EX)
+        if pic_url is None:
+            notify(f"【{uname}】动态更新", content,
+                   icon=icon_path, on_click=url)
+        else:
+            get_icon(uid, pic_url, 'opus/')
+            opus_path = realpath(f'icon/opus/bili_{uid}.jpg')
+            notify(f"【{uname}】动态更新", content,
+                   on_click=url,
+                   image={
+                       'src': opus_path,
+                       'placement': 'hero'
+                   }, icon=icon_path)
+        DYNAMIC_DICT[uid].append(dynamic_id)
+        logger.debug(str(DYNAMIC_DICT[uid]), prefix, Fore.LIGHTBLUE_EX)
+        push.push_for_bili_dynamic(
+            uname, dynamic_id, content, pic_url, dynamic_type, dynamic_time)
 
 
 # 此方法已废弃
@@ -203,19 +205,19 @@ def query_bilidynamic(uid, cookie, msg):
 #     if util.check_response_is_ok(response):
 #         result = json.loads(str(response.content, 'utf-8'))
 #         if result['code'] != 0:
-#             logger.error('【查询直播状态】请求返回数据code错误：{code}'.format(
-#                 code=result['code'])+Style.RESET_ALL)
+#             logger.error('请求返回数据code错误：{code}'.format(
+#                 code=result['code']), prefix)
 #         else:
 #             name = result['data']['name']
 #             try:
 #                 live_status = result['data']['live_room']['liveStatus']
 #             except (KeyError, TypeError):
-#                 logger.error('【查询动态状态】【{uid}】获取不到liveStatus'.format(uid=uid)+Style.RESET_ALL)
+#                 logger.error('【{uid}】获取不到liveStatus'.format(uid=uid), prefix)
 #                 return
 
 #             if LIVING_STATUS_DICT.get(uid, None) is None:
 #                 LIVING_STATUS_DICT[uid] = live_status
-#                 logger.info(Fore.LIGHTBLUE_EX+'【查询直播状态】【{uname}】初始化'.format(uname=name)+Style.RESET_ALL)
+#                 logger.info(Fore.LIGHTBLUE_EX+'【{uname}】初始化'.format(uname=name), prefix)
 #                 return
 
 #             if LIVING_STATUS_DICT.get(uid, None) != live_status:
@@ -226,19 +228,20 @@ def query_bilidynamic(uid, cookie, msg):
 #                 room_cover_url = result['data']['live_room']['cover']
 
 #                 if live_status == 1:
-#                     logger.info(Fore.LIGHTGREEN_EX+'【查询直播状态】【{name}】开播了，准备推送：{room_title}'.format(
-#                         name=name, room_title=room_title)+Style.RESET_ALL)
+#                     logger.info(Fore.LIGHTGREEN_EX+'【{name}】开播了，准备推送：{room_title}'.format(
+#                         name=name, room_title=room_title), prefix)
 #                     push.push_for_bili_live(
 #                         name, room_id, room_title, room_cover_url)
 
 
 def query_live_status_batch(uid_list, cookie, msg, special):
+    prefix = '【查询直播状态】'
     if uid_list is None:
         uid_list = []
     if len(uid_list) == 0:
         return
     query_url = 'https://api.live.bilibili.com/room/v1/Room/get_status_info_by_uids'
-    headers = get_headers(uid_list[0])
+    headers = get_headers(list(uid_list)[0])
     data = json.dumps({
         "uids": list(map(int, uid_list))
     })
@@ -246,35 +249,33 @@ def query_live_status_batch(uid_list, cookie, msg, special):
         response = requests.post(
             query_url, headers=headers, data=data, cookies=cookie, timeout=5)
     except RequestException as e:
-        logger.error(
-            Fore.RED + f'【查询直播状态】请求错误 url:{query_url},error:{e}' + Style.RESET_ALL)
+        logger.error(f'请求错误 url:{query_url},error:{e}', prefix)
         return
     if response.status_code != 200:
         logger.error(
-            Fore.RED+f'【查询直播状态】请求错误 url:{query_url} status:{response.status_code}'+Style.RESET_ALL)
+            f'请求错误 url:{query_url} status:{response.status_code}', prefix)
         return
     result = json.loads(str(response.content, 'utf-8'))
     if result['code'] != 0:
-        logger.error(
-            Fore.RED+f'【查询直播状态】请求返回数据code错误：{result["code"]}'+Style.RESET_ALL)
+        logger.error(f'请求返回数据code错误：{result["code"]}', prefix)
     else:
         live_status_list = result['data']
         for uid, item_info in live_status_list.items():
             try:
                 uname = item_info['uname']
+                LIVE_NAME_DICT[uid] = uname
                 face = item_info['face']
                 live_status = item_info['live_status']
                 room_id = item_info['room_id']
                 room_title = item_info['title']
                 room_cover_url = item_info['cover_from_user']
                 keyframe = item_info['keyframe']
-            except (KeyError, TypeError):
-                logger.error(
-                    Fore.RED+f'【查询动态状态】【{uid}】获取不到直播信息'+Style.RESET_ALL)
+            except KeyError:
+                logger.error(f'【{uid}】获取不到直播信息', prefix)
                 continue
             url = f'https://live.bilibili.com/{room_id}'
             msg[2] = datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' - ' + \
-                Fore.CYAN+f'【查询直播状态】查询{uname}直播状态' + Style.RESET_ALL
+                Fore.CYAN+f'查询{uname}直播状态' + Style.RESET_ALL
             if LIVING_STATUS_DICT.get(uid, None) is None:
                 ROOM_TITLE_DICT[uid] = room_title
                 LIVING_STATUS_DICT[uid] = live_status
@@ -285,70 +286,62 @@ def query_live_status_batch(uid_list, cookie, msg, special):
                 elif keyframe != '':
                     get_icon(uid, keyframe, 'cover/')
                 if live_status == 1:
-                    logger.info(Fore.LIGHTGREEN_EX +
-                                f'【查询直播状态】【{uname}】【{room_title}】直播中' +
-                                Style.RESET_ALL)
+                    logger.info(f'【{uname}】【{room_title}】直播中',
+                                prefix, Fore.LIGHTGREEN_EX)
                 else:
-                    logger.info(Fore.CYAN +
-                                f'【查询直播状态】【{uname}】【{room_title}】未开播'+Style.RESET_ALL)
+                    logger.info(f'【{uname}】【{room_title}】未开播',
+                                prefix, Fore.CYAN)
                 continue
             icon_path = realpath(f'icon/bili_{uid}.jpg')
             cover_path = realpath(f'icon/cover/bili_{uid}.jpg')
             if not exists(cover_path):
                 cover_path = ""
             if ROOM_TITLE_DICT[uid] != room_title:
-                logger.info(Fore.LIGHTGREEN_EX +
-                            f'【查询直播状态】【{uname}】修改了直播间标题：【{ROOM_TITLE_DICT[uid]}】 -> 【{room_title}】' +
-                            Style.RESET_ALL)
-                notify0(f'【{uname}】修改了直播间标题', f'【{ROOM_TITLE_DICT[uid]}】->【{room_title}】',
-                        icon=icon_path, on_click=url)
+                logger.info(f'【{uname}】修改了直播间标题：【{ROOM_TITLE_DICT[uid]}】 -> 【{room_title}】',
+                            prefix, Fore.LIGHTGREEN_EX)
+                notify(f'【{uname}】修改了直播间标题', f'【{ROOM_TITLE_DICT[uid]}】->【{room_title}】',
+                       icon=icon_path, on_click=url)
                 ROOM_TITLE_DICT[uid] = room_title
             if ROOM_COVER_DICT[uid] != room_cover_url and room_cover_url != '':
                 get_icon(uid, room_cover_url, 'cover/')
-                logger.info(Fore.LIGHTGREEN_EX +
-                            f'【查询直播状态】【{uname}】修改了直播间封面' +
-                            Style.RESET_ALL)
-                notify0(f'【{uname}】修改了直播间封面', '', on_click=url,
-                        image={
-                            'src': cover_path,
-                            'placement': 'hero'
-                        }, icon=icon_path)
+                logger.info(f'【{uname}】修改了直播间封面', prefix, Fore.LIGHTGREEN_EX)
+                notify(f'【{uname}】修改了直播间封面', '', on_click=url,
+                       image={
+                           'src': cover_path,
+                           'placement': 'hero'
+                       }, icon=icon_path)
                 ROOM_COVER_DICT[uid] = room_cover_url
             if LIVING_STATUS_DICT[uid] != live_status:
                 LIVING_STATUS_DICT[uid] = live_status
                 if live_status == 1:
-                    logger.info(Fore.LIGHTGREEN_EX +
-                                f'【查询直播状态】【{uname}】【{room_title}】开播了' +
-                                Style.RESET_ALL)
+                    logger.info(f'【{uname}】【{room_title}】开播了',
+                                prefix, Fore.LIGHTGREEN_EX)
                     if uid in special:
-                        notify0(f"【{uname}】开播了", room_title,
-                                on_click=url, scenario='alarm',
-                                audio={
-                                    'src': 'ms-winsoundevent:Notification.Looping.Alarm', 'loop': 'true'},
-                                image={
-                                    'src': cover_path,
-                                    'placement': 'hero'
-                                }, icon=icon_path)
+                        notify(f"【{uname}】开播了", room_title,
+                               on_click=url, scenario='alarm',
+                               audio={
+                                   'src': 'ms-winsoundevent:Notification.Looping.Alarm', 'loop': 'true'},
+                               image={
+                                   'src': cover_path,
+                                   'placement': 'hero'
+                               }, icon=icon_path)
                     else:
-                        notify0(f"【{uname}】开播了", room_title,
-                                on_click=url,
-                                image={
-                                    'src': cover_path,
-                                    'placement': 'hero'
-                                }, icon=icon_path)
+                        notify(f"【{uname}】开播了", room_title,
+                               on_click=url,
+                               image={
+                                   'src': cover_path,
+                                   'placement': 'hero'
+                               }, icon=icon_path)
                     push.push_for_bili_live(
                         uname, room_id, room_title, room_cover_url)
                 else:
-                    logger.info(Fore.LIGHTGREEN_EX +
-                                f'【查询直播状态】【{uname}】下播了'+Style.RESET_ALL)
+                    logger.info(f'【{uname}】下播了', prefix, Fore.LIGHTGREEN_EX)
             elif live_status == 1:
-                logger.debug(Fore.LIGHTGREEN_EX +
-                             f'【查询直播状态】【{uname}】【{room_title}】直播中' +
-                             Style.RESET_ALL)
+                logger.debug(f'【{uname}】【{room_title}】直播中',
+                             prefix, Fore.LIGHTGREEN_EX)
             else:
-                logger.debug(Fore.CYAN +
-                             f'【查询直播状态】【{uname}】【{room_title}】未开播' +
-                             Style.RESET_ALL)
+                logger.debug(f'【{uname}】【{room_title}】未开播',
+                             prefix, Fore.CYAN)
 
 
 def get_headers(uid):
