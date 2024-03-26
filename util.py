@@ -1,6 +1,6 @@
+from logger import logger
 import random
 import requests
-from logger import logger
 from win11toast import notify as _notify
 
 USER_AGENTS = [
@@ -54,12 +54,12 @@ USER_AGENTS = [
 def notify(title, body, on_click=None, duration='long', scenario='Reminder', **kwargs):
     if on_click is None:
         return _notify(title=title, body=body, duration=duration, scenario=scenario,
-                      app_id='vtb_dynamic', **kwargs)
+                       app_id='vtb_dynamic', **kwargs)
     else:
         return _notify(title=title, body=body, duration=duration, scenario=scenario,
-                      button={'activationType': 'protocol',
-                              'arguments': on_click, 'content': '打开页面'},
-                      on_click=on_click, app_id='vtb_dynamic', **kwargs)
+                       button={'activationType': 'protocol',
+                               'arguments': on_click, 'content': '打开页面'},
+                       on_click=on_click, app_id='vtb_dynamic', **kwargs)
 
 
 def get_random_useragent():

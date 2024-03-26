@@ -58,23 +58,23 @@ def query_bilidynamic(uid, cookie, msg):
         response = requests.get(query_url, headers=headers,
                                 cookies=cookie, proxies=proxies, timeout=5)
     except RequestException as e:
-        logger.error(f'请求错误 url:{query_url},error:{e}', prefix)
+        logger.error(f'请求错误 url:{query_url},error:{e}，休眠一分钟', prefix)
+        time.sleep(60)
         return
-    if response.status_code == 412:
-        logger.error(f'status:{response.status_code}, 触发风控休眠五分钟', prefix)
-        time.sleep(300)
-        return
-    elif response.status_code != 200:
+    if response.status_code != 200:
         logger.error(
-            f'请求错误 url:{query_url} status:{response.status_code}', prefix)
+            f'请求错误 url:{query_url} status:{response.status_code}，休眠五分钟', prefix)
+        time.sleep(300)
         return
     try:
         result = json.loads(str(response.content, 'utf-8'))
-    except UnicodeDecodeError:
-        logger.error(f'【{uid}】解析content出错', prefix)
+    except json.JSONDecodeError as e:
+        logger.error(f'【{uid}】解析content出错{e}，休眠五分钟', prefix)
+        time.sleep(300)
         return
     if result['code'] != 0:
-        logger.error(f'【{uid}】请求返回数据code错误：{result["code"]}', prefix)
+        logger.error(f'【{uid}】请求返回数据code错误：{result["code"]}，休眠五分钟', prefix)
+        time.sleep(300)
         return
     data = result['data']
     try:
@@ -82,17 +82,14 @@ def query_bilidynamic(uid, cookie, msg):
             if DYNAMIC_DICT.get(uid, None) is not None:
                 logger.warning(f'{uid}】动态列表为空', prefix)
             return
-    except KeyError:
-        logger.error(f'【{uid}】返回数据不全', prefix)
-        return
-    item = data['cards'][0]
-    dynamic_id = item['desc']['dynamic_id']
-    try:
+        item = data['cards'][0]
+        dynamic_id = item['desc']['dynamic_id']
         uname = item['desc']['user_profile']['info']['uname']
         face = item['desc']['user_profile']['info']['face']
         sign = item['desc']['user_profile']['sign']
-    except KeyError:
-        logger.error(f'【{uid}】获取不到用户信息', prefix)
+    except (KeyError, TypeError):
+        logger.error(f'【{uid}】返回数据不完整，休眠五分钟', prefix)
+        time.sleep(300)
         return
     msg[0] = datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' - ' + \
         Fore.LIGHTBLUE_EX+f'查询{uname}动态' + Style.RESET_ALL
@@ -236,15 +233,11 @@ def query_bilidynamic(uid, cookie, msg):
 
 def query_live_status_batch(uid_list, cookie, msg, special):
     prefix = '【查询直播状态】'
-    if uid_list is None:
-        uid_list = []
-    if len(uid_list) == 0:
+    if uid_list is None or len(uid_list) == 0:
         return
     query_url = 'https://api.live.bilibili.com/room/v1/Room/get_status_info_by_uids'
     headers = get_headers(list(uid_list)[0])
-    data = json.dumps({
-        "uids": list(map(int, uid_list))
-    })
+    data = json.dumps({"uids": list(map(int, uid_list))})
     try:
         response = requests.post(
             query_url, headers=headers, data=data, cookies=cookie, timeout=5)
@@ -255,11 +248,18 @@ def query_live_status_batch(uid_list, cookie, msg, special):
         logger.error(
             f'请求错误 url:{query_url} status:{response.status_code}', prefix)
         return
-    result = json.loads(str(response.content, 'utf-8'))
+    try:
+        result = json.loads(str(response.content, 'utf-8'))
+    except json.JSONDecodeError as e:
+        logger.error(f'解析content出错{e}', prefix)
+        return
     if result['code'] != 0:
         logger.error(f'请求返回数据code错误：{result["code"]}', prefix)
     else:
         live_status_list = result['data']
+        if not hasattr(live_status_list, 'items'):
+            logger.error('返回数据不完整', prefix)
+            return
         for uid, item_info in live_status_list.items():
             try:
                 uname = item_info['uname']
@@ -270,9 +270,9 @@ def query_live_status_batch(uid_list, cookie, msg, special):
                 room_title = item_info['title']
                 room_cover_url = item_info['cover_from_user']
                 keyframe = item_info['keyframe']
-            except KeyError:
-                logger.error(f'【{uid}】获取不到直播信息', prefix)
-                continue
+            except (KeyError, TypeError):
+                logger.error(f'【{uid}】返回数据不完整', prefix)
+                return
             url = f'https://live.bilibili.com/{room_id}'
             msg[2] = datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' - ' + \
                 Fore.CYAN+f'查询{uname}直播状态' + Style.RESET_ALL

@@ -47,12 +47,13 @@ def weibo():
         if WeiboCookies != ck:
             WeiboCookies = ck
             test = 0
+            logger.info('微博Cookies更新', prefix, Fore.GREEN)
         uid_list = global_config.get_raw('weibo', 'uid_list')
         if uid_list:
             uid_list = set(uid_list.split(','))
             if cookies_check == 'true' and not query_valid(check_uid, WeiboCookies):
                 test += 1
-                if test == 10:
+                if test == 5:
                     logger.warning('微博Cookies无效', prefix)
                     notify("微博Cookies无效", "", on_click='https://m.weibo.cn/')
             else:

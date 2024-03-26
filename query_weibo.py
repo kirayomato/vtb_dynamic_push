@@ -91,7 +91,8 @@ def query_weibodynamic(uid, cookie, msg):
         return False
     if response.status_code != 200:
         logger.error(
-            Fore.RED+f'请求错误 url:{query_url} status:{response.status_code}', prefix)
+            Fore.RED+f'请求错误 url:{query_url} status:{response.status_code},休眠一分钟', prefix)
+        time.sleep(60)
         return
     result = json.loads(str(response.content, 'utf-8'))
     cards = result['data']['cards']
@@ -109,15 +110,16 @@ def query_weibodynamic(uid, cookie, msg):
             break
     try:
         mblog = card['mblog']
+        mblog_id = mblog['id']
+        user = mblog['user']
+        uname = user['screen_name']
+        face = user['profile_image_url']
+        face = face[:face.find('?')]
+        sign = user['description']
     except KeyError:
-        logger.error(f'【{uid}】返回数据不全', prefix)
+        logger.error(f'【{uid}】返回数据不完整', prefix)
+        time.sleep(60)
         return
-    mblog_id = mblog['id']
-    user = mblog['user']
-    uname = user['screen_name']
-    face = user['profile_image_url']
-    face = face[:face.find('?')]
-    sign = user['description']
     msg[1] = datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' - ' + \
         Fore.LIGHTYELLOW_EX+f'查询{uname}微博' + Style.RESET_ALL
     if DYNAMIC_DICT.get(uid, None) is None:
@@ -205,6 +207,7 @@ def get_headers(uid):
         'accept-encoding': 'gzip, deflate',
         'accept-language': 'zh-CN,zh;q=0.9',
         'cache-control': 'no-cache',
+        'connection': 'keep-alive',
         'pragma': 'no-cache',
         'mweibo-pwa': '1',
         'referer': 'https://m.weibo.cn/u/{}'.format(uid),

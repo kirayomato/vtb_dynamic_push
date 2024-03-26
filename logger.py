@@ -2,8 +2,9 @@ import logging
 from logging.handlers import TimedRotatingFileHandler
 import sys
 import os
-
 from colorama import Fore, Style
+from time import time
+from collections import deque
 
 
 class mylogger:
@@ -23,6 +24,7 @@ class mylogger:
         fh.setLevel(logging.INFO)
         fh.setFormatter(formatter)
         self.logger.addHandler(fh)
+        self.error_count = deque()
 
     def info(self, msg, prefix="", color=""):
         msg = prefix+msg
@@ -44,6 +46,14 @@ class mylogger:
 
     def error(self, msg, prefix="", color=Fore.RED):
         msg = prefix+msg
+        self.error_count.append(time())
+        while len(self.error_count) and time()-self.error_count[0] > 3600:
+            self.error_count.popleft()
+        print(f'\nError Length:{len(self.error_count)}\n')
+        if self.error_count == 10:
+            from util import notify
+            notify('检测到大量报错', f'累计报错{self.error_count}次，请检查运行状态')
+
         if color:
             msg = color+msg+Style.RESET_ALL
         self.logger.error(msg, stacklevel=2)
