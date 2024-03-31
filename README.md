@@ -5,7 +5,7 @@
 
 本项目基于[nfe-w](https://github.com/nfe-w)的[bili_dynamic_push](https://github.com/nfe-w/bili_dynamic_push)和[weibo_dynamic_push](https://github.com/nfe-w/weibo_dynamic_push/)进行开发，推荐使用本项目前先阅读原项目有关介绍
 
-本项目在原项目的基础上增加了以下功能
+本项目在原项目的基础上增加了多项功能
 
 1. 支持填写cookies，获取仅粉丝可见内容，且在cookies失效时进行提示
 
@@ -22,7 +22,7 @@
     推送通知使用`win11toast`库实现，在Windows10上不保证能正常使用
 
 
-3. 动态检测功能增加头像、签名变化的检测。直播检测功能增加直播间标题、封面变化的检测。
+3. 微博和动态检测功能增加头像、签名变化的检测。直播检测功能增加直播间标题、封面变化的检测。
 
 ## 运行环境
 
@@ -85,7 +85,14 @@
 
 微博cookies需要在 https://m.weibo.cn/ 中登陆进行获取
 
-cookies要求为json格式，推荐使用[EditThisCookie](https://chromewebstore.google.com/detail/editthiscookie/fngmhnnpilhplaeedifhccceomclgfbg)插件，导出后全部复制进去即可
+cookies要求为json格式，结构如下
+```
+{
+    "name": xxx,
+    "value": xxx
+}
+```
+推荐使用[EditThisCookie](https://chromewebstore.google.com/detail/editthiscookie/fngmhnnpilhplaeedifhccceomclgfbg)插件，导出后全部复制进去即可
 #### 3.安装第三方库
 
 `pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple/`
