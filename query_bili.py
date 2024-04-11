@@ -30,12 +30,25 @@ proxies = {
 }
 
 
+def try_cookies(cookies=None):
+    uid = '1932862336'
+    query_url = f'http://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/space_history?host_uid={uid}&offset_dynamic_id=0&need_top=0&platform=web&my_ts={int(time.time())}'
+    headers = get_headers(uid)
+    try:
+        response = requests.get(
+            query_url, cookies=cookies, headers=headers, proxies=proxies, timeout=5)
+        result = json.loads(str(response.content, 'utf-8'))
+        return result['data']['cards'] is not None
+    except:
+        return False
+
+
 def get_icon(uid, face, path=''):
     icon = f'icon/{path}bili_{uid}.jpg'
     try:
         r = requests.get(face, timeout=5)
     except RequestException as e:
-        logger.error(f'请求错误 url:{face},error:{e}', '【下载B站图片】')
+        logger.error(f'网络错误 url:{face},error:{e}', '【下载B站图片】')
         return
     with open(icon, 'wb') as f:
         f.write(r.content)
@@ -50,15 +63,13 @@ def query_bilidynamic(uid, cookie, msg):
     if uid is None:
         return
     uid = str(uid)
-    query_url = 'http://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/space_history' \
-                '?host_uid={uid}&offset_dynamic_id=0&need_top=0&platform=web&my_ts={my_ts}'.format(
-                    uid=uid, my_ts=int(time.time()))
+    query_url = f'http://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/space_history?host_uid={uid}&offset_dynamic_id=0&need_top=0&platform=web&my_ts={int(time.time())}'
     headers = get_headers(uid)
     try:
         response = requests.get(query_url, headers=headers,
                                 cookies=cookie, proxies=proxies, timeout=5)
     except RequestException as e:
-        logger.error(f'请求错误 url:{query_url},error:{e}，休眠一分钟', prefix)
+        logger.error(f'网络错误 url:{query_url},error:{e}，休眠一分钟', prefix)
         time.sleep(60)
         return
     if response.status_code != 200:
@@ -242,7 +253,7 @@ def query_live_status_batch(uid_list, cookie, msg, special):
         response = requests.post(
             query_url, headers=headers, data=data, cookies=cookie, timeout=5)
     except RequestException as e:
-        logger.error(f'请求错误 url:{query_url},error:{e}', prefix)
+        logger.error(f'网络错误 url:{query_url},error:{e}', prefix)
         return
     if response.status_code != 200:
         logger.error(
@@ -397,7 +408,7 @@ def get_headers(uid):
         'accept-encoding': 'gzip, deflate',
         'accept-language': 'zh-CN,zh;q=0.9',
         'cache-control': 'no-cache',
-        'cookie': 'l=v;',
+        # 'cookie': 'l=v;',
         'origin': 'https://space.bilibili.com',
         'pragma': 'no-cache',
         'referer': 'https://space.bilibili.com/{}/dynamic'.format(uid),

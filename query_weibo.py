@@ -44,7 +44,7 @@ def get_icon(uid, face, path=''):
     try:
         r = requests.get(face, headers=headrs, timeout=5)
     except RequestException as e:
-        logger.error(f'请求错误 url:{face},error:{e}', '【下载微博图片】')
+        logger.error(f'网络错误 url:{face},error:{e}', '【下载微博图片】')
         return
     with open(icon, 'wb') as f:
         f.write(r.content)
@@ -63,7 +63,7 @@ def query_valid(uid, cookie):
         response = requests.get(query_url, headers=headers,
                                 cookies=cookie, proxies=proxies, timeout=5)
     except RequestException as e:
-        logger.error(f'请求错误 url:{query_url},error:{e}', prefix)
+        logger.error(f'网络错误 url:{query_url},error:{e}', prefix)
         return True
     if response.status_code == 200:
         result = json.loads(str(response.content, 'utf-8'))
@@ -86,12 +86,12 @@ def query_weibodynamic(uid, cookie, msg):
         response = requests.get(query_url, headers=headers,
                                 cookies=cookie, proxies=proxies, timeout=5)
     except RequestException as e:
-        logger.error(f'请求错误 url:{query_url},error:{e},休眠一分钟', prefix)
+        logger.error(f'网络错误 url:{query_url},error:{e},休眠一分钟', prefix)
         time.sleep(60)
         return False
     if response.status_code != 200:
         logger.error(
-            Fore.RED+f'请求错误 url:{query_url} status:{response.status_code},休眠一分钟', prefix)
+            Fore.RED+f'请求错误 url:{query_url} status:{response.status_code}', prefix)
         time.sleep(60)
         return
     result = json.loads(str(response.content, 'utf-8'))

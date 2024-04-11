@@ -1,3 +1,4 @@
+from datetime import datetime
 import json
 import threading
 import os
@@ -6,8 +7,8 @@ import traceback
 from config import Config
 from logger import logger
 from query_weibo import query_weibodynamic, query_valid, USER_NAME_DICT
-from query_bili import query_bilidynamic, query_live_status_batch, DYNAMIC_NAME_DICT, LIVE_NAME_DICT
-from colorama import Fore, init
+from query_bili import query_bilidynamic, query_live_status_batch, DYNAMIC_NAME_DICT, LIVE_NAME_DICT, try_cookies
+from colorama import Fore, Style, init
 from util import notify
 from reprint import output
 
@@ -87,8 +88,16 @@ def bili_dy():
     cnt += 1
     intervals_second = int(global_config.get_raw('bili', 'intervals_second'))
     logger.info('开始检测动态', prefix, Fore.GREEN)
+    test = 0
     while True:
         BiliCookies = load_cookie('BiliCookies.json')
+        if not try_cookies(BiliCookies):
+            test += 1
+            if test == 5:
+                logger.warning('B站Cookies无效', prefix)
+                notify("B站Cookies无效", "", on_click='https://www.bilibili.com/')
+        else:
+            test = 0
         uid_list = global_config.get_raw('bili', 'dynamic_uid_list')
         if uid_list:
             uid_list = set(uid_list.split(','))
