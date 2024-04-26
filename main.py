@@ -89,8 +89,13 @@ def bili_dy():
     intervals_second = int(global_config.get_raw('bili', 'intervals_second'))
     logger.info('开始检测动态', prefix, Fore.GREEN)
     test = 0
+    BiliCookies = {}
     while True:
-        BiliCookies = load_cookie('BiliCookies.json')
+        bk = load_cookie('BiliCookies.json')
+        if BiliCookies != bk:
+            BiliCookies = bk
+            test = 0
+            logger.info('B站Cookies更新', prefix, Fore.GREEN)
         if not try_cookies(BiliCookies):
             test += 1
             if test == 5:
