@@ -86,7 +86,8 @@ def bili_dy():
         return
     global cnt
     cnt += 1
-    intervals_second = int(global_config.get_raw('bili', 'intervals_second'))
+    intervals_second = int(global_config.get_raw(
+        'bili', 'dynamic_intervals_second'))
     logger.info('开始检测动态', prefix, Fore.GREEN)
     test = 0
     BiliCookies = {}
@@ -132,7 +133,8 @@ def bili_live():
         return
     global cnt
     cnt += 1
-    intervals_second = int(global_config.get_raw('bili', 'intervals_second'))
+    intervals_second = int(global_config.get_raw(
+        'bili', 'live_intervals_second'))
     logger.info('开始检测直播', prefix, Fore.GREEN)
     while True:
         BiliCookies = load_cookie('BiliCookies.json')
