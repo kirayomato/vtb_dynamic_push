@@ -49,10 +49,9 @@ class mylogger:
         self.error_count.append(time())
         while len(self.error_count) and time()-self.error_count[0] > 3600:
             self.error_count.popleft()
-        print(f'\nError Length:{len(self.error_count)}\n')
-        if self.error_count == 10:
+        if len(self.error_count) == 10:
             from util import notify
-            notify('检测到大量报错', f'累计报错{self.error_count}次，请检查运行状态')
+            notify('检测到大量报错', f'累计报错{len(self.error_count)}次，请检查运行状态')
 
         if color:
             msg = color+msg+Style.RESET_ALL

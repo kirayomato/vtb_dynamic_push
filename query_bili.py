@@ -59,33 +59,38 @@ def get_icon(uid, face, path=''):
 
 
 def query_bilidynamic(uid, cookie, msg):
+    def sleep(t):
+        msg[0] = datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' - ' + \
+            Fore.LIGHTBLUE_EX + '休眠中' + Style.RESET_ALL
+        time.sleep(t)
     prefix = '【查询动态状态】'
     if uid is None:
         return
     uid = str(uid)
-    query_url = f'http://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/space_history?host_uid={uid}&offset_dynamic_id=0&need_top=0&platform=web&my_ts={int(time.time())}'
+    query_url = f'http://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/space_history?host_uid={uid}&offset_dynamic_id=0&need_top=0&platform=web'
     headers = get_headers(uid)
     try:
         response = requests.get(query_url, headers=headers,
                                 cookies=cookie, proxies=proxies, timeout=5)
     except RequestException as e:
         logger.error(f'网络错误 url:{query_url},error:{e}，休眠一分钟', prefix)
-        time.sleep(60)
+        sleep(60)
         return
     if response.status_code != 200:
         logger.error(
-            f'请求错误 url:{query_url} status:{response.status_code}，休眠五分钟', prefix)
-        time.sleep(300)
+            f'请求错误 url:{query_url}，status:{response.status_code}，{response.reason}，休眠一分钟', prefix)
+        sleep(60)
         return
     try:
         result = json.loads(str(response.content, 'utf-8'))
     except json.JSONDecodeError as e:
-        logger.error(f'【{uid}】解析content出错{e}，休眠五分钟', prefix)
-        time.sleep(300)
+        logger.error(f'【{uid}】解析content出错{e}，url:{query_url}，休眠三分钟', prefix)
+        sleep(180)
         return
     if result['code'] != 0:
-        logger.error(f'【{uid}】请求返回数据code错误：{result["code"]}，休眠五分钟', prefix)
-        time.sleep(300)
+        logger.error(
+            f'【{uid}】请求返回数据code错误：{result["code"]}，url:{query_url}，休眠三分钟', prefix)
+        sleep(180)
         return
     data = result['data']
     try:
@@ -99,8 +104,8 @@ def query_bilidynamic(uid, cookie, msg):
         face = item['desc']['user_profile']['info']['face']
         sign = item['desc']['user_profile']['sign']
     except (KeyError, TypeError):
-        logger.error(f'【{uid}】返回数据不完整，休眠五分钟', prefix)
-        time.sleep(300)
+        logger.error(f'【{uid}】返回数据不完整，url:{query_url}，休眠三分钟', prefix)
+        sleep(180)
         return
     msg[0] = datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' - ' + \
         Fore.LIGHTBLUE_EX+f'查询{uname}动态' + Style.RESET_ALL
@@ -152,8 +157,10 @@ def query_bilidynamic(uid, cookie, msg):
         card = json.loads(card_str)
         content = None
         pic_url = None
+        action = '动态更新'
         if dynamic_type == 1:
             # 转发动态
+            action = '转发动态'
             content = card['item']['content']
             origin = json.loads(card['origin'])
             if 'videos' in origin:
@@ -172,23 +179,25 @@ def query_bilidynamic(uid, cookie, msg):
             content = card['item']['content']
         elif dynamic_type == 8:
             # 投稿动态
+            action = '发布投稿'
             content = card['title']
             pic_url = card['pic']
         elif dynamic_type == 64:
             # 专栏动态
+            action = '发布投稿'
             content = card['title']
             pic_url = card['image_urls'][0]
 
         url = f'https://www.bilibili.com/opus/{dynamic_id}'
-        logger.info(f'【{uname}】动态更新：{content}，url:{url}',
+        logger.info(f'【{uname}】{action}：{content}，url:{url}',
                     prefix, Fore.LIGHTGREEN_EX)
         if pic_url is None:
-            notify(f"【{uname}】动态更新", content,
+            notify(f"【{uname}】{action}", content,
                    icon=icon_path, on_click=url)
         else:
             get_icon(uid, pic_url, 'opus/')
             opus_path = realpath(f'icon/opus/bili_{uid}.jpg')
-            notify(f"【{uname}】动态更新", content,
+            notify(f"【{uname}】{action}", content,
                    on_click=url,
                    image={
                        'src': opus_path,
@@ -345,6 +354,9 @@ def query_live_status_batch(uid_list, cookie, msg, special):
                                }, icon=icon_path)
                     push.push_for_bili_live(
                         uname, room_id, room_title, room_cover_url)
+                    bl_headers = {'x-api-key': 'bili2233'}
+                    logger.info(requests.post(f'http://192.168.0.100:2233/api/v1/tasks/{room_id}/info',
+                                              headers=bl_headers).text, prefix, Fore.LIGHTGREEN_EX)
                 else:
                     logger.info(f'【{uname}】下播了', prefix, Fore.LIGHTGREEN_EX)
             elif live_status == 1:
@@ -356,62 +368,20 @@ def query_live_status_batch(uid_list, cookie, msg, special):
 
 
 def get_headers(uid):
-    USER_AGENTS = [
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_7_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/27.0.1453.93 Safari/537.36",
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/32.0.1664.3 Safari/537.36",
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_2) AppleWebKit/537.17 (KHTML, like Gecko) Chrome/24.0.1309.0 Safari/537.17",
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/27.0.1453.93 Safari/537.36",
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/32.0.1664.3 Safari/537.36",
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/36.0.1944.0 Safari/537.36",
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/35.0.1916.47 Safari/537.36",
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/37.0.2062.124 Safari/537.36",
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2227.1 Safari/537.36",
-        "Mozilla/5.0 (Windows NT 4.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/37.0.2049.0 Safari/537.36",
-        "Mozilla/5.0 (Windows NT 5.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/36.0.1985.67 Safari/537.36",
-        "Mozilla/5.0 (Windows NT 5.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/35.0.3319.102 Safari/537.36",
-        "Mozilla/5.0 (Windows NT 5.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/35.0.2309.372 Safari/537.36",
-        "Mozilla/5.0 (Windows NT 5.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/35.0.2117.157 Safari/537.36",
-        "Mozilla/5.0 (Windows NT 5.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/34.0.1866.237 Safari/537.36",
-        "Mozilla/5.0 (Windows NT 5.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2224.3 Safari/537.36",
-        "Mozilla/5.0 (Windows NT 5.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/31.0.1650.16 Safari/537.36",
-        "Mozilla/5.0 (Windows NT 5.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/27.0.1453.93 Safari/537.36",
-        "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.17 (KHTML, like Gecko) Chrome/24.0.1312.60 Safari/537.17",
-        "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/27.0.1453.93 Safari/537.36",
-        "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/29.0.1547.62 Safari/537.36",
-        "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/30.0.1599.101 Safari/537.36",
-        "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/31.0.1623.0 Safari/537.36",
-        "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/36.0.1985.67 Safari/537.36",
-        "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.71 Safari/537.36",
-        "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2227.0 Safari/537.36",
-        "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/27.0.1453.90 Safari/537.36",
-        "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/27.0.1453.93 Safari/537.36",
-        "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/28.0.1468.0 Safari/537.36",
-        "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36",
-        "Mozilla/5.0 (Windows NT 6.2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/28.0.1464.0 Safari/537.36",
-        "Mozilla/5.0 (Windows NT 6.2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/28.0.1467.0 Safari/537.36",
-        "Mozilla/5.0 (Windows NT 6.2; WOW64) AppleWebKit/537.14 (KHTML, like Gecko) Chrome/24.0.1292.0 Safari/537.14",
-        "Mozilla/5.0 (Windows NT 6.2; WOW64) AppleWebKit/537.15 (KHTML, like Gecko) Chrome/24.0.1295.0 Safari/537.15",
-        "Mozilla/5.0 (Windows NT 6.2; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/27.0.1453.93 Safari/537.36",
-        "Mozilla/5.0 (Windows NT 6.2; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/27.0.1500.55 Safari/537.36",
-        "Mozilla/5.0 (Windows NT 6.2; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/29.0.1547.2 Safari/537.36",
-        "Mozilla/5.0 (Windows NT 6.2; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/30.0.1599.17 Safari/537.36",
-        "Mozilla/5.0 (Windows NT 6.2; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/32.0.1667.0 Safari/537.36",
-        "Mozilla/5.0 (Windows NT 6.3; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2225.0 Safari/537.36",
-        "Mozilla/5.0 (Windows NT 6.3; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2226.0 Safari/537.36",
-        "Mozilla/5.0 (Windows NT 6.3; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/37.0.2049.0 Safari/537.36",
-        "Mozilla/5.0 (Windows NT 6.4; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2225.0 Safari/537.36",
-        "Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/40.0.2214.93 Safari/537.36",
-    ]
     return {
-        'User-Agent': choice(USER_AGENTS),
-        'accept': 'application/json, text/plain, */*',
-        'accept-encoding': 'gzip, deflate',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+        'accept-encoding': 'gzip, deflate, br, zstd',
         'accept-language': 'zh-CN,zh;q=0.9',
-        'cache-control': 'no-cache',
-        # 'cookie': 'l=v;',
-        'origin': 'https://space.bilibili.com',
+        'cache-control': 'max-age=0',
+        'origin': 'https://space.bilibili.com/',
         'pragma': 'no-cache',
-        'referer': 'https://space.bilibili.com/{}/dynamic'.format(uid),
-        'sec-fetch-mode': 'cors',
-        'sec-fetch-site': 'same-site',
+        'referer': f'https://space.bilibili.com/{uid}/dynamic',
+        'Sec-Ch-Ua': '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+        'Sec-Ch-Ua-Mobile': '?0',
+        'Sec-Ch-Ua-Platform': '"Windows"',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+        'Sec-Fetch-User': '?1',
     }

@@ -76,6 +76,10 @@ def query_valid(uid, cookie):
 
 
 def query_weibodynamic(uid, cookie, msg):
+    def sleep(t):
+        msg[1] = datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' - ' + \
+            Fore.LIGHTBLUE_EX + '休眠中' + Style.RESET_ALL
+        time.sleep(t)
     prefix = '【查询微博状态】'
     if uid is None:
         return
@@ -87,12 +91,16 @@ def query_weibodynamic(uid, cookie, msg):
                                 cookies=cookie, proxies=proxies, timeout=5)
     except RequestException as e:
         logger.error(f'网络错误 url:{query_url},error:{e},休眠一分钟', prefix)
-        time.sleep(60)
-        return False
+        sleep(60)
+        msg[1] = datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' - ' + \
+            Fore.LIGHTYELLOW_EX + '休眠中' + Style.RESET_ALL
+        return
     if response.status_code != 200:
         logger.error(
-            Fore.RED+f'请求错误 url:{query_url} status:{response.status_code}', prefix)
-        time.sleep(60)
+            Fore.RED+f'请求错误 url:{query_url},status:{response.status_code}，{response.reason},休眠三分钟', prefix)
+        sleep(180)
+        msg[1] = datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' - ' + \
+            Fore.LIGHTYELLOW_EX + '休眠中' + Style.RESET_ALL
         return
     result = json.loads(str(response.content, 'utf-8'))
     cards = result['data']['cards']
@@ -117,8 +125,10 @@ def query_weibodynamic(uid, cookie, msg):
         face = face[:face.find('?')]
         sign = user['description']
     except KeyError:
-        logger.error(f'【{uid}】返回数据不完整', prefix)
-        time.sleep(60)
+        logger.error(f'【{uid}】返回数据不完整, url:{query_url}', prefix)
+        sleep(60)
+        msg[1] = datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' - ' + \
+            Fore.LIGHTYELLOW_EX + '休眠中' + Style.RESET_ALL
         return
     msg[1] = datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' - ' + \
         Fore.LIGHTYELLOW_EX+f'查询{uname}微博' + Style.RESET_ALL
@@ -171,24 +181,28 @@ def query_weibodynamic(uid, cookie, msg):
         if created_at_ts < yesterday_ts:
             logger.info(f'【{uname}】微博有更新，但微博发送时间早于今天，可能是历史微博，不予推送',
                         prefix, Fore.LIGHTYELLOW_EX)
+            DYNAMIC_DICT[uid].append(mblog_id)
             return
         dynamic_time = time.strftime('%Y-%m-%d %H:%M:%S', created_at)
-
+        action = '微博更新'
         text = mblog['text']
         text = re.sub(r'<[^>]+>', '', text)
         content = mblog['raw_text'] if mblog.get(
             'raw_text', None) is not None else text
         pic_url = mblog.get('original_pic', None)
+        if 'retweeted_status' in mblog:
+            action = '转发微博'
+            pic_url = mblog['retweeted_status'].get('original_pic', None)
         url = card['scheme']
-        logger.info(f'【{uname}】微博更新：{content}，url:{url}',
+        logger.info(f'【{uname}】{action}：{content}，url:{url}',
                     prefix, Fore.LIGHTGREEN_EX)
         if pic_url is None:
-            notify(f"【{uname}】微博更新", content,
+            notify(f"【{uname}】{action}", content,
                    icon=icon_path, on_click=url)
         else:
             get_icon(uid, pic_url, 'opus/')
             opus_path = realpath(f'icon/opus/wb_{uid}.jpg')
-            notify(f"【{uname}】微博更新", content,
+            notify(f"【{uname}】{action}", content,
                    on_click=url,
                    image={
                        'src': opus_path,
