@@ -354,9 +354,6 @@ def query_live_status_batch(uid_list, cookie, msg, special):
                                }, icon=icon_path)
                     push.push_for_bili_live(
                         uname, room_id, room_title, room_cover_url)
-                    bl_headers = {'x-api-key': 'bili2233'}
-                    logger.info(requests.post(f'http://192.168.0.100:2233/api/v1/tasks/{room_id}/info',
-                                              headers=bl_headers).text, prefix, Fore.LIGHTGREEN_EX)
                 else:
                     logger.info(f'【{uname}】下播了', prefix, Fore.LIGHTGREEN_EX)
             elif live_status == 1:
