@@ -3,9 +3,8 @@ import json
 import re
 import time
 from collections import deque
-from util import notify
+from push import notify
 from logger import logger
-from push import push
 import requests
 from requests.exceptions import RequestException
 # from PIL import Image
@@ -193,25 +192,25 @@ def query_weibodynamic(uid, cookie, msg):
         if 'retweeted_status' in mblog:
             action = '转发微博'
             pic_url = mblog['retweeted_status'].get('original_pic', None)
+            if not pic_url and 'page_info' in mblog['retweeted_status']:
+                pic_url = mblog['retweeted_status']['page_info']['page_pic']['url']
+
         url = card['scheme']
-        logger.info(f'【{uname}】{action}：{content}，url:{url}',
+        logger.info(f'【{uname}】{dynamic_time}：{action} {content}，url:{url}',
                     prefix, Fore.LIGHTGREEN_EX)
         if pic_url is None:
-            notify(f"【{uname}】{action}", content,
-                   icon=icon_path, on_click=url)
+            image = None
         else:
             get_icon(uid, pic_url, 'opus/')
             opus_path = realpath(f'icon/opus/wb_{uid}.jpg')
-            notify(f"【{uname}】{action}", content,
-                   on_click=url,
-                   image={
-                       'src': opus_path,
-                       'placement': 'hero'
-                   }, icon=icon_path)
+            image = {
+                'src': opus_path,
+                'placement': 'hero'
+            }
+        notify(f"【{uname}】{action}", content,
+               on_click=url, image=image, icon=icon_path)
         DYNAMIC_DICT[uid].append(mblog_id)
         logger.debug(str(DYNAMIC_DICT[uid]), prefix, Fore.LIGHTYELLOW_EX)
-        push.push_for_weibo_dynamic(
-            uname, mblog_id, content, pic_url, url, dynamic_time)
 
 
 def get_headers(uid):

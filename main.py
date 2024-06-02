@@ -1,4 +1,3 @@
-from datetime import datetime
 import json
 import threading
 import os
@@ -8,8 +7,8 @@ from config import Config
 from logger import logger
 from query_weibo import query_weibodynamic, query_valid, USER_NAME_DICT
 from query_bili import query_bilidynamic, query_live_status_batch, DYNAMIC_NAME_DICT, LIVE_NAME_DICT, try_cookies
-from colorama import Fore, Style, init
-from util import notify
+from colorama import Fore, init
+from push import notify
 from reprint import output
 
 

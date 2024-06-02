@@ -3,14 +3,12 @@ import time
 import requests
 from requests.exceptions import RequestException
 from collections import deque
-from util import notify
+from push import notify
 from logger import logger
-from push import push
 # from PIL import Image
 from os.path import realpath, exists
 from colorama import Fore, Style
 from os import environ
-from random import choice
 from datetime import datetime
 
 
@@ -187,26 +185,23 @@ def query_bilidynamic(uid, cookie, msg):
             action = '发布投稿'
             content = card['title']
             pic_url = card['image_urls'][0]
-
         url = f'https://www.bilibili.com/opus/{dynamic_id}'
-        logger.info(f'【{uname}】{action}：{content}，url:{url}',
+        logger.info(f'【{uname}】{dynamic_time}：{action} {content}，url:{url}',
                     prefix, Fore.LIGHTGREEN_EX)
         if pic_url is None:
-            notify(f"【{uname}】{action}", content,
-                   icon=icon_path, on_click=url)
+            image = None
         else:
             get_icon(uid, pic_url, 'opus/')
             opus_path = realpath(f'icon/opus/bili_{uid}.jpg')
-            notify(f"【{uname}】{action}", content,
-                   on_click=url,
-                   image={
-                       'src': opus_path,
-                       'placement': 'hero'
-                   }, icon=icon_path)
+            image = {
+                'src': opus_path,
+                'placement': 'hero'
+            }
+        notify(f"【{uname}】{action}", content,
+               on_click=url, image=image,
+               icon=icon_path, pic_url=pic_url)
         DYNAMIC_DICT[uid].append(dynamic_id)
         logger.debug(str(DYNAMIC_DICT[uid]), prefix, Fore.LIGHTBLUE_EX)
-        push.push_for_bili_dynamic(
-            uname, dynamic_id, content, pic_url, dynamic_type, dynamic_time)
 
 
 # 此方法已废弃
@@ -329,7 +324,7 @@ def query_live_status_batch(uid_list, cookie, msg, special):
                        image={
                            'src': cover_path,
                            'placement': 'hero'
-                       }, icon=icon_path)
+                       }, icon=icon_path, pic_url=room_cover_url)
                 ROOM_COVER_DICT[uid] = room_cover_url
             if LIVING_STATUS_DICT[uid] != live_status:
                 LIVING_STATUS_DICT[uid] = live_status
@@ -337,23 +332,19 @@ def query_live_status_batch(uid_list, cookie, msg, special):
                     logger.info(f'【{uname}】【{room_title}】开播了',
                                 prefix, Fore.LIGHTGREEN_EX)
                     if uid in special:
-                        notify(f"【{uname}】开播了", room_title,
-                               on_click=url, scenario='alarm',
-                               audio={
-                                   'src': 'ms-winsoundevent:Notification.Looping.Alarm', 'loop': 'true'},
-                               image={
-                                   'src': cover_path,
-                                   'placement': 'hero'
-                               }, icon=icon_path)
+                        audio = {
+                            'src': 'ms-winsoundevent:Notification.Looping.Alarm',
+                            'loop': 'true'
+                        }
                     else:
-                        notify(f"【{uname}】开播了", room_title,
-                               on_click=url,
-                               image={
-                                   'src': cover_path,
-                                   'placement': 'hero'
-                               }, icon=icon_path)
-                    push.push_for_bili_live(
-                        uname, room_id, room_title, room_cover_url)
+                        audio = None
+                    notify(f"【{uname}】开播了", room_title,
+                           on_click=url, audio=audio,
+                           image={
+                               'src': cover_path,
+                               'placement': 'hero'
+                           }, icon=icon_path,
+                           pic_url=room_cover_url)
                 else:
                     logger.info(f'【{uname}】下播了', prefix, Fore.LIGHTGREEN_EX)
             elif live_status == 1:
