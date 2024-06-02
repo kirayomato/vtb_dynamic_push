@@ -77,6 +77,11 @@
 - `enable`是否启用钉钉bot推送
 - `access_token`机器人access_token，如果启用该推送，则必填
 
+`push_pushplus`下的参数
+
+- `enable`是否启用pushplus推送
+- `pushplus_token`推送token，如果启用该推送，则必填
+
 #### 2.填写cookies
 
 在`BiliCookies.json`文件中填写b站cookies，在`WeiboCookies.json`文件中填写微博cookies
