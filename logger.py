@@ -26,7 +26,7 @@ class mylogger:
         self.logger.addHandler(fh)
         self.error_count = deque()
 
-    def info(self, msg, prefix="", color=""):
+    def info(self, msg, prefix="", color=Fore.LIGHTGREEN_EX):
         msg = prefix+msg
         if color:
             msg = color+msg+Style.RESET_ALL

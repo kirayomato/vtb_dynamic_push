@@ -128,14 +128,14 @@ def query_bilidynamic(uid, cookie, msg):
     icon_path = realpath(f'icon/bili_{uid}.jpg')
     if face != USER_FACE_DICT[uid]:
         get_icon(uid, face)
-        logger.info(f'【{uname}】修改了头像', prefix, Fore.LIGHTGREEN_EX)
+        logger.info(f'【{uname}】修改了头像', prefix)
         notify(f'【{uname}】修改了头像', '', icon=icon_path,
                on_click=f'https://space.bilibili.com/{uid}', pic_url=face,
                )
         USER_FACE_DICT[uid] = face
     if sign != USER_SIGN_DICT[uid]:
         logger.info(f'【{uname}】修改了签名：【{USER_SIGN_DICT[uid]}】 -> 【{sign}】',
-                    prefix, Fore.LIGHTGREEN_EX)
+                    prefix)
         notify(f'【{uname}】修改了签名', f'【{USER_SIGN_DICT[uid]}】 -> 【{sign}】',
                icon=icon_path,
                on_click=f'https://space.bilibili.com/{uid}'
@@ -187,7 +187,7 @@ def query_bilidynamic(uid, cookie, msg):
             pic_url = card['image_urls'][0]
         url = f'https://www.bilibili.com/opus/{dynamic_id}'
         logger.info(f'【{uname}】{dynamic_time}：{action} {content}，url:{url}',
-                    prefix, Fore.LIGHTGREEN_EX)
+                    prefix)
         if pic_url is None:
             image = None
         else:
@@ -257,10 +257,10 @@ def query_live_status_batch(uid_list, cookie, msg, special):
         response = requests.post(
             query_url, headers=headers, data=data, cookies=cookie, timeout=5)
     except RequestException as e:
-        logger.error(f'网络错误 url:{query_url},error:{e}', prefix)
+        logger.warning(f'网络错误 url:{query_url},error:{e}', prefix)
         return
     if response.status_code != 200:
-        logger.error(
+        logger.warning(
             f'请求错误 url:{query_url} status:{response.status_code}', prefix)
         return
     try:
@@ -302,7 +302,7 @@ def query_live_status_batch(uid_list, cookie, msg, special):
                     get_icon(uid, keyframe, 'cover/')
                 if live_status == 1:
                     logger.info(f'【{uname}】【{room_title}】直播中',
-                                prefix, Fore.LIGHTGREEN_EX)
+                                prefix)
                 else:
                     logger.info(f'【{uname}】【{room_title}】未开播',
                                 prefix, Fore.CYAN)
@@ -313,13 +313,13 @@ def query_live_status_batch(uid_list, cookie, msg, special):
                 cover_path = ""
             if ROOM_TITLE_DICT[uid] != room_title:
                 logger.info(f'【{uname}】修改了直播间标题：【{ROOM_TITLE_DICT[uid]}】 -> 【{room_title}】',
-                            prefix, Fore.LIGHTGREEN_EX)
+                            prefix)
                 notify(f'【{uname}】修改了直播间标题', f'【{ROOM_TITLE_DICT[uid]}】->【{room_title}】',
                        icon=icon_path, on_click=url)
                 ROOM_TITLE_DICT[uid] = room_title
             if ROOM_COVER_DICT[uid] != room_cover_url and room_cover_url != '':
                 get_icon(uid, room_cover_url, 'cover/')
-                logger.info(f'【{uname}】修改了直播间封面', prefix, Fore.LIGHTGREEN_EX)
+                logger.info(f'【{uname}】修改了直播间封面', prefix)
                 notify(f'【{uname}】修改了直播间封面', '', on_click=url,
                        image={
                            'src': cover_path,
@@ -330,7 +330,7 @@ def query_live_status_batch(uid_list, cookie, msg, special):
                 LIVING_STATUS_DICT[uid] = live_status
                 if live_status == 1:
                     logger.info(f'【{uname}】【{room_title}】开播了',
-                                prefix, Fore.LIGHTGREEN_EX)
+                                prefix)
                     if uid in special:
                         audio = {
                             'src': 'ms-winsoundevent:Notification.Looping.Alarm',
@@ -346,10 +346,10 @@ def query_live_status_batch(uid_list, cookie, msg, special):
                            }, icon=icon_path,
                            pic_url=room_cover_url)
                 else:
-                    logger.info(f'【{uname}】下播了', prefix, Fore.LIGHTGREEN_EX)
+                    logger.info(f'【{uname}】下播了', prefix)
             elif live_status == 1:
                 logger.debug(f'【{uname}】【{room_title}】直播中',
-                             prefix, Fore.LIGHTGREEN_EX)
+                             prefix)
             else:
                 logger.debug(f'【{uname}】【{room_title}】未开播',
                              prefix, Fore.CYAN)

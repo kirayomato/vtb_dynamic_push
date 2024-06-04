@@ -18,11 +18,13 @@ DYNAMIC_DICT = {}
 USER_FACE_DICT = {}
 USER_SIGN_DICT = {}
 USER_NAME_DICT = {}
+USER_COUNT_DICT = {}
 LEN_OF_DEQUE = 20
 proxies = {
     "http": "",
     "https": "",
 }
+prefix = '【查询微博状态】'
 
 
 def get_icon(uid, face, path=''):
@@ -54,7 +56,6 @@ def get_icon(uid, face, path=''):
 
 
 def query_valid(uid, cookie):
-    prefix = '【查询微博状态】'
     query_url = 'https://m.weibo.cn/api/container/getIndex?type=uid&value={uid}&containerid=107603{uid}&count=25'.format(
         uid=uid)
     headers = get_headers(uid)
@@ -79,7 +80,6 @@ def query_weibodynamic(uid, cookie, msg):
         msg[1] = datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' - ' + \
             Fore.LIGHTYELLOW_EX + '休眠中' + Style.RESET_ALL
         time.sleep(t)
-    prefix = '【查询微博状态】'
     if uid is None:
         return
     query_url = 'https://m.weibo.cn/api/container/getIndex?type=uid&value={uid}&containerid=107603{uid}&count=25'.format(
@@ -94,7 +94,7 @@ def query_weibodynamic(uid, cookie, msg):
         return
     if response.status_code != 200:
         logger.warning(
-            Fore.RED+f'请求错误 url:{query_url},status:{response.status_code}，{response.reason},休眠一分钟', prefix)
+            f'请求错误 url:{query_url},status:{response.status_code}，{response.reason},休眠一分钟', prefix)
         sleep(60)
         return
     result = json.loads(str(response.content, 'utf-8'))
@@ -102,7 +102,7 @@ def query_weibodynamic(uid, cookie, msg):
     n = len(cards)
     if n == 0:
         if DYNAMIC_DICT.get(uid, None) is not None:
-            logger.warning(f'【{uid}】微博列表为空', prefix, Fore.YELLOW)
+            logger.warning(f'【{uid}】微博列表为空', prefix)
         return
     # 跳过置顶
     for i in range(n):
@@ -119,11 +119,10 @@ def query_weibodynamic(uid, cookie, msg):
         face = user['profile_image_url']
         face = face[:face.find('?')]
         sign = user['description']
+        total = result['data']['cardlistInfo']['total']
     except KeyError:
         logger.error(f'【{uid}】返回数据不完整,休眠一分钟, url:{query_url}', prefix)
         sleep(60)
-        msg[1] = datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' - ' + \
-            Fore.LIGHTYELLOW_EX + '休眠中' + Style.RESET_ALL
         return
     msg[1] = datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' - ' + \
         Fore.LIGHTYELLOW_EX+f'查询{uname}微博' + Style.RESET_ALL
@@ -132,6 +131,7 @@ def query_weibodynamic(uid, cookie, msg):
         USER_FACE_DICT[uid] = face
         USER_SIGN_DICT[uid] = sign
         USER_NAME_DICT[uid] = uname
+        USER_COUNT_DICT[uid] = total
         get_icon(uid, face)
         for index in range(LEN_OF_DEQUE):
             if index < len(cards):
@@ -148,17 +148,21 @@ def query_weibodynamic(uid, cookie, msg):
     icon_path = realpath(f'icon/wb_{uid}.jpg')
     if face != USER_FACE_DICT[uid]:
         get_icon(uid, face)
-        logger.info(f'【{uname}】修改了头像', prefix, Fore.LIGHTGREEN_EX)
+        logger.info(f'【{uname}】修改了头像', prefix)
         notify(f'【{uname}】修改了头像', '', icon=icon_path,
                on_click=f'https://m.weibo.cn/profile/{uid}')
         USER_FACE_DICT[uid] = face
     if sign != USER_SIGN_DICT[uid]:
-        logger.info(f'【查询动态状态】【{uname}】修改了签名：【{USER_SIGN_DICT[uid]}】 -> 【{sign}】',
-                    prefix, Fore.LIGHTGREEN_EX)
+        logger.info(f'【{uname}】修改了签名：【{USER_SIGN_DICT[uid]}】 -> 【{sign}】',
+                    prefix)
         notify(f'【{uname}】修改了签名', f'【{USER_SIGN_DICT[uid]}】 -> 【{sign}】',
                icon=icon_path,
                on_click=f'https://m.weibo.cn/profile/{uid}')
         USER_SIGN_DICT[uid] = sign
+    if total != USER_COUNT_DICT[uid]:
+        logger.info(f'【{uname}】微博数量变化：{USER_COUNT_DICT[uid]} -> {total}',
+                    prefix)
+        USER_COUNT_DICT[uid] = total
     if mblog_id not in DYNAMIC_DICT[uid]:
         # card_type = card['card_type']
         # if card_type not in [9]:
@@ -193,7 +197,7 @@ def query_weibodynamic(uid, cookie, msg):
 
         url = card['scheme']
         logger.info(f'【{uname}】{dynamic_time}：{action} {content}，url:{url}',
-                    prefix, Fore.LIGHTGREEN_EX)
+                    prefix)
         if pic_url is None:
             image = None
         else:
