@@ -77,7 +77,7 @@ def query_valid(uid, cookie):
 def query_weibodynamic(uid, cookie, msg):
     def sleep(t):
         msg[1] = datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' - ' + \
-            Fore.LIGHTBLUE_EX + '休眠中' + Style.RESET_ALL
+            Fore.LIGHTYELLOW_EX + '休眠中' + Style.RESET_ALL
         time.sleep(t)
     prefix = '【查询微博状态】'
     if uid is None:
@@ -91,15 +91,11 @@ def query_weibodynamic(uid, cookie, msg):
     except RequestException as e:
         logger.warning(f'网络错误 url:{query_url},error:{e},休眠一分钟', prefix)
         sleep(60)
-        msg[1] = datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' - ' + \
-            Fore.LIGHTYELLOW_EX + '休眠中' + Style.RESET_ALL
         return
     if response.status_code != 200:
         logger.warning(
             Fore.RED+f'请求错误 url:{query_url},status:{response.status_code}，{response.reason},休眠一分钟', prefix)
         sleep(60)
-        msg[1] = datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' - ' + \
-            Fore.LIGHTYELLOW_EX + '休眠中' + Style.RESET_ALL
         return
     result = json.loads(str(response.content, 'utf-8'))
     cards = result['data']['cards']
