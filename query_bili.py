@@ -46,7 +46,7 @@ def get_icon(uid, face, path=''):
     try:
         r = requests.get(face, timeout=5)
     except RequestException as e:
-        logger.error(f'网络错误 url:{face},error:{e}', '【下载B站图片】')
+        logger.warning(f'网络错误 url:{face},error:{e}', '【下载B站图片】')
         return
     with open(icon, 'wb') as f:
         f.write(r.content)
@@ -71,11 +71,11 @@ def query_bilidynamic(uid, cookie, msg):
         response = requests.get(query_url, headers=headers,
                                 cookies=cookie, proxies=proxies, timeout=5)
     except RequestException as e:
-        logger.error(f'网络错误 url:{query_url},error:{e}，休眠一分钟', prefix)
+        logger.warning(f'网络错误 url:{query_url},error:{e}，休眠一分钟', prefix)
         sleep(60)
         return
     if response.status_code != 200:
-        logger.error(
+        logger.warning(
             f'请求错误 url:{query_url}，status:{response.status_code}，{response.reason}，休眠一分钟', prefix)
         sleep(60)
         return
@@ -129,8 +129,8 @@ def query_bilidynamic(uid, cookie, msg):
     if face != USER_FACE_DICT[uid]:
         get_icon(uid, face)
         logger.info(f'【{uname}】修改了头像', prefix, Fore.LIGHTGREEN_EX)
-        notify(f'【{uname}】修改了头像', '',
-               icon=icon_path, on_click=f'https://space.bilibili.com/{uid}'
+        notify(f'【{uname}】修改了头像', '', icon=icon_path,
+               on_click=f'https://space.bilibili.com/{uid}', pic_url=face,
                )
         USER_FACE_DICT[uid] = face
     if sign != USER_SIGN_DICT[uid]:

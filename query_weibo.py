@@ -43,7 +43,7 @@ def get_icon(uid, face, path=''):
     try:
         r = requests.get(face, headers=headrs, timeout=5)
     except RequestException as e:
-        logger.error(f'网络错误 url:{face},error:{e}', '【下载微博图片】')
+        logger.warning(f'网络错误 url:{face},error:{e}', '【下载微博图片】')
         return
     with open(icon, 'wb') as f:
         f.write(r.content)
@@ -62,14 +62,14 @@ def query_valid(uid, cookie):
         response = requests.get(query_url, headers=headers,
                                 cookies=cookie, proxies=proxies, timeout=5)
     except RequestException as e:
-        logger.error(f'网络错误 url:{query_url},error:{e}', prefix)
+        logger.warning(f'网络错误 url:{query_url},error:{e}', prefix)
         return True
     if response.status_code == 200:
         result = json.loads(str(response.content, 'utf-8'))
         cards = result['data']['cards']
         return len(cards) > 5
     else:
-        logger.error(
+        logger.warning(
             f'请求错误 url:{query_url},status:{response.status_code}', prefix)
         return True
 
@@ -89,15 +89,15 @@ def query_weibodynamic(uid, cookie, msg):
         response = requests.get(query_url, headers=headers,
                                 cookies=cookie, proxies=proxies, timeout=5)
     except RequestException as e:
-        logger.error(f'网络错误 url:{query_url},error:{e},休眠一分钟', prefix)
+        logger.warning(f'网络错误 url:{query_url},error:{e},休眠一分钟', prefix)
         sleep(60)
         msg[1] = datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' - ' + \
             Fore.LIGHTYELLOW_EX + '休眠中' + Style.RESET_ALL
         return
     if response.status_code != 200:
-        logger.error(
-            Fore.RED+f'请求错误 url:{query_url},status:{response.status_code}，{response.reason},休眠三分钟', prefix)
-        sleep(180)
+        logger.warning(
+            Fore.RED+f'请求错误 url:{query_url},status:{response.status_code}，{response.reason},休眠一分钟', prefix)
+        sleep(60)
         msg[1] = datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' - ' + \
             Fore.LIGHTYELLOW_EX + '休眠中' + Style.RESET_ALL
         return
@@ -124,7 +124,7 @@ def query_weibodynamic(uid, cookie, msg):
         face = face[:face.find('?')]
         sign = user['description']
     except KeyError:
-        logger.error(f'【{uid}】返回数据不完整, url:{query_url}', prefix)
+        logger.error(f'【{uid}】返回数据不完整,休眠一分钟, url:{query_url}', prefix)
         sleep(60)
         msg[1] = datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' - ' + \
             Fore.LIGHTYELLOW_EX + '休眠中' + Style.RESET_ALL
