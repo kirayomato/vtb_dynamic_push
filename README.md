@@ -53,17 +53,10 @@
 - `special_list`特别关注列表，在其中的up主开播时推送将会增加响铃，需要同时填写在`live_uid_list`中
 - `live_intervals_second`为直播扫描间隔秒数，不建议设置太频繁，否则可能触发风控
 
-以下推送渠道继承自原项目未进行修改，应该能够正常使用，但是因为我用不上所以没有测试
-
 `push_serverChan`下的参数
 
 - `enable`是否启用serverChan推送
-- `serverChan_SCKEY`如果启用该推送，则必填，参考 http://sc.ftqq.com/3.version
-
-`push_serverChan_turbo`下的参数
-
-- `enable`是否启用serverChan_Turbo推送
-- `serverChan_SendKey`如果启用该推送，则必填，参考 https://sct.ftqq.com
+- `serverChan_SCKEY`如果启用该推送，则必填，参考 https://sct.ftqq.com
 
 `push_wechat`下的参数
 

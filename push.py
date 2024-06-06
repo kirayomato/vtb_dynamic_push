@@ -99,10 +99,10 @@ def check_response_is_ok(response=None):
 
 
 class Push(object):
+    pushplus_enable = None
+    pushplus_token = None
     serverChan_enable = None
     serverChan_sckey = None
-    serverChan_turbo_enable = None
-    serverChan_turbo_SendKey = None
     wechat_enable = None
     wechat_corp_id = None
     wechat_agent_id = None
@@ -115,19 +115,18 @@ class Push(object):
             'push_pushplus', 'enable')
         self.pushplus_token = global_config.get_raw(
             'push_pushplus', 'pushplus_token')
+
         self.serverChan_enable = global_config.get_raw(
             'push_serverChan', 'enable')
         self.serverChan_sckey = global_config.get_raw(
             'push_serverChan', 'serverChan_SCKEY')
-        self.serverChan_turbo_enable = global_config.get_raw(
-            'push_serverChan_turbo', 'enable')
-        self.serverChan_turbo_SendKey = global_config.get_raw(
-            'push_serverChan_turbo', 'serverChan_SendKey')
+
         self.wechat_enable = global_config.get_raw('push_wechat', 'enable')
         self.wechat_corp_id = global_config.get_raw('push_wechat', 'corp_id')
         self.wechat_agent_id = global_config.get_raw('push_wechat', 'agent_id')
         self.wechat_corp_secret = global_config.get_raw(
             'push_wechat', 'corp_secret')
+
         self.dingtalk_enable = global_config.get_raw('push_dingtalk', 'enable')
         self.dingtalk_access_token = global_config.get_raw(
             'push_dingtalk', 'access_token')
@@ -141,24 +140,26 @@ class Push(object):
         """
         if self.pushplus_enable == 'true':
             self._push_plus_push(title, content, jump_url, pic_url)
+
         if self.serverChan_enable == 'true':
             self._server_chan_push(title, content, jump_url)
-        if self.serverChan_turbo_enable == 'true':
-            self._server_chan_turbo_push(title, content, jump_url)
+
         if self.wechat_enable == 'true':
             access_token = self._get_wechat_access_token()
             self._wechat_push(access_token, title, content, jump_url, pic_url)
+
         if self.dingtalk_enable == 'true':
             self._dingtalk_push(title, content, jump_url, pic_url)
 
     def _push_plus_push(self, title, content, url=None, pic_url=None):
         """
         推送(pushplus)
-        :param title: 标题
-        :param content: 内容
-        :param url: 跳转地址
+        :title: 标题
+        :content: 内容
+        :url: 跳转地址
+        :pic_url：图片地址
         """
-        content += f'<br/>[点我直达]({url})'
+        content += f'<br/>[链接]({url})'
         if pic_url:
             content += f"<br/><br/><img src='{pic_url}'/>"
         body = {
@@ -174,35 +175,26 @@ class Push(object):
         else:
             logger.error('pushplus推送失败', prefix)
 
-    def _server_chan_push(self, title, content, url=None):
+    def _server_chan_push(self, title, content, url=None, pic_url=None):
         """
         推送(serverChan)
-        :param title: 标题
-        :param content: 内容
-        :param url: 跳转地址
+        :title: 标题
+        :content: 内容
+        :url: 跳转地址
         """
-        content = '`' + content + '`[点我直达]({url})'.format(url=url)
-        push_url = 'https://sc.ftqq.com/{key}.send'.format(
-            key=self.serverChan_sckey)
-        response = requests_post(push_url, '推送_serverChan', params={
-            "text": title, "desp": content})
-        logger.info('【推送_serverChan】{msg}'.format(
-            msg='成功' if check_response_is_ok(response) else '失败'))
-
-    def _server_chan_turbo_push(self, title, content, url=None):
-        """
-        推送(serverChan_Turbo)
-        :param title: 标题
-        :param content: 内容
-        :param url: 跳转地址
-        """
-        content = '`' + content + '`[点我直达]({url})'.format(url=url)
-        push_url = 'https://sctapi.ftqq.com/{key}.send'.format(
-            key=self.serverChan_turbo_SendKey)
-        response = requests_post(push_url, '推送_serverChan_Turbo', params={
-            "title": title, "desp": content})
-        logger.info('【推送_serverChan_Turbo】{msg}'.format(
-            msg='成功' if check_response_is_ok(response) else '失败'))
+        content += f'\n\n[链接]({url})'
+        if pic_url:
+            content += f"\n\n![Image]({pic_url})"
+        body = {
+            "title": f"{title}",
+            "desp": f"{content}"
+        }
+        push_url = f'https://sctapi.ftqq.com/{self.serverChan_sckey}.send'
+        response = requests.post(push_url, params=body)
+        if check_response_is_ok(response):
+            logger.info('server_chan推送成功', prefix)
+        else:
+            logger.error('server_chan推送失败', prefix)
 
     def _get_wechat_access_token(self):
         access_token = None

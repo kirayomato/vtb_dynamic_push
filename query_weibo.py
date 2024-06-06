@@ -61,7 +61,7 @@ def query_valid(uid, cookie):
     headers = get_headers(uid)
     try:
         response = requests.get(query_url, headers=headers,
-                                cookies=cookie, proxies=proxies, timeout=5)
+                                cookies=cookie, proxies=proxies, timeout=10)
     except RequestException as e:
         logger.warning(f'网络错误 url:{query_url},error:{e}', prefix)
         return True
@@ -87,7 +87,7 @@ def query_weibodynamic(uid, cookie, msg):
     headers = get_headers(uid)
     try:
         response = requests.get(query_url, headers=headers,
-                                cookies=cookie, proxies=proxies, timeout=5)
+                                cookies=cookie, proxies=proxies, timeout=10)
     except RequestException as e:
         logger.warning(f'网络错误 url:{query_url},error:{e},休眠一分钟', prefix)
         sleep(60)

@@ -301,11 +301,10 @@ def query_live_status_batch(uid_list, cookie, msg, special):
                 elif keyframe != '':
                     get_icon(uid, keyframe, 'cover/')
                 if live_status == 1:
-                    logger.info(f'【{uname}】【{room_title}】直播中',
-                                prefix)
+                    logger.info(f'【{uname}】【{room_title}】直播中', prefix)
                 else:
-                    logger.info(f'【{uname}】【{room_title}】未开播',
-                                prefix, Fore.CYAN)
+                    logger.info(f'【{uname}】【{room_title}】未开播', prefix,
+                                Fore.CYAN)
                 continue
             icon_path = realpath(f'icon/bili_{uid}.jpg')
             cover_path = realpath(f'icon/cover/bili_{uid}.jpg')
@@ -348,11 +347,10 @@ def query_live_status_batch(uid_list, cookie, msg, special):
                 else:
                     logger.info(f'【{uname}】下播了', prefix)
             elif live_status == 1:
-                logger.debug(f'【{uname}】【{room_title}】直播中',
-                             prefix)
+                logger.debug(f'【{uname}】【{room_title}】直播中', prefix)
             else:
-                logger.debug(f'【{uname}】【{room_title}】未开播',
-                             prefix, Fore.CYAN)
+                logger.debug(f'【{uname}】【{room_title}】未开播', prefix,
+                             Fore.CYAN)
 
 
 def get_headers(uid):
