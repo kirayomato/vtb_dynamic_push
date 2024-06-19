@@ -101,8 +101,8 @@ def query_weibodynamic(uid, cookie, msg):
     cards = result['data']['cards']
     n = len(cards)
     if n == 0:
-        if DYNAMIC_DICT.get(uid, None) is not None:
-            logger.warning(f'【{uid}】微博列表为空', prefix)
+        if DYNAMIC_DICT.get(uid, None) is None:
+            logger.debug(f'【{uid}】微博列表为空', prefix)
         return
     # 跳过置顶
     for i in range(n):
@@ -160,57 +160,66 @@ def query_weibodynamic(uid, cookie, msg):
                on_click=f'https://m.weibo.cn/profile/{uid}')
         USER_SIGN_DICT[uid] = sign
     if total != USER_COUNT_DICT[uid]:
-        logger.info(f'【{uname}】微博数量变化：{USER_COUNT_DICT[uid]} -> {total}',
-                    prefix)
+        _total = USER_COUNT_DICT[uid]
         USER_COUNT_DICT[uid] = total
-    if mblog_id not in DYNAMIC_DICT[uid]:
-        # card_type = card['card_type']
-        # if card_type not in [9]:
-        #     logger.info(f'【{uname}】微博有更新，但不在需要推送的微博类型列表中',
-        #                 prefix, Fore.LIGHTYELLOW_EX)
-        #     return
-
-        # 如果微博发送日期早于昨天，则跳过（既能避免因api返回历史内容导致的误推送，也可以兼顾到前一天停止检测后产生的微博）
-        created_at = time.strptime(
-            mblog['created_at'], '%a %b %d %H:%M:%S %z %Y')
-        created_at_ts = time.mktime(created_at)
-        yesterday = (datetime.now() +
-                     timedelta(days=-1)).strftime("%Y-%m-%d")
-        yesterday_ts = time.mktime(time.strptime(yesterday, '%Y-%m-%d'))
-        if created_at_ts < yesterday_ts:
-            logger.info(f'【{uname}】微博有更新，但微博发送时间早于今天，可能是历史微博，不予推送',
-                        prefix, Fore.LIGHTYELLOW_EX)
-            DYNAMIC_DICT[uid].append(mblog_id)
-            return
-        dynamic_time = time.strftime('%Y-%m-%d %H:%M:%S', created_at)
-        action = '微博更新'
-        text = mblog['text']
-        text = re.sub(r'<[^>]+>', '', text)
-        content = mblog['raw_text'] if mblog.get(
-            'raw_text', None) is not None else text
-        pic_url = mblog.get('original_pic', None)
-        if 'retweeted_status' in mblog:
-            action = '转发微博'
-            pic_url = mblog['retweeted_status'].get('original_pic', None)
-            if not pic_url and 'page_info' in mblog['retweeted_status']:
-                pic_url = mblog['retweeted_status']['page_info']['page_pic']['url']
-
-        url = card['scheme']
-        logger.info(f'【{uname}】{dynamic_time}：{action} {content}，url:{url}',
-                    prefix)
-        if pic_url is None:
-            image = None
+        if mblog_id in DYNAMIC_DICT[uid]:
+            if _total > total:
+                action = '删除了微博'
+            else:
+                action = '发布了微博，但未能抓取'
+            logger.info(f'【{uname}】{action}：{_total} -> {total}',
+                        prefix)
+            notify(f'【{uname}】{action}', f'{_total} -> {total}',
+                   icon=icon_path,
+                   on_click=f'https://m.weibo.cn/profile/{uid}')
         else:
-            get_icon(uid, pic_url, 'opus/')
-            opus_path = realpath(f'icon/opus/wb_{uid}.jpg')
-            image = {
-                'src': opus_path,
-                'placement': 'hero'
-            }
-        notify(f"【{uname}】{action}", content,
-               on_click=url, image=image, icon=icon_path)
-        DYNAMIC_DICT[uid].append(mblog_id)
-        logger.debug(str(DYNAMIC_DICT[uid]), prefix, Fore.LIGHTYELLOW_EX)
+            # card_type = card['card_type']
+            # if card_type not in [9]:
+            #     logger.info(f'【{uname}】微博有更新，但不在需要推送的微博类型列表中',
+            #                 prefix, Fore.LIGHTYELLOW_EX)
+            #     return
+
+            # 如果微博发送日期早于昨天，则跳过（既能避免因api返回历史内容导致的误推送，也可以兼顾到前一天停止检测后产生的微博）
+            created_at = time.strptime(
+                mblog['created_at'], '%a %b %d %H:%M:%S %z %Y')
+            created_at_ts = time.mktime(created_at)
+            yesterday = (datetime.now() +
+                         timedelta(days=-1)).strftime("%Y-%m-%d")
+            yesterday_ts = time.mktime(time.strptime(yesterday, '%Y-%m-%d'))
+            if created_at_ts < yesterday_ts:
+                logger.info(f'【{uname}】微博有更新，但微博发送时间早于今天，可能是历史微博，不予推送',
+                            prefix, Fore.LIGHTYELLOW_EX)
+                DYNAMIC_DICT[uid].append(mblog_id)
+                return
+            dynamic_time = time.strftime('%Y-%m-%d %H:%M:%S', created_at)
+            action = '微博更新'
+            text = mblog['text']
+            text = re.sub(r'<[^>]+>', '', text)
+            content = mblog['raw_text'] if mblog.get(
+                'raw_text', None) is not None else text
+            pic_url = mblog.get('original_pic', None)
+            if 'retweeted_status' in mblog:
+                action = '转发微博'
+                pic_url = mblog['retweeted_status'].get('original_pic', None)
+                if not pic_url and 'page_info' in mblog['retweeted_status']:
+                    pic_url = mblog['retweeted_status']['page_info']['page_pic']['url']
+
+            url = card['scheme']
+            logger.info(f'【{uname}】{dynamic_time}：{action} {content}，url:{url}',
+                        prefix)
+            if pic_url is None:
+                image = None
+            else:
+                get_icon(uid, pic_url, 'opus/')
+                opus_path = realpath(f'icon/opus/wb_{uid}.jpg')
+                image = {
+                    'src': opus_path,
+                    'placement': 'hero'
+                }
+            notify(f"【{uname}】{action}", content,
+                   on_click=url, image=image, icon=icon_path)
+            DYNAMIC_DICT[uid].append(mblog_id)
+            logger.debug(str(DYNAMIC_DICT[uid]), prefix, Fore.LIGHTYELLOW_EX)
 
 
 def get_headers(uid):

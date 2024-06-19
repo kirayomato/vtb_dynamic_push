@@ -75,9 +75,10 @@ def query_bilidynamic(uid, cookie, msg):
         sleep(60)
         return
     if response.status_code != 200:
-        logger.warning(
-            f'请求错误 url:{query_url}，status:{response.status_code}，{response.reason}，休眠一分钟', prefix)
-        sleep(60)
+        if response.status_code != 429:
+            logger.warning(
+                f'请求错误 url:{query_url}，status:{response.status_code}，{response.reason}，休眠一分钟', prefix)
+            sleep(60)
         return
     try:
         result = json.loads(str(response.content, 'utf-8'))

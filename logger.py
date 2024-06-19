@@ -20,7 +20,7 @@ class mylogger:
         if not os.path.exists('log'):
             os.mkdir('log')
         fh = TimedRotatingFileHandler(
-            filename='log/vtb_dynamic.log', encoding='utf-8', when="midnight", interval=1, backupCount=7)
+            filename='log/vtb_dynamic.log', encoding='utf-8', when="midnight", interval=1, backupCount=30)
         fh.setLevel(logging.INFO)
         fh.setFormatter(formatter)
         self.logger.addHandler(fh)
@@ -51,7 +51,7 @@ class mylogger:
             self.error_count.popleft()
         if len(self.error_count) == 10:
             from push import notify
-            notify('检测到大量报错', f'累计报错{len(self.error_count)}次，请检查运行状态')
+            notify('检测到大量报错', f'一小时内累计报错{len(self.error_count)}次，请检查运行状态')
 
         if color:
             msg = color+msg+Style.RESET_ALL
