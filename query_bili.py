@@ -129,15 +129,15 @@ def query_bilidynamic(uid, cookie, msg):
     icon_path = realpath(f'icon/bili_{uid}.jpg')
     if face != USER_FACE_DICT[uid]:
         get_icon(uid, face)
-        logger.info(f'【{uname}】修改了头像', prefix)
-        notify(f'【{uname}】修改了头像', '', icon=icon_path,
+        logger.info(f'【{uname}】更改了头像', prefix)
+        notify(f'【{uname}】更改了头像', '', icon=icon_path,
                on_click=f'https://space.bilibili.com/{uid}', pic_url=face,
                )
         USER_FACE_DICT[uid] = face
     if sign != USER_SIGN_DICT[uid]:
-        logger.info(f'【{uname}】修改了签名：【{USER_SIGN_DICT[uid]}】 -> 【{sign}】',
+        logger.info(f'【{uname}】更改了签名：【{USER_SIGN_DICT[uid]}】 -> 【{sign}】',
                     prefix)
-        notify(f'【{uname}】修改了签名', f'【{USER_SIGN_DICT[uid]}】 -> 【{sign}】',
+        notify(f'【{uname}】更改了签名', f'【{USER_SIGN_DICT[uid]}】 -> 【{sign}】',
                icon=icon_path,
                on_click=f'https://space.bilibili.com/{uid}'
                )
@@ -312,15 +312,15 @@ def query_live_status_batch(uid_list, cookie, msg, special):
             if not exists(cover_path):
                 cover_path = ""
             if ROOM_TITLE_DICT[uid] != room_title:
-                logger.info(f'【{uname}】修改了直播间标题：【{ROOM_TITLE_DICT[uid]}】 -> 【{room_title}】',
+                logger.info(f'【{uname}】更改了直播间标题：【{ROOM_TITLE_DICT[uid]}】 -> 【{room_title}】',
                             prefix)
-                notify(f'【{uname}】修改了直播间标题', f'【{ROOM_TITLE_DICT[uid]}】->【{room_title}】',
+                notify(f'【{uname}】更改了直播间标题', f'【{ROOM_TITLE_DICT[uid]}】->【{room_title}】',
                        icon=icon_path, on_click=url)
                 ROOM_TITLE_DICT[uid] = room_title
             if ROOM_COVER_DICT[uid] != room_cover_url and room_cover_url != '':
                 get_icon(uid, room_cover_url, 'cover/')
-                logger.info(f'【{uname}】修改了直播间封面', prefix)
-                notify(f'【{uname}】修改了直播间封面', '', on_click=url,
+                logger.info(f'【{uname}】更改了直播间封面', prefix)
+                notify(f'【{uname}】更改了直播间封面', '', on_click=url,
                        image={
                            'src': cover_path,
                            'placement': 'hero'
