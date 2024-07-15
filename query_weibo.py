@@ -56,8 +56,7 @@ def get_icon(uid, face, path=''):
 
 
 def query_valid(uid, cookie):
-    query_url = 'https://m.weibo.cn/api/container/getIndex?type=uid&value={uid}&containerid=107603{uid}&count=25'.format(
-        uid=uid)
+    query_url = f'https://m.weibo.cn/api/container/getIndex?type=uid&value={uid}&containerid=107603{uid}&count=25'
     headers = get_headers(uid)
     try:
         response = requests.get(query_url, headers=headers,
@@ -82,8 +81,7 @@ def query_weibodynamic(uid, cookie, msg):
         time.sleep(t)
     if uid is None:
         return
-    query_url = 'https://m.weibo.cn/api/container/getIndex?type=uid&value={uid}&containerid=107603{uid}&count=25'.format(
-        uid=uid)
+    query_url = f'https://m.weibo.cn/api/container/getIndex?type=uid&value={uid}&containerid=107603{uid}&count=25'
     headers = get_headers(uid)
     try:
         response = requests.get(query_url, headers=headers,
@@ -159,7 +157,7 @@ def query_weibodynamic(uid, cookie, msg):
                icon=icon_path,
                on_click=f'https://m.weibo.cn/profile/{uid}')
         USER_SIGN_DICT[uid] = sign
-    if total != USER_COUNT_DICT[uid]:
+    if total != USER_COUNT_DICT[uid] or mblog_id not in DYNAMIC_DICT[uid]:
         _total = USER_COUNT_DICT[uid]
         USER_COUNT_DICT[uid] = total
         if mblog_id in DYNAMIC_DICT[uid]:
