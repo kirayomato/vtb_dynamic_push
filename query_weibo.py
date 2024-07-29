@@ -8,7 +8,7 @@ from logger import logger
 import requests
 from requests.exceptions import RequestException
 # from PIL import Image
-from os.path import realpath
+from os.path import realpath, exists
 from colorama import Fore, Style
 from os import environ
 
@@ -27,7 +27,7 @@ proxies = {
 prefix = '【查询微博状态】'
 
 
-def get_icon(uid, face, path=''):
+def get_icon(uid, face, path='', retry=0):
     headrs = {
         'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
         'Accept-Encoding': 'gzip, deflate, br',
@@ -41,12 +41,19 @@ def get_icon(uid, face, path=''):
         'Sec-Fetch-Site': 'cross-site',
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
     }
-    icon = f'icon/{path}wb_{uid}.jpg'
+    name = list(face.split('/'))[-1]
+    icon = f'icon/{path}{name}'
+    if exists(icon):
+        return realpath(icon)
     try:
-        r = requests.get(face, headers=headrs, timeout=5)
+        r = requests.get(face, headers=headrs, proxies=proxies, timeout=10)
     except RequestException as e:
         logger.warning(f'网络错误 url:{face},error:{e}', '【下载微博图片】')
-        return
+        if retry == 5:
+            return None
+        else:
+            time.sleep(retry+1)
+            return get_icon(uid, face, path, retry+1)
     with open(icon, 'wb') as f:
         f.write(r.content)
     # img = Image.open(icon)
@@ -56,7 +63,8 @@ def get_icon(uid, face, path=''):
 
 
 def query_valid(uid, cookie):
-    query_url = f'https://m.weibo.cn/api/container/getIndex?type=uid&value={uid}&containerid=107603{uid}&count=25'
+    query_url = 'https://m.weibo.cn/api/container/getIndex?type=uid&value={uid}&containerid=107603{uid}&count=25'.format(
+        uid=uid)
     headers = get_headers(uid)
     try:
         response = requests.get(query_url, headers=headers,
@@ -81,7 +89,7 @@ def query_weibodynamic(uid, cookie, msg):
         time.sleep(t)
     if uid is None:
         return
-    query_url = f'https://m.weibo.cn/api/container/getIndex?type=uid&value={uid}&containerid=107603{uid}&count=25'
+    query_url = f'https://m.weibo.cn/api/container/getIndex?type=uid&value={uid}&containerid=107603{uid}&count=100'
     headers = get_headers(uid)
     try:
         response = requests.get(query_url, headers=headers,
@@ -119,7 +127,8 @@ def query_weibodynamic(uid, cookie, msg):
         sign = user['description']
         total = result['data']['cardlistInfo']['total']
     except KeyError:
-        logger.error(f'【{uid}】返回数据不完整,休眠一分钟, url:{query_url}', prefix)
+        logger.error(
+            f'【{uid}】返回数据不完整,休眠一分钟, url:{query_url}\ndata:{result}', prefix)
         sleep(60)
         return
     msg[1] = datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' - ' + \
@@ -130,7 +139,6 @@ def query_weibodynamic(uid, cookie, msg):
         USER_SIGN_DICT[uid] = sign
         USER_NAME_DICT[uid] = uname
         USER_COUNT_DICT[uid] = total
-        get_icon(uid, face)
         for index in range(LEN_OF_DEQUE):
             if index < len(cards):
                 if cards[index]['card_type'] != 9:
@@ -143,9 +151,8 @@ def query_weibodynamic(uid, cookie, msg):
         return
     logger.debug(f'【{uname}】上一条微博id[{DYNAMIC_DICT[uid][-1]}]，本条微博id[{mblog_id}]',
                  prefix, Fore.LIGHTYELLOW_EX)
-    icon_path = realpath(f'icon/wb_{uid}.jpg')
+    icon_path = get_icon(uid, face)
     if face != USER_FACE_DICT[uid]:
-        get_icon(uid, face)
         logger.info(f'【{uname}】更改了头像', prefix)
         notify(f'【{uname}】更改了头像', '', icon=icon_path,
                on_click=f'https://m.weibo.cn/profile/{uid}')
@@ -157,7 +164,7 @@ def query_weibodynamic(uid, cookie, msg):
                icon=icon_path,
                on_click=f'https://m.weibo.cn/profile/{uid}')
         USER_SIGN_DICT[uid] = sign
-    if total != USER_COUNT_DICT[uid] or mblog_id not in DYNAMIC_DICT[uid]:
+    if total != USER_COUNT_DICT[uid]:
         _total = USER_COUNT_DICT[uid]
         USER_COUNT_DICT[uid] = total
         if mblog_id in DYNAMIC_DICT[uid]:
@@ -208,8 +215,7 @@ def query_weibodynamic(uid, cookie, msg):
             if pic_url is None:
                 image = None
             else:
-                get_icon(uid, pic_url, 'opus/')
-                opus_path = realpath(f'icon/opus/wb_{uid}.jpg')
+                opus_path = get_icon(uid, pic_url, 'opus/')
                 image = {
                     'src': opus_path,
                     'placement': 'hero'

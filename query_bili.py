@@ -34,20 +34,28 @@ def try_cookies(cookies=None):
     headers = get_headers(uid)
     try:
         response = requests.get(
-            query_url, cookies=cookies, headers=headers, proxies=proxies, timeout=5)
+            query_url, cookies=cookies, headers=headers, proxies=proxies, timeout=10)
         result = json.loads(str(response.content, 'utf-8'))
         return result['data']['cards'] is not None
     except:
         return False
 
 
-def get_icon(uid, face, path=''):
-    icon = f'icon/{path}bili_{uid}.jpg'
+def get_icon(uid, face, path='', retry=0):
+    name = list(face.split('/'))[-1]
+    icon = f'icon/{path}{name}'
+    if exists(icon):
+        return realpath(icon)
     try:
-        r = requests.get(face, timeout=5)
+        headers = get_headers(uid)
+        r = requests.get(face, headers=headers, proxies=proxies, timeout=10)
     except RequestException as e:
         logger.warning(f'网络错误 url:{face},error:{e}', '【下载B站图片】')
-        return
+        if retry == 5:
+            return None
+        else:
+            time.sleep(retry+1)
+            return get_icon(uid, face, path, retry+1)
     with open(icon, 'wb') as f:
         f.write(r.content)
     # img = Image.open(icon)
@@ -69,7 +77,7 @@ def query_bilidynamic(uid, cookie, msg):
     headers = get_headers(uid)
     try:
         response = requests.get(query_url, headers=headers,
-                                cookies=cookie, proxies=proxies, timeout=5)
+                                cookies=cookie, proxies=proxies, timeout=10)
     except RequestException as e:
         logger.warning(f'网络错误 url:{query_url},error:{e}，休眠一分钟', prefix)
         sleep(60)
@@ -83,7 +91,8 @@ def query_bilidynamic(uid, cookie, msg):
     try:
         result = json.loads(str(response.content, 'utf-8'))
     except json.JSONDecodeError as e:
-        logger.error(f'【{uid}】解析content出错{e}，url:{query_url}，休眠三分钟', prefix)
+        logger.error(
+            f'【{uid}】解析content出错{e}，url:{query_url}，休眠三分钟\ncontent:{response.content}', prefix)
         sleep(180)
         return
     if result['code'] != 0:
@@ -103,8 +112,9 @@ def query_bilidynamic(uid, cookie, msg):
         face = item['desc']['user_profile']['info']['face']
         sign = item['desc']['user_profile']['sign']
     except (KeyError, TypeError):
-        logger.error(f'【{uid}】返回数据不完整，url:{query_url}，休眠三分钟', prefix)
-        sleep(180)
+        logger.error(
+            f'【{uid}】返回数据不完整，url:{query_url}，休眠一分钟\ndata:{data}', prefix)
+        sleep(60)
         return
     msg[0] = datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' - ' + \
         Fore.LIGHTBLUE_EX+f'查询{uname}动态' + Style.RESET_ALL
@@ -112,7 +122,6 @@ def query_bilidynamic(uid, cookie, msg):
         DYNAMIC_DICT[uid] = deque(maxlen=LEN_OF_DEQUE)
         DYNAMIC_NAME_DICT[uid] = uname
         USER_FACE_DICT[uid] = face
-        get_icon(uid, face)
         USER_SIGN_DICT[uid] = sign
         cards = data['cards']
         for index in range(LEN_OF_DEQUE):
@@ -126,9 +135,8 @@ def query_bilidynamic(uid, cookie, msg):
         return
     logger.debug(f'【{uname}】上一条动态id[{DYNAMIC_DICT[uid][-1]}]，本条动态id[{dynamic_id}]',
                  prefix, Fore.LIGHTBLUE_EX)
-    icon_path = realpath(f'icon/bili_{uid}.jpg')
+    icon_path = get_icon(uid, face)
     if face != USER_FACE_DICT[uid]:
-        get_icon(uid, face)
         logger.info(f'【{uname}】更改了头像', prefix)
         notify(f'【{uname}】更改了头像', '', icon=icon_path,
                on_click=f'https://space.bilibili.com/{uid}', pic_url=face,
@@ -192,8 +200,11 @@ def query_bilidynamic(uid, cookie, msg):
         if pic_url is None:
             image = None
         else:
-            get_icon(uid, pic_url, 'opus/')
-            opus_path = realpath(f'icon/opus/bili_{uid}.jpg')
+            opus_path = get_icon(uid, pic_url, 'opus/')
+            if opus_path is None:
+                logger.error(f'【{uname}】图片下载失败，url:{pic_url}，休眠一分钟')
+                sleep(60)
+                return
             image = {
                 'src': opus_path,
                 'placement': 'hero'
@@ -214,7 +225,7 @@ def query_bilidynamic(uid, cookie, msg):
 #         uid, int(time.time()))
 #     headers = get_headers(uid)
 #     response = requests.get(
-#         query_url, '查询直播状态', headers=headers, timeout=5)
+#         query_url, '查询直播状态', headers=headers, timeout=10)
 #     if util.check_response_is_ok(response):
 #         result = json.loads(str(response.content, 'utf-8'))
 #         if result['code'] != 0:
@@ -256,7 +267,7 @@ def query_live_status_batch(uid_list, cookie, msg, special):
     data = json.dumps({"uids": list(map(int, uid_list))})
     try:
         response = requests.post(
-            query_url, headers=headers, data=data, cookies=cookie, timeout=5)
+            query_url, headers=headers, data=data, cookies=cookie, timeout=10)
     except RequestException as e:
         logger.warning(f'网络错误 url:{query_url},error:{e}', prefix)
         return
@@ -295,22 +306,17 @@ def query_live_status_batch(uid_list, cookie, msg, special):
             if LIVING_STATUS_DICT.get(uid, None) is None:
                 ROOM_TITLE_DICT[uid] = room_title
                 LIVING_STATUS_DICT[uid] = live_status
+                if room_cover_url == '':
+                    room_cover_url = keyframe
                 ROOM_COVER_DICT[uid] = room_cover_url
-                get_icon(uid, face)
-                if room_cover_url != '':
-                    get_icon(uid, room_cover_url, 'cover/')
-                elif keyframe != '':
-                    get_icon(uid, keyframe, 'cover/')
                 if live_status == 1:
                     logger.info(f'【{uname}】【{room_title}】直播中', prefix)
                 else:
                     logger.info(f'【{uname}】【{room_title}】未开播', prefix,
                                 Fore.CYAN)
                 continue
-            icon_path = realpath(f'icon/bili_{uid}.jpg')
-            cover_path = realpath(f'icon/cover/bili_{uid}.jpg')
-            if not exists(cover_path):
-                cover_path = ""
+            icon_path = get_icon(uid, face)
+            cover_path = get_icon(uid, room_cover_url, 'cover/')
             if ROOM_TITLE_DICT[uid] != room_title:
                 logger.info(f'【{uname}】更改了直播间标题：【{ROOM_TITLE_DICT[uid]}】 -> 【{room_title}】',
                             prefix)
@@ -318,7 +324,6 @@ def query_live_status_batch(uid_list, cookie, msg, special):
                        icon=icon_path, on_click=url)
                 ROOM_TITLE_DICT[uid] = room_title
             if ROOM_COVER_DICT[uid] != room_cover_url and room_cover_url != '':
-                get_icon(uid, room_cover_url, 'cover/')
                 logger.info(f'【{uname}】更改了直播间封面', prefix)
                 notify(f'【{uname}】更改了直播间封面', '', on_click=url,
                        image={
@@ -348,7 +353,8 @@ def query_live_status_batch(uid_list, cookie, msg, special):
                 else:
                     logger.info(f'【{uname}】下播了', prefix)
             elif live_status == 1:
-                logger.debug(f'【{uname}】【{room_title}】直播中', prefix)
+                logger.debug(f'【{uname}】【{room_title}】直播中', prefix,
+                             Fore.GREEN)
             else:
                 logger.debug(f'【{uname}】【{room_title}】未开播', prefix,
                              Fore.CYAN)
