@@ -32,7 +32,7 @@ class mylogger:
         if not os.path.exists('log'):
             os.mkdir('log')
         fh = TimedRotatingFileHandler(
-            filename='log/vtb_dynamic.log', encoding='utf-8', when="midnight", interval=1, backupCount=30)
+            filename='log/vtb_dynamic.log', encoding='utf-8', when="midnight", interval=1)
         fh.setLevel(logging.INFO)
         fh.setFormatter(formatter)
         self.logger.addHandler(fh)
