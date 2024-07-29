@@ -4,12 +4,11 @@ import os
 from time import sleep
 import traceback
 from config import Config
-from logger import logger
+from logger import logger, output_list, cnt
 from query_weibo import query_weibodynamic, query_valid, USER_NAME_DICT
 from query_bili import query_bilidynamic, query_live_status_batch, DYNAMIC_NAME_DICT, LIVE_NAME_DICT, try_cookies
-from colorama import Fore, init
+from colorama import Fore, init, Style
 from push import notify
-from reprint import output
 
 
 def load_cookie(path):
@@ -64,7 +63,9 @@ def weibo():
                 except KeyboardInterrupt:
                     return
                 except BaseException as e:
+                    print(Fore.RED)
                     traceback.print_exc()
+                    print(Style.RESET_ALL)
                     logger.error(f'出错【{e}】，uid:{uid}', prefix)
                 sleep(max(1, intervals_second/len(uid_list)))
         else:
@@ -112,7 +113,9 @@ def bili_dy():
                 except KeyboardInterrupt:
                     return
                 except BaseException as e:
+                    print(Fore.RED)
                     traceback.print_exc()
+                    print(Style.RESET_ALL)
                     logger.error(f'【{uid}】出错【{e}】', prefix)
                 sleep(max(1, intervals_second/len(uid_list)))
         else:
@@ -150,7 +153,9 @@ def bili_live():
             except KeyboardInterrupt:
                 return
             except BaseException as e:
+                print(Fore.RED)
                 traceback.print_exc()
+                print(Style.RESET_ALL)
                 logger.error(f'出错【{e}】', prefix)
         else:
             logger.warning('未填写UID', prefix)
@@ -187,7 +192,6 @@ if __name__ == '__main__':
         os.makedirs('icon/opus')
     msg = [""]*3
     swi = [0]*3
-    cnt = 0
     init(autoreset=True)
     thread1 = threading.Thread(target=bili_dy)
     thread2 = threading.Thread(target=bili_live)
@@ -198,6 +202,5 @@ if __name__ == '__main__':
     thread2.start()
     thread3.start()
     thread4.start()
-    with output(output_type="list", initial_len=3, interval=0) as output_list:
-        thread5.start()
-        thread5.join()
+    thread5.start()
+    thread5.join()

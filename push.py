@@ -171,7 +171,7 @@ class Push(object):
         push_url = 'http://www.pushplus.plus/send/'
         response = requests_post(push_url, data=body)
         if check_response_is_ok(response):
-            logger.info('pushplus推送成功', prefix)
+            logger.debug('pushplus推送成功', prefix)
         else:
             logger.error('pushplus推送失败', prefix)
 
@@ -192,7 +192,7 @@ class Push(object):
         push_url = f'https://sctapi.ftqq.com/{self.serverChan_sckey}.send'
         response = requests.post(push_url, params=body)
         if check_response_is_ok(response):
-            logger.info('server_chan推送成功', prefix)
+            logger.debug('server_chan推送成功', prefix)
         else:
             logger.error('server_chan推送失败', prefix)
 
