@@ -63,10 +63,8 @@ def weibo():
                 except KeyboardInterrupt:
                     return
                 except BaseException as e:
-                    print(Fore.RED)
-                    traceback.print_exc()
-                    print(Style.RESET_ALL)
-                    logger.error(f'出错【{e}】，uid:{uid}', prefix)
+                    logger.error(
+                        f'【{uid}】出错【{e}】：{traceback.format_exc()}', prefix)
                 sleep(max(1, intervals_second/len(uid_list)))
         else:
             logger.warning('未填写UID', prefix)
@@ -113,10 +111,8 @@ def bili_dy():
                 except KeyboardInterrupt:
                     return
                 except BaseException as e:
-                    print(Fore.RED)
-                    traceback.print_exc()
-                    print(Style.RESET_ALL)
-                    logger.error(f'【{uid}】出错【{e}】', prefix)
+                    logger.error(
+                        f'【{uid}】出错【{e}】：{traceback.format_exc()}', prefix)
                 sleep(max(1, intervals_second/len(uid_list)))
         else:
             logger.warning('未填写UID', prefix)
@@ -153,10 +149,8 @@ def bili_live():
             except KeyboardInterrupt:
                 return
             except BaseException as e:
-                print(Fore.RED)
-                traceback.print_exc()
-                print(Style.RESET_ALL)
-                logger.error(f'出错【{e}】', prefix)
+                logger.error(
+                    f'出错【{e}】：{traceback.format_exc()}', prefix)
         else:
             logger.warning('未填写UID', prefix)
         if not swi[2]:
