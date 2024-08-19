@@ -138,6 +138,10 @@ class Push(object):
         :param jump_url: 跳转url
         :param pic_url: 图片url
         """
+        if content is None:
+            content = ""
+        if title is None:
+            title = ""
         if self.pushplus_enable == 'true':
             self._push_plus_push(title, content, jump_url, pic_url)
 
@@ -170,10 +174,12 @@ class Push(object):
         }
         push_url = 'http://www.pushplus.plus/send/'
         response = requests_post(push_url, data=body)
-        if check_response_is_ok(response):
+        result = json.loads(str(response.content, 'utf-8'))
+        if result['code'] == 200:
             logger.debug('pushplus推送成功', prefix)
         else:
-            logger.error('pushplus推送失败', prefix)
+            logger.error(
+                f'pushplus推送失败, code:{result["code"]}, msg:{result["msg"]}', prefix)
 
     def _server_chan_push(self, title, content, url=None, pic_url=None):
         """

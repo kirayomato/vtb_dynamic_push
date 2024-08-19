@@ -27,8 +27,8 @@ proxies = {
 prefix = '【查询微博状态】'
 
 
-def get_icon(uid, face, path='', retry=0):
-    headrs = {
+def get_icon(uid, face, path=''):
+    headers = {
         'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
         'Accept-Encoding': 'gzip, deflate, br',
         'Accept-Language': 'zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7',
@@ -46,14 +46,10 @@ def get_icon(uid, face, path='', retry=0):
     if exists(icon):
         return realpath(icon)
     try:
-        r = requests.get(face, headers=headrs, proxies=proxies, timeout=10)
+        r = requests.get(face, headers=headers, proxies=proxies, timeout=10)
     except RequestException as e:
-        logger.warning(f'网络错误 url:{face},error:{e}', '【下载微博图片】')
-        if retry == 5:
-            return None
-        else:
-            time.sleep(retry+1)
-            return get_icon(uid, face, path, retry+1)
+        logger.warning(f'网络错误 url:{face}, error:{e}', '【下载微博图片】')
+        return None
     with open(icon, 'wb') as f:
         f.write(r.content)
     # img = Image.open(icon)
@@ -70,7 +66,7 @@ def query_valid(uid, cookie):
         response = requests.get(query_url, headers=headers,
                                 cookies=cookie, proxies=proxies, timeout=10)
     except RequestException as e:
-        logger.warning(f'网络错误 url:{query_url},error:{e}', prefix)
+        logger.warning(f'网络错误 url:{query_url}, error:{e}', prefix)
         return True
     if response.status_code == 200:
         result = json.loads(str(response.content, 'utf-8'))
@@ -78,7 +74,7 @@ def query_valid(uid, cookie):
         return len(cards) > 5
     else:
         logger.warning(
-            f'请求错误 url:{query_url},status:{response.status_code}', prefix)
+            f'请求错误 url:{query_url}, status:{response.status_code}', prefix)
         return True
 
 
@@ -89,21 +85,27 @@ def query_weibodynamic(uid, cookie, msg):
         time.sleep(t)
     if uid is None:
         return
-    query_url = f'https://m.weibo.cn/api/container/getIndex?type=uid&value={uid}&containerid=107603{uid}&count=100'
+    query_url = f'https://m.weibo.cn/api/container/getIndex?type=uid&value={uid}&containerid=107603{uid}&count=25'
     headers = get_headers(uid)
     try:
         response = requests.get(query_url, headers=headers,
                                 cookies=cookie, proxies=proxies, timeout=10)
     except RequestException as e:
-        logger.warning(f'网络错误 url:{query_url},error:{e},休眠一分钟', prefix)
+        logger.warning(f'网络错误 url:{query_url}, error:{e}, 休眠一分钟', prefix)
         sleep(60)
+        return
+    try:
+        result = json.loads(str(response.content, 'utf-8'))
+    except json.JSONDecodeError as e:
+        logger.error(
+            f'【{uid}】解析content出错{e}, url:{query_url}, 休眠三分钟\ncontent:{response.content}', prefix)
+        sleep(180)
         return
     if response.status_code != 200:
         logger.warning(
-            f'请求错误 url:{query_url},status:{response.status_code}，{response.reason},休眠一分钟', prefix)
+            f'请求错误 url:{query_url}, status:{response.status_code}, {response.reason}, msg:{result["msg"]}, 休眠一分钟', prefix)
         sleep(60)
         return
-    result = json.loads(str(response.content, 'utf-8'))
     cards = result['data']['cards']
     n = len(cards)
     if n == 0:
@@ -212,14 +214,17 @@ def query_weibodynamic(uid, cookie, msg):
             url = card['scheme']
             logger.info(f'【{uname}】{dynamic_time}：{action} {content}，url:{url}',
                         prefix)
-            if pic_url is None:
-                image = None
-            else:
+            image = None
+            if pic_url:
                 opus_path = get_icon(uid, pic_url, 'opus/')
-                image = {
-                    'src': opus_path,
-                    'placement': 'hero'
-                }
+                if opus_path is None:
+                    logger.warning(
+                        f'【{uname}】图片下载失败，url:{pic_url}', prefix)
+                else:
+                    image = {
+                        'src': opus_path,
+                        'placement': 'hero'
+                    }
             notify(f"【{uname}】{action}", content,
                    on_click=url, image=image, icon=icon_path)
             DYNAMIC_DICT[uid].append(mblog_id)
