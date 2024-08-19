@@ -2,3 +2,4 @@ log/*
 icon/*
 __pycache__/*
 *.zip
+.vscode/*
