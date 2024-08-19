@@ -5,17 +5,17 @@ import os
 from colorama import Fore, Style
 from time import time
 from collections import deque
-from reprint import output
+from web import OutputList
+
+output_list = ['']*3
 
 
 def clear_output(fn):
     def wrapper(*args, **kwargs):
-        global cnt, output_list
-        cnt0, cnt = cnt, 0
+        global output_list
         for i in range(3):
             output_list[i] = ''
         fn(*args, **kwargs)
-        cnt = cnt0
     return wrapper
 
 
@@ -24,8 +24,10 @@ class mylogger:
         self.logger = logging.getLogger()
         self.logger.setLevel(logging.INFO)
         logging.getLogger('urllib3').setLevel(logging.INFO)
+        logging.getLogger('werkzeug').setLevel(logging.WARNING)
         formatter = logging.Formatter(
             '%(asctime)s - %(filename)s[line:%(lineno)d] - %(levelname)s: %(message)s')
+        sys.stdout = OutputList()
         console_handler = logging.StreamHandler(stream=sys.stdout)
         console_handler.setFormatter(formatter)
         self.logger.addHandler(console_handler)
@@ -43,7 +45,6 @@ class mylogger:
         msg = prefix+msg
         if color:
             msg = color+msg+Style.RESET_ALL
-        self.logger.info(msg, stacklevel=2)
         self.logger.info(msg, stacklevel=3)
 
     def debug(self, msg, prefix="", color=""):
@@ -57,7 +58,6 @@ class mylogger:
         msg = prefix+msg
         if color:
             msg = color+msg+Style.RESET_ALL
-        self.logger.warning(msg, stacklevel=2)
         self.logger.warning(msg, stacklevel=3)
 
     @clear_output
@@ -72,10 +72,7 @@ class mylogger:
 
         if color:
             msg = color+msg+Style.RESET_ALL
-        self.logger.error(msg, stacklevel=2)
         self.logger.error(msg, stacklevel=3)
 
 
-with output(output_type="list", initial_len=3, interval=0) as output_list:
-    logger = mylogger()
-    cnt = 0
+logger = mylogger()
