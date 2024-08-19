@@ -296,5 +296,5 @@ class Push(object):
 push = Push()
 
 
-def notify(title, body, on_click=None, pic_url=None):
+def notify(title, body, on_click=None, pic_url=None, **kwargs):
     push.common_push(title, body, on_click, pic_url)

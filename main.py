@@ -187,6 +187,5 @@ if __name__ == '__main__':
     thread2.start()
     thread3.start()
     thread4.start()
-    app.logger.setLevel(logging.WARNING)
-    app.run()
+    app.run(host='0.0.0.0', port=5000)
     thread4.join()
