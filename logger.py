@@ -44,6 +44,7 @@ class mylogger:
         if color:
             msg = color+msg+Style.RESET_ALL
         self.logger.info(msg, stacklevel=2)
+        self.logger.info(msg, stacklevel=3)
 
     def debug(self, msg, prefix="", color=""):
         msg = prefix+msg
@@ -57,6 +58,7 @@ class mylogger:
         if color:
             msg = color+msg+Style.RESET_ALL
         self.logger.warning(msg, stacklevel=2)
+        self.logger.warning(msg, stacklevel=3)
 
     @clear_output
     def error(self, msg, prefix="", color=Fore.RED):
@@ -71,6 +73,7 @@ class mylogger:
         if color:
             msg = color+msg+Style.RESET_ALL
         self.logger.error(msg, stacklevel=2)
+        self.logger.error(msg, stacklevel=3)
 
 
 with output(output_type="list", initial_len=3, interval=0) as output_list:
