@@ -1,5 +1,4 @@
 from flask import Flask, render_template, jsonify
-import logging
 import io
 
 app = Flask(__name__)

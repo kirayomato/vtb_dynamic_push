@@ -7,17 +7,6 @@ from time import time
 from collections import deque
 from web import OutputList
 
-output_list = ['']*3
-
-
-def clear_output(fn):
-    def wrapper(*args, **kwargs):
-        global output_list
-        for i in range(3):
-            output_list[i] = ''
-        fn(*args, **kwargs)
-    return wrapper
-
 
 class mylogger:
     def __init__(self) -> None:
@@ -27,10 +16,12 @@ class mylogger:
         logging.getLogger('werkzeug').setLevel(logging.WARNING)
         formatter = logging.Formatter(
             '%(asctime)s - %(filename)s[line:%(lineno)d] - %(levelname)s: %(message)s')
-        sys.stdout = OutputList()
         console_handler = logging.StreamHandler(stream=sys.stdout)
+        web_handler = logging.StreamHandler(stream=OutputList())
         console_handler.setFormatter(formatter)
+        web_handler.setFormatter(formatter)
         self.logger.addHandler(console_handler)
+        self.logger.addHandler(web_handler)
         if not os.path.exists('log'):
             os.mkdir('log')
         fh = TimedRotatingFileHandler(
@@ -40,12 +31,11 @@ class mylogger:
         self.logger.addHandler(fh)
         self.error_count = deque()
 
-    @clear_output
     def info(self, msg, prefix="", color=Fore.LIGHTGREEN_EX):
         msg = prefix+msg
         if color:
             msg = color+msg+Style.RESET_ALL
-        self.logger.info(msg, stacklevel=3)
+        self.logger.info(msg, stacklevel=2)
 
     def debug(self, msg, prefix="", color=""):
         msg = prefix+msg
@@ -53,14 +43,12 @@ class mylogger:
             msg = color+msg+Style.RESET_ALL
         self.logger.debug(msg, stacklevel=2)
 
-    @clear_output
     def warning(self, msg, prefix="", color=Fore.YELLOW):
         msg = prefix+msg
         if color:
             msg = color+msg+Style.RESET_ALL
-        self.logger.warning(msg, stacklevel=3)
+        self.logger.warning(msg, stacklevel=2)
 
-    @clear_output
     def error(self, msg, prefix="", color=Fore.RED):
         msg = prefix+msg
         self.error_count.append(time())
@@ -72,7 +60,7 @@ class mylogger:
 
         if color:
             msg = color+msg+Style.RESET_ALL
-        self.logger.error(msg, stacklevel=3)
+        self.logger.error(msg, stacklevel=2)
 
 
 logger = mylogger()
