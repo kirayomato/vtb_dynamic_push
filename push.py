@@ -172,7 +172,12 @@ class Push(object):
         }
         push_url = 'http://www.pushplus.plus/send/'
         response = requests_post(push_url, data=body)
-        result = json.loads(str(response.content, 'utf-8'))
+        try:
+            result = json.loads(str(response.content, 'utf-8'))
+        except json.JSONDecodeError as e:
+            logger.error(
+                f'解析content出错{e}\ncontent:{str(response.content, "utf-8")}', prefix)
+            return
         if result['code'] == 200:
             logger.debug('pushplus推送成功', prefix)
         else:
@@ -199,7 +204,6 @@ class Push(object):
             logger.debug('server_chan推送成功', prefix)
         else:
             logger.error('server_chan推送失败', prefix)
-            raise
 
     def _get_wechat_access_token(self):
         access_token = None

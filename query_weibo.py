@@ -69,7 +69,7 @@ def query_valid(uid, cookie):
         logger.warning(f'网络错误 url:{query_url}, error:{e}', prefix)
         return True
     if response.status_code == 200:
-        result = json.loads(str(response.content, 'utf-8'))
+        result = json.loads(str(response.content, "utf-8"))
         cards = result['data']['cards']
         return len(cards) > 5
     else:
@@ -95,10 +95,10 @@ def query_weibodynamic(uid, cookie, msg):
         sleep(60)
         return
     try:
-        result = json.loads(str(response.content, 'utf-8'))
+        result = json.loads(str(response.content, "utf-8"))
     except json.JSONDecodeError as e:
         logger.error(
-            f'【{uid}】解析content出错{e}, url:{query_url}, 休眠三分钟\ncontent:{response.content}', prefix)
+            f'【{uid}】解析content出错{e}, url:{query_url}, 休眠三分钟\ncontent:{str(response.content, "utf-8")}', prefix)
         sleep(180)
         return
     if response.status_code != 200:

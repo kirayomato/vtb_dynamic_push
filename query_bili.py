@@ -35,7 +35,7 @@ def try_cookies(cookies=None):
     try:
         response = requests.get(
             query_url, cookies=cookies, headers=headers, proxies=proxies, timeout=10)
-        result = json.loads(str(response.content, 'utf-8'))
+        result = json.loads(str(response.content, "utf-8"))
         return result['data']['cards'] is not None
     except:
         return False
@@ -79,10 +79,10 @@ def query_bilidynamic(uid, cookie, msg):
         sleep(60)
         return
     try:
-        result = json.loads(str(response.content, 'utf-8'))
+        result = json.loads(str(response.content, "utf-8"))
     except json.JSONDecodeError as e:
         logger.error(
-            f'【{uid}】解析content出错{e}, url:{query_url}, 休眠三分钟\ncontent:{response.content}', prefix)
+            f'【{uid}】解析content出错{e}, url:{query_url}, 休眠三分钟\ncontent:{str(response.content, "utf-8")}', prefix)
         sleep(180)
         return
     if response.status_code != 200:
@@ -227,7 +227,7 @@ def query_bilidynamic(uid, cookie, msg):
 #     response = requests.get(
 #         query_url, '查询直播状态', headers=headers, timeout=10)
 #     if util.check_response_is_ok(response):
-#         result = json.loads(str(response.content, 'utf-8'))
+#         result = json.loads(str(response.content, "utf-8"))
 #         if result['code'] != 0:
 #             logger.error('请求返回数据code错误：{code}'.format(
 #                 code=result['code']), prefix)
@@ -283,9 +283,10 @@ def query_live_status_batch(uid_list, cookie, msg, special):
         sleep(60)
         return
     try:
-        result = json.loads(str(response.content, 'utf-8'))
+        result = json.loads(str(response.content, "utf-8"))
     except json.JSONDecodeError as e:
-        logger.error(f'解析content出错{e}, 休眠一分钟', prefix)
+        logger.error(
+            f'解析content出错{e}\ncontent:{str(response.content, "utf-8")}, 休眠一分钟', prefix)
         sleep(60)
         return
     if result['code'] != 0:
