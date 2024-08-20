@@ -62,7 +62,7 @@ class OutputList(io.StringIO):
         log = {}
         t = s.split()
         log['color'] = ansi_code_to_html(t[6][:5])
-        t[6] = t[6][5:-4]
-        log['msg'] = ' '.join(t)
+        t[6] = t[6][5:]
+        log['msg'] = ' '.join(t)[:-4]
         self.output_list.append(log)
         super().write(s)
