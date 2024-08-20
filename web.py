@@ -50,7 +50,7 @@ def ansi_code_to_html(text):
         code = int(codes[0])
         return ansi_to_html_colors[code]
     else:
-        return "#000000"
+        return None
 
 
 class OutputList(io.StringIO):
@@ -61,8 +61,13 @@ class OutputList(io.StringIO):
     def write(self, s):
         log = {}
         t = s.split()
-        log['color'] = ansi_code_to_html(t[6][:5])
-        t[6] = t[6][5:]
-        log['msg'] = ' '.join(t)[:-4]
+        color = ansi_code_to_html(t[6][:5])
+        if color:
+            log['color'] = color
+            t[6] = t[6][5:]
+            log['msg'] = ' '.join(t)[:-4]
+        else:
+            log['color'] = '#FFFFFF'
+            log['msg'] = ' '.join(t)
         self.output_list.append(log)
         super().write(s)
