@@ -4,16 +4,36 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>vtb动态</title>
+    <title>日志输出</title>
+    <style>
+        body {
+            background-color: #1E1E1E;
+            /* 设置背景为黑色 */
+            color: white;
+            /* 设置文本颜色为白色，以便在黑色背景上清晰可见 */
+            font-family: Arial, sans-serif;
+        }
+    </style>
 </head>
 
 <body>
+
     <h1>日志输出</h1>
     <div id="log-container">
         <!-- 日志内容会显示在这里 -->
     </div>
-
+    <button id="toggle-scroll">关闭自动滚动</button>
     <script>
+        let autoScroll = true;
+
+        // 获取按钮元素
+        const toggleButton = document.getElementById('toggle-scroll');
+
+        // 按钮点击事件
+        toggleButton.addEventListener('click', function () {
+            autoScroll = !autoScroll; // 切换自动滚动状态
+            toggleButton.textContent = autoScroll ? '关闭自动滚动' : '开启自动滚动';
+        });
         function fetchLogs() {
             fetch('/logs')
                 .then(response => response.json())
@@ -24,14 +44,17 @@
                     // 显示所有日志
                     data.forEach(log => {
                         const p = document.createElement('p');
-                        p.textContent = log;
+                        p.textContent = log.msg;
+                        p.style.color = log.color;
                         logContainer.appendChild(p);
                     });
+                    if (autoScroll)
+                        window.scrollTo(0, document.body.scrollHeight);
                 });
         }
 
         // 定时每3秒获取一次日志数据
-        setInterval(fetchLogs, 1000);
+        setInterval(fetchLogs, 100);
 
         // 初次加载时获取一次日志数据
         fetchLogs();
