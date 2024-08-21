@@ -98,8 +98,8 @@ def query_weibodynamic(uid, cookie, msg):
         result = json.loads(str(response.content, "utf-8"))
     except json.JSONDecodeError as e:
         logger.error(
-            f'【{uid}】解析content出错{e}, url:{query_url}, 休眠三分钟\ncontent:{str(response.content, "utf-8")}', prefix)
-        sleep(180)
+            f'【{uid}】解析content出错:{e}, url:{query_url}, 休眠一分钟, content:\n{str(response.content, "utf-8")}', prefix)
+        sleep(60)
         return
     if response.status_code != 200:
         logger.warning(

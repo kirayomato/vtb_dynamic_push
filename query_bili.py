@@ -82,7 +82,7 @@ def query_bilidynamic(uid, cookie, msg):
         result = json.loads(str(response.content, "utf-8"))
     except json.JSONDecodeError as e:
         logger.error(
-            f'【{uid}】解析content出错{e}, url:{query_url}, 休眠三分钟\ncontent:{str(response.content, "utf-8")}', prefix)
+            f'【{uid}】解析content出错:{e}, url:{query_url}, 休眠三分钟, content:\n{str(response.content, "utf-8")}', prefix)
         sleep(180)
         return
     if response.status_code != 200:
@@ -286,7 +286,7 @@ def query_live_status_batch(uid_list, cookie, msg, special):
         result = json.loads(str(response.content, "utf-8"))
     except json.JSONDecodeError as e:
         logger.error(
-            f'解析content出错{e}\ncontent:{str(response.content, "utf-8")}, 休眠一分钟', prefix)
+            f'解析content出错:{e}, url:{query_url}, 休眠一分钟, content:\n{str(response.content, "utf-8")}', prefix)
         sleep(60)
         return
     if result['code'] != 0:
