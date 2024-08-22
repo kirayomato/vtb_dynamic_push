@@ -102,9 +102,14 @@ def query_weibodynamic(uid, cookie, msg):
         sleep(60)
         return
     if response.status_code != 200:
-        logger.warning(
-            f'请求错误 url:{query_url}, status:{response.status_code}, {response.reason}, msg:{result["msg"]}, 休眠一分钟', prefix)
-        sleep(60)
+        if response.status_code == 403:
+            logger.warning(
+                f'触发风控 url:{query_url}, status:{response.status_code}, {response.reason}, msg:{result["msg"]}, 休眠三分钟', prefix)
+            sleep(180)
+        else:
+            logger.warning(
+                f'请求错误 url:{query_url}, status:{response.status_code}, {response.reason}, msg:{result["msg"]}, 休眠一分钟', prefix)
+            sleep(60)
         return
     cards = result['data']['cards']
     n = len(cards)
