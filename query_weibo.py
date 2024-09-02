@@ -27,37 +27,6 @@ proxies = {
 prefix = '【查询微博状态】'
 
 
-def get_icon(uid, face, path=''):
-    headers = {
-        'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Accept-Language': 'zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7',
-        'Referer': 'https://weibo.com/',
-        'Sec-Ch-Ua': '"Google Chrome";v="119", "Chromium";v="119", "Not?A_Brand";v="24"',
-        'Sec-Ch-Ua-Mobile': '?0',
-        'Sec-Ch-Ua-Platform': '"Windows"',
-        'Sec-Fetch-Dest': 'image',
-        'Sec-Fetch-Mode': 'no-cors',
-        'Sec-Fetch-Site': 'cross-site',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
-    }
-    name = list(face.split('/'))[-1]
-    icon = f'icon/{path}{name}'
-    if exists(icon):
-        return realpath(icon)
-    try:
-        r = requests.get(face, headers=headers, proxies=proxies, timeout=10)
-    except RequestException as e:
-        logger.warning(f'网络错误 url:{face}, error:{e}', '【下载微博图片】')
-        return None
-    with open(icon, 'wb') as f:
-        f.write(r.content)
-    # img = Image.open(icon)
-    # img = img.resize((64, 64))
-    # img.save(f'icon/{uid}.ico')
-    return realpath(icon)
-
-
 def query_valid(uid, cookie):
     query_url = 'https://m.weibo.cn/api/container/getIndex?type=uid&value={uid}&containerid=107603{uid}&count=25'.format(
         uid=uid)
@@ -158,7 +127,7 @@ def query_weibodynamic(uid, cookie, msg):
         return
     logger.debug(f'【{uname}】上一条微博id[{DYNAMIC_DICT[uid][-1]}]，本条微博id[{mblog_id}]',
                  prefix, Fore.LIGHTYELLOW_EX)
-    icon_path = get_icon(uid, face)
+    icon_path = None
     if face != USER_FACE_DICT[uid]:
         logger.info(f'【{uname}】更改了头像', prefix)
         notify(f'【{uname}】更改了头像', '', icon=icon_path,
@@ -220,16 +189,6 @@ def query_weibodynamic(uid, cookie, msg):
             logger.info(f'【{uname}】{dynamic_time}：{action} {content}，url:{url}',
                         prefix)
             image = None
-            if pic_url:
-                opus_path = get_icon(uid, pic_url, 'opus/')
-                if opus_path is None:
-                    logger.warning(
-                        f'【{uname}】图片下载失败，url:{pic_url}', prefix)
-                else:
-                    image = {
-                        'src': opus_path,
-                        'placement': 'hero'
-                    }
             notify(f"【{uname}】{action}", content,
                    on_click=url, image=image, icon=icon_path)
             DYNAMIC_DICT[uid].append(mblog_id)
