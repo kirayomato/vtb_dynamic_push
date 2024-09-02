@@ -65,7 +65,7 @@ def query_weibodynamic(uid, cookie, msg):
         return
     try:
         result = json.loads(str(response.content, "utf-8"))
-    except json.JSONDecodeError as e:
+    except (UnicodeDecodeError, json.JSONDecodeError) as e:
         logger.error(
             f'【{uid}】解析content出错:{e}, url:{query_url}, 休眠一分钟, content:\n{str(response.content, "utf-8")}', prefix)
         sleep(60)
@@ -199,7 +199,7 @@ def get_headers(uid):
     return {
         'User-Agent': "Mozilla/5.0 (iPhone; CPU iPhone OS 11_0 like Mac OS X) AppleWebKit/604.1.38 (KHTML, like Gecko) Version/11.0 Mobile/15A372 Safari/604.1",
         'accept': 'application/json, text/plain, */*',
-        'accept-encoding': 'gzip, deflate',
+        'accept-encoding': 'utf-8, gzip, deflate, zstd',
         'accept-language': 'zh-CN,zh;q=0.9',
         'cache-control': 'no-cache',
         'connection': 'keep-alive',
