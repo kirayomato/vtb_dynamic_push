@@ -36,9 +36,12 @@ def try_cookies(cookies=None):
         response = requests.get(
             query_url, cookies=cookies, headers=headers, proxies=proxies, timeout=10)
         result = json.loads(str(response.content, "utf-8"))
-        return result['data']['cards'] is not None
+        if response.status_code == 200:
+            return result['data']['cards'] is not None
+        else:
+            return True
     except:
-        return False
+        return True
 
 
 def get_icon(uid, face, path=''):
@@ -80,7 +83,7 @@ def query_bilidynamic(uid, cookie, msg):
         return
     try:
         result = json.loads(str(response.content, "utf-8"))
-    except json.JSONDecodeError as e:
+    except (UnicodeDecodeError, json.JSONDecodeError) as e:
         logger.error(
             f'【{uid}】解析content出错:{e}, url:{query_url}, 休眠三分钟, content:\n{str(response.content, "utf-8")}', prefix)
         sleep(180)
@@ -284,7 +287,7 @@ def query_live_status_batch(uid_list, cookie, msg, special):
         return
     try:
         result = json.loads(str(response.content, "utf-8"))
-    except json.JSONDecodeError as e:
+    except (UnicodeDecodeError, json.JSONDecodeError) as e:
         logger.error(
             f'解析content出错:{e}, url:{query_url}, 休眠一分钟, content:\n{str(response.content, "utf-8")}', prefix)
         sleep(60)
@@ -378,7 +381,7 @@ def get_headers(uid):
     return {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
         'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
-        'accept-encoding': 'gzip, deflate, br, zstd',
+        'accept-encoding': 'utf-8, gzip, deflate, zstd',
         'accept-language': 'zh-CN,zh;q=0.9',
         'cache-control': 'max-age=0',
         'origin': 'https://space.bilibili.com/',
