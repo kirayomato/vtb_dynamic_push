@@ -1,9 +1,7 @@
-from win11toast import notify as _notify
 import json
 from logger import logger
 import random
 from config import global_config
-from colorama import Fore
 import requests
 prefix = '【消息推送】'
 USER_AGENTS = [
@@ -302,13 +300,5 @@ class Push(object):
 push = Push()
 
 
-def notify(title, body, on_click=None, duration='long', scenario='Reminder', pic_url=None, **kwargs):
+def notify(title, body, on_click=None, pic_url=None, **kwargs):
     push.common_push(title, body, on_click, pic_url)
-    if on_click is None:
-        return _notify(title=title, body=body, duration=duration, scenario=scenario,
-                       app_id='vtb_dynamic', **kwargs)
-    else:
-        return _notify(title=title, body=body, duration=duration, scenario=scenario,
-                       button={'activationType': 'protocol',
-                               'arguments': on_click, 'content': '打开页面'},
-                       on_click=on_click, app_id='vtb_dynamic', **kwargs)

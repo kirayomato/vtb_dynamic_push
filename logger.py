@@ -5,18 +5,7 @@ import os
 from colorama import Fore, Style
 from time import time
 from collections import deque
-from reprint import output
-
-
-def clear_output(fn):
-    def wrapper(*args, **kwargs):
-        global cnt, output_list
-        cnt0, cnt = cnt, 0
-        for i in range(3):
-            output_list[i] = ''
-        fn(*args, **kwargs)
-        cnt = cnt0
-    return wrapper
+from web import OutputList
 
 
 class mylogger:
@@ -24,11 +13,15 @@ class mylogger:
         self.logger = logging.getLogger()
         self.logger.setLevel(logging.INFO)
         logging.getLogger('urllib3').setLevel(logging.INFO)
+        logging.getLogger('werkzeug').setLevel(logging.WARNING)
         formatter = logging.Formatter(
             '%(asctime)s - %(filename)s[line:%(lineno)d] - %(levelname)s: %(message)s')
         console_handler = logging.StreamHandler(stream=sys.stdout)
+        web_handler = logging.StreamHandler(stream=OutputList())
         console_handler.setFormatter(formatter)
+        web_handler.setFormatter(formatter)
         self.logger.addHandler(console_handler)
+        self.logger.addHandler(web_handler)
         if not os.path.exists('log'):
             os.mkdir('log')
         fh = TimedRotatingFileHandler(
@@ -38,7 +31,6 @@ class mylogger:
         self.logger.addHandler(fh)
         self.error_count = deque()
 
-    @clear_output
     def info(self, msg, prefix="", color=Fore.LIGHTGREEN_EX):
         msg = prefix+msg
         if color:
@@ -51,14 +43,12 @@ class mylogger:
             msg = color+msg+Style.RESET_ALL
         self.logger.debug(msg, stacklevel=2)
 
-    @clear_output
     def warning(self, msg, prefix="", color=Fore.YELLOW):
         msg = prefix+msg
         if color:
             msg = color+msg+Style.RESET_ALL
         self.logger.warning(msg, stacklevel=3)
 
-    @clear_output
     def error(self, msg, prefix="", color=Fore.RED):
         msg = prefix+msg
         self.error_count.append(time())
@@ -73,6 +63,4 @@ class mylogger:
         self.logger.error(msg, stacklevel=3)
 
 
-with output(output_type="list", initial_len=3, interval=0) as output_list:
-    logger = mylogger()
-    cnt = 0
+logger = mylogger()

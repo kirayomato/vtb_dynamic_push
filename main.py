@@ -4,7 +4,8 @@ import os
 from time import sleep
 import traceback
 from config import Config
-from logger import logger, output_list, cnt
+from logger import logger
+from web import app
 from query_weibo import query_weibodynamic, query_valid, USER_NAME_DICT
 from query_bili import query_bilidynamic, query_live_status_batch, DYNAMIC_NAME_DICT, LIVE_NAME_DICT, try_cookies
 from colorama import Fore, init, Style
@@ -35,8 +36,6 @@ def weibo():
     if cookies_check == 'true':
         check_uid = global_config.get_raw(
             'weibo', 'cookies_check_uid')
-    global cnt
-    cnt += 1
     intervals_second = int(global_config.get_raw('weibo', 'intervals_second'))
     logger.info('开始检测微博', prefix, Fore.GREEN)
     test = 0
@@ -82,8 +81,6 @@ def bili_dy():
     if enable_dynamic_push != 'true':
         logger.warning('未开启动态推送功能', prefix)
         return
-    global cnt
-    cnt += 1
     intervals_second = int(global_config.get_raw(
         'bili', 'dynamic_intervals_second'))
     logger.info('开始检测动态', prefix, Fore.GREEN)
@@ -129,8 +126,6 @@ def bili_live():
     if enable_living_push != 'true':
         logger.warning('未开启直播推送功能', prefix)
         return
-    global cnt
-    cnt += 1
     intervals_second = int(global_config.get_raw(
         'bili', 'live_intervals_second'))
     logger.info('开始检测直播', prefix, Fore.GREEN)
@@ -149,8 +144,7 @@ def bili_live():
             except KeyboardInterrupt:
                 return
             except BaseException as e:
-                logger.error(
-                    f'出错【{e}】：{traceback.format_exc()}', prefix)
+                logger.error(f'出错【{e}】：{traceback.format_exc()}', prefix)
         else:
             logger.warning('未填写UID', prefix)
         if not swi[2]:
@@ -168,16 +162,6 @@ def update_config():
         sleep(30)
 
 
-def print_state():
-    while True:
-        if sum(swi) == cnt:
-            global output_list
-            for i in range(3):
-                if msg[i]:
-                    output_list[i] = msg[i]
-        sleep(0.1)
-
-
 if __name__ == '__main__':
     global_config = Config()
     if not os.path.exists('icon/cover'):
@@ -191,10 +175,9 @@ if __name__ == '__main__':
     thread2 = threading.Thread(target=bili_live)
     thread3 = threading.Thread(target=weibo)
     thread4 = threading.Thread(target=update_config)
-    thread5 = threading.Thread(target=print_state)
     thread1.start()
     thread2.start()
     thread3.start()
     thread4.start()
-    thread5.start()
-    thread5.join()
+    app.run(host='0.0.0.0', port=5000)
+    thread4.join()

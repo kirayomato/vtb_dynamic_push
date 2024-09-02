@@ -41,25 +41,6 @@ def try_cookies(cookies=None):
         return False
 
 
-def get_icon(uid, face, path=''):
-    name = list(face.split('/'))[-1]
-    icon = f'icon/{path}{name}'
-    if exists(icon):
-        return realpath(icon)
-    try:
-        headers = get_headers(uid)
-        r = requests.get(face, headers=headers, proxies=proxies, timeout=10)
-    except RequestException as e:
-        logger.warning(f'网络错误 url:{face}, error:{e}', '【下载B站图片】')
-        return None
-    with open(icon, 'wb') as f:
-        f.write(r.content)
-    # img = Image.open(icon)
-    # img = img.resize((64, 64))
-    # img.save(f'icon/{uid}.ico')
-    return realpath(icon)
-
-
 def query_bilidynamic(uid, cookie, msg):
     def sleep(t):
         msg[0] = datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' - ' + \
@@ -137,7 +118,7 @@ def query_bilidynamic(uid, cookie, msg):
         return
     logger.debug(f'【{uname}】上一条动态id[{DYNAMIC_DICT[uid][-1]}],本条动态id[{dynamic_id}]',
                  prefix, Fore.LIGHTBLUE_EX)
-    icon_path = get_icon(uid, face)
+    icon_path = None
     if face != USER_FACE_DICT[uid]:
         logger.info(f'【{uname}】更改了头像', prefix)
         notify(f'【{uname}】更改了头像', '', icon=icon_path,
@@ -200,15 +181,6 @@ def query_bilidynamic(uid, cookie, msg):
         logger.info(f'【{uname}】{dynamic_time}：{action} {content}, url:{url}',
                     prefix)
         image = None
-        if pic_url:
-            opus_path = get_icon(uid, pic_url, 'opus/')
-            if opus_path is None:
-                logger.warning(f'【{uname}】图片下载失败,url:{pic_url}', prefix)
-            else:
-                image = {
-                    'src': opus_path,
-                    'placement': 'hero'
-                }
         notify(f"【{uname}】{action}", content,
                on_click=url, image=image,
                icon=icon_path, pic_url=pic_url)
@@ -302,7 +274,7 @@ def query_live_status_batch(uid_list, cookie, msg, special):
             try:
                 uname = item_info['uname']
                 LIVE_NAME_DICT[uid] = uname
-                face = item_info['face']
+                # face = item_info['face']
                 live_status = item_info['live_status']
                 room_id = item_info['room_id']
                 room_title = item_info['title']
@@ -327,16 +299,8 @@ def query_live_status_batch(uid_list, cookie, msg, special):
                     logger.info(f'【{uname}】【{room_title}】未开播', prefix,
                                 Fore.CYAN)
                 continue
-            icon_path = get_icon(uid, face)
-            cover_path = get_icon(uid, room_cover_url, 'cover/')
+            icon_path = None
             image = None
-            if cover_path:
-                image = {
-                    'src': cover_path,
-                    'placement': 'hero'
-                }
-            else:
-                logger.warning(f'【{uname}】图片下载失败,url:{room_cover_url}', prefix)
             if ROOM_TITLE_DICT[uid] != room_title:
                 logger.info(f'【{uname}】更改了直播间标题：【{ROOM_TITLE_DICT[uid]}】 -> 【{room_title}】',
                             prefix)
