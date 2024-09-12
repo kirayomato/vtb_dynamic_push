@@ -116,6 +116,13 @@ class Push(object):
         self.pushplus_token = global_config.get_raw(
             'push_pushplus', 'pushplus_token')
 
+        self.gotify_enable = global_config.get_raw(
+            'push_gotify', 'enable')
+        self.gotify_url = global_config.get_raw(
+            'push_gotify', 'gotify_url')
+        self.gotify_token = global_config.get_raw(
+            'push_gotify', 'gotify_token')
+
         self.serverChan_enable = global_config.get_raw(
             'push_serverChan', 'enable')
         self.serverChan_sckey = global_config.get_raw(
@@ -145,6 +152,9 @@ class Push(object):
         if self.pushplus_enable == 'true':
             self._push_plus_push(title, content, jump_url, pic_url)
 
+        if self.gotify_enable == 'true':
+            self._gotify_push(title, content, jump_url, pic_url)
+
         if self.serverChan_enable == 'true':
             self._server_chan_push(title, content, jump_url)
 
@@ -154,6 +164,39 @@ class Push(object):
 
         if self.dingtalk_enable == 'true':
             self._dingtalk_push(title, content, jump_url, pic_url)
+
+    def _gotify_push(self, title, content, url=None, pic_url=None):
+        """
+        推送(pushplus)
+        :title: 标题
+        :content: 内容
+        :url: 跳转地址
+        :pic_url：图片地址
+        """
+        content += f'\n\n[链接]({url})'
+        if pic_url:
+            content += f"\n\n![Image]({pic_url})"
+        body = {
+            "title": title,
+            "message": content,
+            "priority": 0,
+            "extras": {
+                "client::display": {
+                    "contentType": "text/markdown"
+                },
+                "client::notification": {
+                    "click": {"url": url},
+                    "bigImageUrl": pic_url
+                }
+            }
+        }
+        push_url = f'http://{self.gotify_url}/message?token={self.gotify_token}'
+        response = requests_post(push_url, json=body)
+        if response.status_code == 200:
+            logger.debug('gotify推送成功', prefix)
+        else:
+            logger.error(
+                f'gotify推送失败, code:{response.status_code}, msg:{response.text}', prefix)
 
     def _push_plus_push(self, title, content, url=None, pic_url=None):
         """
