@@ -22,7 +22,9 @@
     推送通知使用`win11toast`库实现，在Windows10上不保证能正常使用
 
 
-3. 微博和动态检测功能增加头像、签名变化的检测。直播检测功能增加直播间标题、封面变化的检测。
+3. 微博和动态检测功能增加头像、签名变化的检测。直播检测功能增加直播间标题、封面变化的检测
+
+4. 其他更多功能请参考配置
 
 ## 运行环境
 
@@ -56,24 +58,31 @@
 `push_serverChan`下的参数
 
 - `enable`是否启用serverChan推送
-- `serverChan_SCKEY`如果启用该推送，则必填，参考 https://sct.ftqq.com
+- `serverChan_SCKEY`参考 https://sct.ftqq.com
 
-`push_wechat`下的参数
+`push_gotify`下的参数
 
-- `enable`是否启用微信推送
-- `corp_id`企业id，如果启用该推送，则必填
-- `agent_id`应用id，如果启用该推送，则必填
-- `corp_secret`应用Secret，如果启用该推送，则必填
+- `enable`是否启用gotify推送
+- `gotify_url`gotify推送地址
+- `gotify_token`gotify推送token
 
-`push_dingtalk`下的参数
-
-- `enable`是否启用钉钉bot推送
-- `access_token`机器人access_token，如果启用该推送，则必填
 
 `push_pushplus`下的参数
 
 - `enable`是否启用pushplus推送
-- `pushplus_token`推送token，如果启用该推送，则必填
+- `pushplus_token`推送token，参考 https://www.pushplus.plus/
+
+`push_wechat`下的参数
+
+- `enable`是否启用微信推送
+- `corp_id`企业id
+- `agent_id`应用id
+- `corp_secret`应用Secret
+
+`push_dingtalk`下的参数
+
+- `enable`是否启用钉钉bot推送
+- `access_token`机器人access_token
 
 #### 2.填写cookies
 
