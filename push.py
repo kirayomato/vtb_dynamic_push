@@ -138,7 +138,7 @@ class Push(object):
         self.dingtalk_access_token = global_config.get_raw(
             'push_dingtalk', 'access_token')
 
-    def common_push(self, title, content, jump_url=None, pic_url=None):
+    def common_push(self, title, content, jump_url=None, pic_url=None, priority=6):
         """
         :param title: 推送标题
         :param content: 推送内容
@@ -153,7 +153,7 @@ class Push(object):
             self._push_plus_push(title, content, jump_url, pic_url)
 
         if self.gotify_enable == 'true':
-            self._gotify_push(title, content, jump_url, pic_url)
+            self._gotify_push(title, content, jump_url, pic_url, priority)
 
         if self.serverChan_enable == 'true':
             self._server_chan_push(title, content, jump_url)
@@ -165,7 +165,7 @@ class Push(object):
         if self.dingtalk_enable == 'true':
             self._dingtalk_push(title, content, jump_url, pic_url)
 
-    def _gotify_push(self, title, content, url=None, pic_url=None):
+    def _gotify_push(self, title, content, url=None, pic_url=None, priority=6):
         """
         推送(pushplus)
         :title: 标题
@@ -176,16 +176,21 @@ class Push(object):
         content += f'\n\n[链接]({url})'
         if pic_url:
             content += f"\n\n![Image]({pic_url})"
+
+        if '更改' in title:
+            priority = 2
+        elif '转发' in title:
+            priority = 4
+
         body = {
             "title": title,
             "message": content,
-            "priority": 0,
+            "priority": priority,
             "extras": {
                 "client::display": {
                     "contentType": "text/markdown"
                 },
                 "client::notification": {
-                    "click": {"url": url},
                     "bigImageUrl": pic_url
                 }
             }
@@ -346,7 +351,10 @@ push = Push()
 
 
 def notify(title, body, on_click=None, duration='long', scenario='Reminder', pic_url=None, **kwargs):
-    push.common_push(title, body, on_click, pic_url)
+    priority = 6
+    if kwargs.get('audio', None):
+        priority = 10
+    push.common_push(title, body, on_click, pic_url, priority)
     if on_click is None:
         return _notify(title=title, body=body, duration=duration, scenario=scenario,
                        app_id='vtb_dynamic', **kwargs)
