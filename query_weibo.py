@@ -34,16 +34,11 @@ def query_valid(uid, cookie):
     try:
         response = requests.get(query_url, headers=headers,
                                 cookies=cookie, proxies=proxies, timeout=10)
-    except RequestException as e:
-        logger.warning(f'网络错误 url:{query_url}, error:{e}', prefix)
-        return True
-    if response.status_code == 200:
         result = json.loads(str(response.content, "utf-8"))
         cards = result['data']['cards']
         return len(cards) > 5
-    else:
-        logger.warning(
-            f'请求错误 url:{query_url}, status:{response.status_code}', prefix)
+    except BaseException as e:
+        logger.warning(f'请求错误 url:{query_url}, error:{e}', prefix)
         return True
 
 
@@ -73,12 +68,17 @@ def query_weibodynamic(uid, cookie, msg):
     if response.status_code != 200:
         if response.status_code == 403:
             logger.warning(
-                f'触发风控 url:{query_url}, status:{response.status_code}, {response.reason}, msg:{result["msg"]}, 休眠三分钟', prefix)
-            sleep(180)
+                f'触发风控 url:{query_url}, status:{response.status_code}, msg:{result["msg"]}, 休眠五分钟', prefix)
+            sleep(300)
         else:
             logger.warning(
-                f'请求错误 url:{query_url}, status:{response.status_code}, {response.reason}, msg:{result["msg"]}, 休眠一分钟', prefix)
+                f'请求错误 url:{query_url}, status:{response.status_code}, msg:{result["msg"]}, 休眠一分钟', prefix)
             sleep(60)
+        return
+    if result['ok'] not in (0, 1):
+        logger.warning(
+            f'【{uid}】请求返回数据code错误:{result["ok"]}, msg:{result["msg"]}, url:{query_url}, 休眠五分钟', prefix)
+        sleep(300)
         return
     cards = result['data']['cards']
     n = len(cards)
