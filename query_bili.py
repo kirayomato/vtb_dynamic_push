@@ -101,9 +101,9 @@ def query_bilidynamic(uid, cookie, msg):
             sleep(60)
         return
     if result['code'] != 0:
-        logger.error(
-            f'【{uid}】请求返回数据code错误：{result["code"]}, msg:{result["message"]} url:{query_url}, 休眠三分钟', prefix)
-        sleep(180)
+        logger.warning(
+            f'【{uid}】请求返回数据code错误:{result["code"]}, msg:{result["message"]}, url:{query_url}, 休眠五分钟', prefix)
+        sleep(300)
         return
     data = result['data']
     try:
