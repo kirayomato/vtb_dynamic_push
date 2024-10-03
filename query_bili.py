@@ -62,6 +62,18 @@ def query_bilidynamic(uid, cookie, msg):
         logger.warning(f'网络错误 url:{query_url}, error:{e}, 休眠一分钟', prefix)
         sleep(60)
         return
+    if response.status_code != 200:
+        if response.status_code == 429:
+            return
+        if response.status_code == 412:
+            logger.warning(
+                f'触发风控 url:{query_url}, status:{response.status_code}, {response.reason}, 休眠五分钟', prefix)
+            sleep(300)
+        else:
+            logger.warning(
+                f'请求错误 url:{query_url}, status:{response.status_code}, {response.reason}, 休眠一分钟', prefix)
+            sleep(60)
+        return
     try:
         result = json.loads(str(response.content, "utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as e:
@@ -69,21 +81,9 @@ def query_bilidynamic(uid, cookie, msg):
             f'【{uid}】解析content出错:{e}, url:{query_url}, 休眠三分钟, content:\n{str(response.content, "utf-8")}', prefix)
         sleep(180)
         return
-    if response.status_code != 200:
-        if response.status_code == 429:
-            return
-        if result['message'] == 'request was banned':
-            logger.warning(
-                f'触发风控 url:{query_url}, status:{response.status_code}, {response.reason}, msg:{result["message"]}, 休眠五分钟', prefix)
-            sleep(300)
-        else:
-            logger.warning(
-                f'请求错误 url:{query_url}, status:{response.status_code}, {response.reason}, msg:{result["message"]}, 休眠一分钟', prefix)
-            sleep(60)
-        return
     if result['code'] != 0:
-        logger.warning(
-            f'【{uid}】请求返回数据code错误:{result["code"]}, msg:{result["message"]}, url:{query_url}, 休眠五分钟', prefix)
+        logger.error(
+            f'【{uid}】请求返回数据code错误:{result["code"]}, url:{query_url}, msg:{result["message"]}, 休眠五分钟', prefix)
         sleep(300)
         return
     data = result['data']
@@ -155,7 +155,12 @@ def query_bilidynamic(uid, cookie, msg):
             # 转发动态
             action = '转发动态'
             content = card['item']['content']
-            origin = json.loads(card['origin'])
+            try:
+                origin = json.loads(card['origin'])
+            except (UnicodeDecodeError, json.JSONDecodeError) as e:
+                origin = card['origin']
+                logger.warning(
+                    f'【{uid}】源动态解析出错:{e}, url:{query_url}, content:\n{origin}', prefix)
             if 'videos' in origin:
                 pic_url = origin['pic']
             elif 'item' in origin:
