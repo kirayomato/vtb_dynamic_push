@@ -1,21 +1,35 @@
 import re
-from flask import Flask, render_template, jsonify
 import io
+from fastapi import FastAPI, Request, Depends, Body
+from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.templating import Jinja2Templates
+from fastapi.staticfiles import StaticFiles
 
-app = Flask(__name__)
+app = FastAPI()
+
+# 设置模板路径
+templates = Jinja2Templates(directory="templates")
+app.mount("/static", StaticFiles(directory="static"), name="static")
+# 存储日志数据的列表
 log_data = []
 
 
-@app.route('/')
-def index():
-    return render_template('index.html')
+@app.get("/", response_class=HTMLResponse)
+async def index(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
 
 
-@app.route('/logs')
-def get_logs():
+@app.get("/logs", response_class=JSONResponse)
+async def get_logs():
     # 返回所有日志数据
-    return jsonify(log_data)
+    return log_data
 
+
+@app.post("/write-file", response_class=JSONResponse)
+async def write_file(content: str = Body(..., media_type="text/plain")):
+    with open("WeiboCookies.json", "w") as file:  # 使用 "a" 模式追加内容
+        file.write(content + "\n")
+    return {"message": "Content written successfully"}
 
 # ANSI 转义码和 HTML 颜色对照
 ansi_to_html_colors = {

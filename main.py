@@ -10,6 +10,7 @@ from query_weibo import query_weibodynamic, query_valid, USER_NAME_DICT
 from query_bili import query_bilidynamic, query_live_status_batch, DYNAMIC_NAME_DICT, LIVE_NAME_DICT, try_cookies
 from colorama import Fore, init, Style
 from push import notify
+import uvicorn
 
 
 def load_cookie(path):
@@ -179,5 +180,4 @@ if __name__ == '__main__':
     thread2.start()
     thread3.start()
     thread4.start()
-    app.run(host='0.0.0.0', port=5000)
-    thread4.join()
+    uvicorn.run(app, host='0.0.0.0', port=5000, log_level='warning')

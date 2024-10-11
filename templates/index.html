@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VTB Dynamic</title>
-    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
+    <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
     <style>
         body {
             background-color: #1E1E1E;
@@ -24,6 +24,7 @@
         <!-- 日志内容会显示在这里 -->
     </div>
     <button id="toggle-scroll">关闭自动滚动</button>
+    <button onclick="showInputDialog()">更新微博Cookies</button>
     <script>
         let autoScroll = true;
 
@@ -53,7 +54,36 @@
                         window.scrollTo(0, document.body.scrollHeight);
                 });
         }
+        // 显示输入对话框
+        function showInputDialog() {
+            const content = prompt("Enter text to write to test.txt:");
+            if (content !== null) {
+                writeToFile(content);
+            }
+        }
 
+        // 向后端发送写入请求
+        function writeToFile(content) {
+            fetch('/write-file', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'text/plain'
+                },
+                body: content
+            })
+                .then(response => {
+                    console.info(response)
+                    console.info(JSON.stringify(content))
+                    if (response.ok) {
+                        alert("Content written successfully");
+                    } else {
+                        alert("Error writing content");
+                    }
+                })
+                .catch(error => {
+                    alert("Error: " + error);
+                });
+        }
         // 定时每1秒获取一次日志数据
         setInterval(fetchLogs, 1000);
 
