@@ -37,12 +37,13 @@ def weibo():
     if cookies_check == 'true':
         check_uid = global_config.get_raw(
             'weibo', 'cookies_check_uid')
-    intervals_second = int(global_config.get_raw('weibo', 'intervals_second'))
     logger.info('开始检测微博', prefix, Fore.GREEN)
     test = 0
     WeiboCookies = {}
     while True:
         ck = load_cookie('WeiboCookies.json')
+        intervals_second = int(
+            global_config.get_raw('weibo', 'intervals_second'))
         if WeiboCookies != ck:
             WeiboCookies = ck
             test = 0
@@ -82,13 +83,13 @@ def bili_dy():
     if enable_dynamic_push != 'true':
         logger.warning('未开启动态推送功能', prefix)
         return
-    intervals_second = int(global_config.get_raw(
-        'bili', 'dynamic_intervals_second'))
     logger.info('开始检测动态', prefix, Fore.GREEN)
     test = 0
     BiliCookies = {}
     while True:
         bk = load_cookie('BiliCookies.json')
+        intervals_second = int(global_config.get_raw(
+            'bili', 'dynamic_intervals_second'))
         if BiliCookies != bk:
             BiliCookies = bk
             test = 0

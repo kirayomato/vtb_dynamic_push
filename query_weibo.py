@@ -58,6 +58,16 @@ def query_weibodynamic(uid, cookie, msg):
         logger.warning(f'网络错误 url:{query_url}, error:{e}, 休眠一分钟', prefix)
         sleep(60)
         return
+    if response.status_code != 200:
+        if response.status_code == 403:
+            logger.warning(
+                f'触发风控 url:{query_url}, status:{response.status_code}, msg:{response.reason}, 休眠五分钟', prefix)
+            sleep(300)
+        else:
+            logger.warning(
+                f'请求错误 url:{query_url}, status:{response.status_code}, msg:{response.reason}, 休眠一分钟', prefix)
+            sleep(60)
+        return
     try:
         result = json.loads(str(response.content, "utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as e:
@@ -65,19 +75,9 @@ def query_weibodynamic(uid, cookie, msg):
             f'【{uid}】解析content出错:{e}, url:{query_url}, 休眠一分钟, content:\n{str(response.content, "utf-8")}', prefix)
         sleep(60)
         return
-    if response.status_code != 200:
-        if response.status_code == 403:
-            logger.warning(
-                f'触发风控 url:{query_url}, status:{response.status_code}, msg:{result["msg"]}, 休眠五分钟', prefix)
-            sleep(300)
-        else:
-            logger.warning(
-                f'请求错误 url:{query_url}, status:{response.status_code}, msg:{result["msg"]}, 休眠一分钟', prefix)
-            sleep(60)
-        return
     if result['ok'] not in (0, 1):
-        logger.warning(
-            f'【{uid}】请求返回数据code错误:{result["ok"]}, msg:{result["msg"]}, url:{query_url}, 休眠五分钟', prefix)
+        logger.error(
+            f'【{uid}】请求返回数据code错误:{result["ok"]}, url:{query_url}, msg:{result["msg"]}, 休眠五分钟', prefix)
         sleep(300)
         return
     cards = result['data']['cards']
