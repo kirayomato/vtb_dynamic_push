@@ -195,11 +195,13 @@ class Push(object):
         }
         push_url = f'http://{self.gotify_url}/message?token={self.gotify_token}'
         response = requests_post(push_url, json=body)
-        if response.status_code == 200:
-            logger.debug('gotify推送成功', prefix)
+        if response: 
+            if response.status_code == 200:
+                logger.debug('gotify推送成功', prefix)
+            else:
+                logger.error(f'gotify推送失败, code:{response.status_code}, msg:{response.text}', prefix)
         else:
-            logger.error(
-                f'gotify推送失败, code:{response.status_code}, msg:{response.text}', prefix)
+            logger.error('gotify推送失败, 请求失败', prefix)
 
     def _push_plus_push(self, title, content, url=None, pic_url=None):
         """
