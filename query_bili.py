@@ -123,14 +123,14 @@ def query_bilidynamic(uid, cookie, msg):
                  prefix, Fore.LIGHTBLUE_EX)
     icon_path = None
     if face != USER_FACE_DICT[uid]:
-        logger.info(f'【{uname}】更改了头像', prefix)
+        logger.info(f'【{uname}】更改了头像', prefix, Fore.LIGHTBLUE_EX)
         notify(f'【{uname}】更改了头像', '', icon=icon_path,
                on_click=f'https://space.bilibili.com/{uid}', pic_url=face,
                )
         USER_FACE_DICT[uid] = face
     if sign != USER_SIGN_DICT[uid]:
         logger.info(f'【{uname}】更改了签名：【{USER_SIGN_DICT[uid]}】 -> 【{sign}】',
-                    prefix)
+                    prefix, Fore.LIGHTBLUE_EX)
         notify(f'【{uname}】更改了签名', f'【{USER_SIGN_DICT[uid]}】 -> 【{sign}】',
                icon=icon_path,
                on_click=f'https://space.bilibili.com/{uid}'
@@ -186,9 +186,9 @@ def query_bilidynamic(uid, cookie, msg):
             content = card['title']
             pic_url = card['image_urls'][0]
         url = f'https://www.bilibili.com/opus/{dynamic_id}'
-        logger.info(f'【{uname}】{dynamic_time}：{action} {content}, url:{url}',
-                    prefix)
         image = None
+        logger.info(f'【{uname}】{dynamic_time}：{action} {content}, url:{url}',
+                    prefix, Fore.LIGHTBLUE_EX)
         notify(f"【{uname}】{action}", content,
                on_click=url, image=image,
                icon=icon_path, pic_url=pic_url)
@@ -311,12 +311,12 @@ def query_live_status_batch(uid_list, cookie, msg, special):
             image = None
             if ROOM_TITLE_DICT[uid] != room_title:
                 logger.info(f'【{uname}】更改了直播间标题：【{ROOM_TITLE_DICT[uid]}】 -> 【{room_title}】',
-                            prefix)
+                            prefix, Fore.CYAN)
                 notify(f'【{uname}】更改了直播间标题', f'【{ROOM_TITLE_DICT[uid]}】->【{room_title}】',
                        icon=icon_path, on_click=url)
                 ROOM_TITLE_DICT[uid] = room_title
             if ROOM_COVER_DICT[uid] != room_cover_url and room_cover_url != '':
-                logger.info(f'【{uname}】更改了直播间封面', prefix)
+                logger.info(f'【{uname}】更改了直播间封面', prefix, Fore.CYAN)
                 notify(f'【{uname}】更改了直播间封面', '', on_click=url,
                        image=image, icon=icon_path, pic_url=room_cover_url)
                 ROOM_COVER_DICT[uid] = room_cover_url
@@ -336,7 +336,7 @@ def query_live_status_batch(uid_list, cookie, msg, special):
                            image=image, icon=icon_path,
                            pic_url=room_cover_url)
                 else:
-                    logger.info(f'【{uname}】下播了', prefix)
+                    logger.info(f'【{uname}】下播了', prefix, Fore.CYAN)
                 LIVING_STATUS_DICT[uid] = live_status
             elif live_status == 1:
                 logger.debug(f'【{uname}】【{room_title}】直播中', prefix,
