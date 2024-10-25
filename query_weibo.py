@@ -160,13 +160,13 @@ def query_weibodynamic(uid, cookie, msg):
                  prefix, Fore.LIGHTYELLOW_EX)
     icon_path = get_icon(uid, face)
     if face != USER_FACE_DICT[uid]:
-        logger.info(f'【{uname}】更改了头像', prefix)
+        logger.info(f'【{uname}】更改了头像', prefix, Fore.LIGHTYELLOW_EX)
         notify(f'【{uname}】更改了头像', '', icon=icon_path,
                on_click=f'https://m.weibo.cn/profile/{uid}')
         USER_FACE_DICT[uid] = face
     if sign != USER_SIGN_DICT[uid]:
         logger.info(f'【{uname}】更改了签名：【{USER_SIGN_DICT[uid]}】 -> 【{sign}】',
-                    prefix)
+                    prefix, Fore.LIGHTYELLOW_EX)
         notify(f'【{uname}】更改了签名', f'【{USER_SIGN_DICT[uid]}】 -> 【{sign}】',
                icon=icon_path,
                on_click=f'https://m.weibo.cn/profile/{uid}')
@@ -180,7 +180,7 @@ def query_weibodynamic(uid, cookie, msg):
             else:
                 action = '发布了微博，但未能抓取'
             logger.info(f'【{uname}】{action}：{_total} -> {total}',
-                        prefix)
+                        prefix, Fore.LIGHTYELLOW_EX)
             notify(f'【{uname}】{action}', f'{_total} -> {total}',
                    icon=icon_path,
                    on_click=f'https://m.weibo.cn/profile/{uid}')
@@ -217,8 +217,6 @@ def query_weibodynamic(uid, cookie, msg):
                     pic_url = mblog['retweeted_status']['page_info']['page_pic']['url']
 
             url = card['scheme']
-            logger.info(f'【{uname}】{dynamic_time}：{action} {content}，url:{url}',
-                        prefix)
             image = None
             if pic_url:
                 opus_path = get_icon(uid, pic_url, 'opus/')
@@ -230,6 +228,8 @@ def query_weibodynamic(uid, cookie, msg):
                         'src': opus_path,
                         'placement': 'hero'
                     }
+            logger.info(f'【{uname}】{dynamic_time}：{action} {content}，url:{url}',
+                        prefix, Fore.LIGHTYELLOW_EX)
             notify(f"【{uname}】{action}", content,
                    on_click=url, image=image, icon=icon_path)
             DYNAMIC_DICT[uid].append(mblog_id)
