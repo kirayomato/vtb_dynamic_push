@@ -67,9 +67,8 @@ def query_valid(uid, cookie):
                                 cookies=cookie, proxies=proxies, timeout=10)
         result = json.loads(str(response.content, "utf-8"))
         cards = result['data']['cards']
-        return len(cards) > 5
+        return len(cards) > 10
     except BaseException as e:
-        logger.warning(f'请求错误 url:{query_url}, error:{e}', prefix)
         return True
 
 
@@ -171,7 +170,7 @@ def query_weibodynamic(uid, cookie, msg):
                icon=icon_path,
                on_click=f'https://m.weibo.cn/profile/{uid}')
         USER_SIGN_DICT[uid] = sign
-    if total != USER_COUNT_DICT[uid]:
+    if total != USER_COUNT_DICT[uid] or mblog_id not in DYNAMIC_DICT[uid]:
         _total = USER_COUNT_DICT[uid]
         USER_COUNT_DICT[uid] = total
         if mblog_id in DYNAMIC_DICT[uid]:
