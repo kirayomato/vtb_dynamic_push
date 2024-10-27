@@ -3,3 +3,5 @@ icon/*
 __pycache__/*
 *.zip
 .vscode/*
+*.json
+config.ini

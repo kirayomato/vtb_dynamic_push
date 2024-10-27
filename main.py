@@ -3,7 +3,7 @@ import threading
 import os
 from time import sleep
 import traceback
-from config import Config
+from config import global_config
 from logger import logger
 from web import app
 from query_weibo import query_weibodynamic, query_valid, USER_NAME_DICT
@@ -14,6 +14,9 @@ import uvicorn
 
 
 def load_cookie(path):
+    if not os.path.exists(path):
+        with open(path, 'w') as f:
+            f.write('[]')
     try:
         ck = json.load(open(path, "r"))
         cookies = {}
@@ -132,6 +135,8 @@ def bili_live():
         'bili', 'live_intervals_second'))
     logger.info('开始检测直播', prefix, Fore.GREEN)
     while True:
+        intervals_second = int(global_config.get_raw(
+            'bili', 'live_intervals_second'))
         BiliCookies = load_cookie('BiliCookies.json')
         uid_list = global_config.get_raw('bili', 'live_uid_list')
         special = global_config.get_raw('bili', 'special_list')
@@ -156,16 +161,7 @@ def bili_live():
         sleep(intervals_second)
 
 
-def update_config():
-    while True:
-        global global_config
-        global_config = Config()
-        logger.debug('更新Config', '【Config】', Fore.GREEN)
-        sleep(30)
-
-
 if __name__ == '__main__':
-    global_config = Config()
     if not os.path.exists('icon/cover'):
         os.makedirs('icon/cover')
     if not os.path.exists('icon/opus'):
@@ -176,9 +172,8 @@ if __name__ == '__main__':
     thread1 = threading.Thread(target=bili_dy)
     thread2 = threading.Thread(target=bili_live)
     thread3 = threading.Thread(target=weibo)
-    thread4 = threading.Thread(target=update_config)
+
     thread1.start()
     thread2.start()
     thread3.start()
-    thread4.start()
     uvicorn.run(app, host='0.0.0.0', port=5000, log_level='warning')

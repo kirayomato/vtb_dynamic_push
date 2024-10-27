@@ -36,6 +36,7 @@
 在[Releases](https://github.com/kirayomato/vtb_dynamic_push/releases)下载最新版本代码压缩包并解压到一个文件夹中
 
 #### 1. 填写config.ini配置信息
+首先将文件`config.ini.example`重命名为`config.ini`，并依照如下格式填写参数
 
 `weibo`下的参数
 - `enable_dynamic_push`是否启用微博推送
