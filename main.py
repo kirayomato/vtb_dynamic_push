@@ -3,7 +3,7 @@ import threading
 import os
 from time import sleep
 import traceback
-from config import Config
+from config import global_config
 from logger import logger, output_list, cnt
 from query_weibo import query_weibodynamic, query_valid, USER_NAME_DICT
 from query_bili import query_bilidynamic, query_live_status_batch, DYNAMIC_NAME_DICT, LIVE_NAME_DICT, try_cookies
@@ -12,6 +12,9 @@ from push import notify
 
 
 def load_cookie(path):
+    if not os.path.exists(path):
+        with open(path, 'w') as f:
+            f.write('[]')
     try:
         ck = json.load(open(path, "r"))
         cookies = {}
@@ -42,7 +45,8 @@ def weibo():
     WeiboCookies = {}
     while True:
         ck = load_cookie('WeiboCookies.json')
-        intervals_second = int(global_config.get_raw('weibo', 'intervals_second'))
+        intervals_second = int(
+            global_config.get_raw('weibo', 'intervals_second'))
         if WeiboCookies != ck:
             WeiboCookies = ck
             test = 0
@@ -90,7 +94,7 @@ def bili_dy():
     while True:
         bk = load_cookie('BiliCookies.json')
         intervals_second = int(global_config.get_raw(
-        'bili', 'dynamic_intervals_second'))
+            'bili', 'dynamic_intervals_second'))
         if BiliCookies != bk:
             BiliCookies = bk
             test = 0
@@ -131,10 +135,10 @@ def bili_live():
         return
     global cnt
     cnt += 1
-    intervals_second = int(global_config.get_raw(
-        'bili', 'live_intervals_second'))
     logger.info('开始检测直播', prefix, Fore.GREEN)
     while True:
+        intervals_second = int(global_config.get_raw(
+            'bili', 'live_intervals_second'))
         BiliCookies = load_cookie('BiliCookies.json')
         uid_list = global_config.get_raw('bili', 'live_uid_list')
         special = global_config.get_raw('bili', 'special_list')
@@ -160,14 +164,6 @@ def bili_live():
         sleep(intervals_second)
 
 
-def update_config():
-    while True:
-        global global_config
-        global_config = Config()
-        logger.debug('更新Config', '【Config】', Fore.GREEN)
-        sleep(30)
-
-
 def print_state():
     while True:
         if sum(swi) == cnt:
@@ -179,7 +175,6 @@ def print_state():
 
 
 if __name__ == '__main__':
-    global_config = Config()
     if not os.path.exists('icon/cover'):
         os.makedirs('icon/cover')
     if not os.path.exists('icon/opus'):
@@ -190,11 +185,9 @@ if __name__ == '__main__':
     thread1 = threading.Thread(target=bili_dy)
     thread2 = threading.Thread(target=bili_live)
     thread3 = threading.Thread(target=weibo)
-    thread4 = threading.Thread(target=update_config)
-    thread5 = threading.Thread(target=print_state)
+    thread4 = threading.Thread(target=print_state)
     thread1.start()
     thread2.start()
     thread3.start()
     thread4.start()
-    thread5.start()
-    thread5.join()
+    thread4.join()
