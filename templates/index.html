@@ -23,40 +23,34 @@
     <div id="log-container">
         <!-- 日志内容会显示在这里 -->
     </div>
-    <button id="toggle-scroll">关闭自动滚动</button>
     <button onclick="showInputDialog()">更新微博Cookies</button>
     <script>
-        let autoScroll = true;
-
-        // 获取按钮元素
-        const toggleButton = document.getElementById('toggle-scroll');
-
-        // 按钮点击事件
-        toggleButton.addEventListener('click', function () {
-            autoScroll = !autoScroll; // 切换自动滚动状态
-            toggleButton.textContent = autoScroll ? '关闭自动滚动' : '开启自动滚动';
-        });
+        var init = 1;
         function fetchLogs() {
             fetch('/logs')
                 .then(response => response.json())
                 .then(data => {
+                    if (!data[0])
+                        return
                     // 清空日志容器
                     const logContainer = document.getElementById('log-container');
                     logContainer.innerHTML = '';
                     // 显示所有日志
-                    data.forEach(log => {
+                    data[1].forEach(log => {
                         const p = document.createElement('p');
                         p.textContent = log.msg;
                         p.style.color = log.color;
                         logContainer.appendChild(p);
                     });
-                    if (autoScroll)
+                    if (init) {
                         window.scrollTo(0, document.body.scrollHeight);
+                        init = 0;
+                    }
                 });
         }
         // 显示输入对话框
         function showInputDialog() {
-            const content = prompt("Enter text to write to test.txt:");
+            const content = prompt("Enter new cookies:");
             if (content !== null) {
                 writeToFile(content);
             }

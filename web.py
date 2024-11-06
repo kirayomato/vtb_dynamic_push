@@ -4,6 +4,7 @@ from fastapi import FastAPI, Request, Depends, Body
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
+from sys import exit
 
 app = FastAPI()
 
@@ -12,6 +13,7 @@ templates = Jinja2Templates(directory="templates")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 # 存储日志数据的列表
 log_data = []
+updated = True
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -22,7 +24,13 @@ async def index(request: Request):
 @app.get("/logs", response_class=JSONResponse)
 async def get_logs():
     # 返回所有日志数据
-    return log_data
+    global updated
+    if updated:
+        update = True
+    else:
+        update = False
+    updated = False
+    return update, log_data
 
 
 @app.post("/write-file", response_class=JSONResponse)
@@ -85,3 +93,5 @@ class OutputList(io.StringIO):
             log['msg'] = ' '.join(t)
         self.output_list.append(log)
         super().write(s)
+        global updated
+        updated = True

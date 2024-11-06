@@ -12,6 +12,7 @@ from colorama import Fore, init, Style
 from push import notify
 import uvicorn
 
+
 def weibo():
     prefix = '【查询微博状态】'
     enable_dynamic_push = config.get_raw(
@@ -144,7 +145,6 @@ if __name__ == '__main__':
     thread1 = threading.Thread(target=bili_dy)
     thread2 = threading.Thread(target=bili_live)
     thread3 = threading.Thread(target=weibo)
-
     thread1.start()
     thread2.start()
     thread3.start()
