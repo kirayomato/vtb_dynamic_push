@@ -104,8 +104,6 @@ def bili_live():
     if enable_living_push != 'true':
         logger.warning('未开启直播推送功能', prefix)
         return
-    intervals_second = int(global_config.get_raw(
-        'bili', 'live_intervals_second'))
     logger.info('开始检测直播', prefix, Fore.GREEN)
     while True:
         intervals_second = int(config.get_raw(
