@@ -19,7 +19,8 @@ def load_cookie(path, ck, name, prefix):
         with open(path, 'w') as f:
             f.write('[]')
     try:
-        temp = json.load(open(path, "r"))
+        with open(path, 'r') as f:
+            temp = json.load(f)
         cookies = {}
         for cookie in temp:
             cookies[cookie.get('name')] = cookie.get('value')
@@ -27,8 +28,8 @@ def load_cookie(path, ck, name, prefix):
         if ck != cookies:
             ck = cookies
             logger.info(f'{name}Cookies更新', prefix, Fore.GREEN)
-    except BaseException:
-        logger.error(f'{name}Cookies读取错误', prefix)
+    except BaseException as e:
+        logger.error(f'{name}Cookies读取错误: {e}', prefix)
     return ck
 
 
