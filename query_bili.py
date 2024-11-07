@@ -2,7 +2,6 @@ import json
 import time
 import requests
 from requests.exceptions import RequestException
-from collections import deque
 from push import notify
 from logger import logger
 # from PIL import Image
@@ -21,7 +20,6 @@ USER_SIGN_DICT = {}
 USER_FACE_DICT = {}
 DYNAMIC_NAME_DICT = {}
 LIVE_NAME_DICT = {}
-LEN_OF_DEQUE = 20
 proxies = {
     "http": "",
     "https": "",
@@ -86,41 +84,36 @@ def query_bilidynamic(uid, cookie, msg):
             f'【{uid}】请求返回数据code错误:{result["code"]}, url:{query_url}, msg:{result["message"]}, 休眠五分钟', prefix)
         sleep(300)
         return
-    data = result['data']
     try:
-        if len(data['cards']) == 0:
+        cards = result['data']['cards']
+        if len(cards) == 0:
             if DYNAMIC_DICT.get(uid, None) is not None:
                 logger.warning(f'{uid}】动态列表为空', prefix)
             return
-        item = data['cards'][0]
-        dynamic_id = item['desc']['dynamic_id']
+        item = cards[0]
         uname = item['desc']['user_profile']['info']['uname']
         face = item['desc']['user_profile']['info']['face']
         sign = item['desc']['user_profile']['sign']
     except (KeyError, TypeError):
         logger.error(
-            f'【{uid}】返回数据不完整,url:{query_url}, 休眠三分钟\ndata:{data}', prefix)
+            f'【{uid}】返回数据不完整,url:{query_url}, 休眠三分钟\ndata:{result}', prefix)
         sleep(180)
         return
     msg[0] = datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' - ' + \
         Fore.LIGHTBLUE_EX+f'查询{uname}动态' + Style.RESET_ALL
     if DYNAMIC_DICT.get(uid, None) is None:
-        DYNAMIC_DICT[uid] = deque(maxlen=LEN_OF_DEQUE)
+        DYNAMIC_DICT[uid] = set()
         DYNAMIC_NAME_DICT[uid] = uname
         USER_FACE_DICT[uid] = face
         USER_SIGN_DICT[uid] = sign
-        cards = data['cards']
-        for index in range(LEN_OF_DEQUE):
-            if index < len(cards):
-                DYNAMIC_DICT[uid].appendleft(
-                    cards[index]['desc']['dynamic_id'])
+        for index in range(len(cards)):
+            DYNAMIC_DICT[uid].add(
+                cards[index]['desc']['dynamic_id'])
         logger.info(
             f'【{uname}】动态初始化,len = {len(DYNAMIC_DICT[uid])}', prefix, Fore.LIGHTBLUE_EX)
         logger.debug(
             f'【{uname}】动态初始化 {DYNAMIC_DICT[uid]}', prefix, Fore.LIGHTBLUE_EX)
         return
-    logger.debug(f'【{uname}】上一条动态id[{DYNAMIC_DICT[uid][-1]}],本条动态id[{dynamic_id}]',
-                 prefix, Fore.LIGHTBLUE_EX)
     icon_path = None
     if face != USER_FACE_DICT[uid]:
         logger.info(f'【{uname}】更改了头像', prefix, Fore.LIGHTBLUE_EX)
@@ -136,7 +129,11 @@ def query_bilidynamic(uid, cookie, msg):
                on_click=f'https://space.bilibili.com/{uid}'
                )
         USER_SIGN_DICT[uid] = sign
-    if dynamic_id not in DYNAMIC_DICT[uid]:
+    last_id = min(DYNAMIC_DICT[uid])
+    for item in cards:
+        dynamic_id = item['desc']['dynamic_id']
+        if dynamic_id in DYNAMIC_DICT[uid] or dynamic_id < last_id:
+            continue
         dynamic_type = item['desc']['type']
         # if dynamic_type not in [2, 4, 8, 64]:
         #     logger.info(Fore.LIGHTBLUE_EX+
@@ -192,7 +189,7 @@ def query_bilidynamic(uid, cookie, msg):
         notify(f"【{uname}】{action}", content,
                on_click=url, image=image,
                icon=icon_path, pic_url=pic_url)
-        DYNAMIC_DICT[uid].append(dynamic_id)
+        DYNAMIC_DICT[uid].add(dynamic_id)
         logger.debug(str(DYNAMIC_DICT[uid]), prefix, Fore.LIGHTBLUE_EX)
 
 
