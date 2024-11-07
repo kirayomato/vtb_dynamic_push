@@ -2,7 +2,6 @@ from datetime import datetime, timedelta
 import json
 import re
 import time
-from collections import deque
 from push import notify
 from logger import logger
 import requests
@@ -19,7 +18,6 @@ USER_FACE_DICT = {}
 USER_SIGN_DICT = {}
 USER_NAME_DICT = {}
 USER_COUNT_DICT = {}
-LEN_OF_DEQUE = 20
 proxies = {
     "http": "",
     "https": "",
@@ -68,7 +66,7 @@ def query_valid(uid, cookie):
         result = json.loads(str(response.content, "utf-8"))
         cards = result['data']['cards']
         return len(cards) > 10
-    except BaseException as e:
+    except:
         return True
 
 
@@ -77,6 +75,13 @@ def query_weibodynamic(uid, cookie, msg):
         msg[1] = datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' - ' + \
             Fore.LIGHTYELLOW_EX + '休眠中' + Style.RESET_ALL
         time.sleep(t)
+
+    def get_content(mblog):
+        if mblog.get('raw_text', None):
+            return mblog['raw_text']
+        else:
+            return re.sub(r'<[^>]+>', '', mblog['text'])
+
     if uid is None:
         return
     query_url = f'https://m.weibo.cn/api/container/getIndex?type=uid&value={uid}&containerid=107603{uid}&count=25'
@@ -110,22 +115,15 @@ def query_weibodynamic(uid, cookie, msg):
             f'【{uid}】请求返回数据code错误:{result["ok"]}, url:{query_url}, msg:{result["msg"]}, 休眠五分钟', prefix)
         sleep(300)
         return
-    cards = result['data']['cards']
-    n = len(cards)
-    if n == 0:
-        if DYNAMIC_DICT.get(uid, None) is None:
-            logger.debug(f'【{uid}】微博列表为空', prefix)
-        return
-    # 跳过置顶
-    for i in range(n):
-        card = cards[i]
-        if card['card_type'] != 9 or card['mblog'].get('isTop', None) == 1 or card['mblog'].get('mblogtype', None) == 2:
-            continue
-        else:
-            break
     try:
+        cards = [i for i in result['data']['cards'] if i['card_type'] == 9]
+        n = len(cards)
+        if n == 0:
+            if DYNAMIC_DICT.get(uid, None) is None:
+                logger.debug(f'【{uid}】微博列表为空', prefix)
+                return
+        card = cards[0]
         mblog = card['mblog']
-        mblog_id = mblog['id']
         user = mblog['user']
         uname = user['screen_name']
         face = user['profile_image_url']
@@ -140,23 +138,20 @@ def query_weibodynamic(uid, cookie, msg):
     msg[1] = datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' - ' + \
         Fore.LIGHTYELLOW_EX+f'查询{uname}微博' + Style.RESET_ALL
     if DYNAMIC_DICT.get(uid, None) is None:
-        DYNAMIC_DICT[uid] = deque(maxlen=LEN_OF_DEQUE)
+        DYNAMIC_DICT[uid] = {}
         USER_FACE_DICT[uid] = face
         USER_SIGN_DICT[uid] = sign
         USER_NAME_DICT[uid] = uname
         USER_COUNT_DICT[uid] = total
-        for index in range(LEN_OF_DEQUE):
-            if index < len(cards):
-                if cards[index]['card_type'] != 9:
-                    continue
-                DYNAMIC_DICT[uid].appendleft(cards[index]['mblog']['id'])
+        for card in cards:
+            mblog = card['mblog']
+            mblog_id = mblog['id']
+            DYNAMIC_DICT[uid][mblog['id']] = get_content(mblog)
         logger.info(
             f'【{uname}】微博初始化,len = {len(DYNAMIC_DICT[uid])}', prefix, Fore.LIGHTYELLOW_EX)
         logger.debug(
             f'【{uname}】微博初始化 {DYNAMIC_DICT[uid]}', prefix, Fore.LIGHTYELLOW_EX)
         return
-    logger.debug(f'【{uname}】上一条微博id[{DYNAMIC_DICT[uid][-1]}]，本条微博id[{mblog_id}]',
-                 prefix, Fore.LIGHTYELLOW_EX)
     icon_path = get_icon(uid, face)
     if face != USER_FACE_DICT[uid]:
         logger.info(f'【{uname}】更改了头像', prefix, Fore.LIGHTYELLOW_EX)
@@ -170,69 +165,74 @@ def query_weibodynamic(uid, cookie, msg):
                icon=icon_path,
                on_click=f'https://m.weibo.cn/profile/{uid}')
         USER_SIGN_DICT[uid] = sign
-    if total != USER_COUNT_DICT[uid] or mblog_id not in DYNAMIC_DICT[uid]:
-        _total = USER_COUNT_DICT[uid]
-        USER_COUNT_DICT[uid] = total
-        if mblog_id in DYNAMIC_DICT[uid]:
-            if _total > total:
-                action = '删除了微博'
+
+    cnt = 0
+    last_id = min(DYNAMIC_DICT[uid])
+    for card in cards:
+        mblog = card['mblog']
+        mblog_id = mblog['id']
+        if mblog_id in DYNAMIC_DICT[uid] or mblog_id < last_id:
+            continue
+        cnt += 1
+        created_at = time.strptime(
+            mblog['created_at'], '%a %b %d %H:%M:%S %z %Y')
+        dynamic_time = time.strftime('%Y-%m-%d %H:%M:%S', created_at)
+        action = '微博更新'
+
+        pic_url = mblog.get('original_pic', None)
+        if 'retweeted_status' in mblog:
+            action = '转发微博'
+            pic_url = mblog['retweeted_status'].get(
+                'original_pic', None)
+            if not pic_url and 'page_info' in mblog['retweeted_status']:
+                pic_url = mblog['retweeted_status']['page_info']['page_pic']['url']
+
+        url = card['scheme']
+        content = get_content(mblog)
+        image = None
+        if pic_url:
+            opus_path = get_icon(uid, pic_url, 'opus/')
+            if opus_path is None:
+                logger.warning(
+                    f'【{uname}】图片下载失败，url:{pic_url}', prefix)
             else:
-                action = '发布了微博，但未能抓取'
-            logger.info(f'【{uname}】{action}：{_total} -> {total}',
+                image = {
+                    'src': opus_path,
+                    'placement': 'hero'
+                }
+        logger.info(f'【{uname}】{dynamic_time}：{action} {content}，url:{url}',
+                    prefix, Fore.LIGHTYELLOW_EX)
+        notify(f"【{uname}】{action}", content,
+               on_click=url, image=image, icon=icon_path)
+        DYNAMIC_DICT[uid][mblog_id] = get_content(mblog)
+        logger.debug(str(DYNAMIC_DICT[uid]), prefix, Fore.LIGHTYELLOW_EX)
+
+    # 尝试检测被删除的微博
+    st = set([card['mblog']['id'] for card in cards])
+    last_id = min(st)
+    for id in DYNAMIC_DICT[uid]:
+        if id >= last_id and id not in st:
+            DYNAMIC_DICT[uid].remove(id)
+            cnt -= 1
+            logger.info(f'【{uname}】删除微博: {DYNAMIC_DICT[uid][id]}',
                         prefix, Fore.LIGHTYELLOW_EX)
-            notify(f'【{uname}】{action}', f'{_total} -> {total}',
+            notify(f'【{uname}】删除微博', f'{DYNAMIC_DICT[uid][id]}',
                    icon=icon_path,
                    on_click=f'https://m.weibo.cn/profile/{uid}')
-        else:
-            # card_type = card['card_type']
-            # if card_type not in [9]:
-            #     logger.info(f'【{uname}】微博有更新，但不在需要推送的微博类型列表中',
-            #                 prefix, Fore.LIGHTYELLOW_EX)
-            #     return
 
-            # 如果微博发送日期早于昨天，则跳过（既能避免因api返回历史内容导致的误推送，也可以兼顾到前一天停止检测后产生的微博）
-            created_at = time.strptime(
-                mblog['created_at'], '%a %b %d %H:%M:%S %z %Y')
-            created_at_ts = time.mktime(created_at)
-            yesterday = (datetime.now() +
-                         timedelta(days=-1)).strftime("%Y-%m-%d")
-            yesterday_ts = time.mktime(time.strptime(yesterday, '%Y-%m-%d'))
-            if created_at_ts < yesterday_ts:
-                logger.info(f'【{uname}】微博有更新，但微博发送时间早于今天，可能是历史微博，不予推送',
-                            prefix, Fore.LIGHTYELLOW_EX)
-                DYNAMIC_DICT[uid].append(mblog_id)
-                return
-            dynamic_time = time.strftime('%Y-%m-%d %H:%M:%S', created_at)
-            action = '微博更新'
-            text = mblog['text']
-            text = re.sub(r'<[^>]+>', '', text)
-            content = mblog['raw_text'] if mblog.get(
-                'raw_text', None) is not None else text
-            pic_url = mblog.get('original_pic', None)
-            if 'retweeted_status' in mblog:
-                action = '转发微博'
-                pic_url = mblog['retweeted_status'].get('original_pic', None)
-                if not pic_url and 'page_info' in mblog['retweeted_status']:
-                    pic_url = mblog['retweeted_status']['page_info']['page_pic']['url']
-
-            url = card['scheme']
-            image = None
-            if pic_url:
-                opus_path = get_icon(uid, pic_url, 'opus/')
-                if opus_path is None:
-                    logger.warning(
-                        f'【{uname}】图片下载失败，url:{pic_url}', prefix)
-                else:
-                    image = {
-                        'src': opus_path,
-                        'placement': 'hero'
-                    }
-            logger.info(f'【{uname}】{dynamic_time}：{action} {content}，url:{url}',
-                        prefix, Fore.LIGHTYELLOW_EX)
-            notify(f"【{uname}】{action}", content,
-                   on_click=url, image=image, icon=icon_path)
-            DYNAMIC_DICT[uid].append(mblog_id)
-            logger.debug(str(DYNAMIC_DICT[uid]), prefix, Fore.LIGHTYELLOW_EX)
+    _total = USER_COUNT_DICT[uid]
+    USER_COUNT_DICT[uid] = total
+    if total == _total+cnt:
+        return
+    if total < _total+cnt:
+        action = '删除了微博，但未能找到'
+    else:
+        action = '发布了微博，但未能抓取'
+    logger.info(f'【{uname}】{action}：{_total} -> {total}',
+                prefix, Fore.LIGHTYELLOW_EX)
+    notify(f'【{uname}】{action}', f'{_total} -> {total}',
+           icon=icon_path,
+           on_click=f'https://m.weibo.cn/profile/{uid}')
 
 
 def get_headers(uid):
