@@ -18,6 +18,8 @@ updated = True
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
+    global updated
+    updated = True
     return templates.TemplateResponse("index.html", {"request": request})
 
 
