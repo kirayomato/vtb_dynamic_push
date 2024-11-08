@@ -204,21 +204,25 @@ def query_weibodynamic(uid, cookie, msg):
                     prefix, Fore.LIGHTYELLOW_EX)
         notify(f"【{uname}】{action}", content,
                on_click=url, image=image, icon=icon_path)
-        DYNAMIC_DICT[uid][mblog_id] = get_content(mblog)
+        DYNAMIC_DICT[uid][mblog_id] = content
         logger.debug(str(DYNAMIC_DICT[uid]), prefix, Fore.LIGHTYELLOW_EX)
 
     # 尝试检测被删除的微博
-    st = set([card['mblog']['id'] for card in cards])
-    last_id = min(st)
+    st = [card['mblog']['id'] for card in cards]
+    last_id = st[-1]
+    st = set(st)
+    del_list = []
     for id in DYNAMIC_DICT[uid]:
         if id >= last_id and id not in st:
-            DYNAMIC_DICT[uid].remove(id)
             cnt -= 1
+            del_list.append(id)
             logger.info(f'【{uname}】删除微博: {DYNAMIC_DICT[uid][id]}',
                         prefix, Fore.LIGHTYELLOW_EX)
             notify(f'【{uname}】删除微博', f'{DYNAMIC_DICT[uid][id]}',
                    icon=icon_path,
                    on_click=f'https://m.weibo.cn/profile/{uid}')
+    for id in del_list:
+        del DYNAMIC_DICT[uid][id]
 
     _total = USER_COUNT_DICT[uid]
     USER_COUNT_DICT[uid] = total
