@@ -14,6 +14,7 @@ from os import environ
 
 environ['NO_PROXY'] = '*'
 DYNAMIC_DICT = {}
+LAST_ID = {}
 USER_FACE_DICT = {}
 USER_SIGN_DICT = {}
 USER_NAME_DICT = {}
@@ -143,10 +144,12 @@ def query_weibodynamic(uid, cookie, msg):
         USER_SIGN_DICT[uid] = sign
         USER_NAME_DICT[uid] = uname
         USER_COUNT_DICT[uid] = total
+        LAST_ID[uid] = cards[-1]['mblog']['id']
         for card in cards:
             mblog = card['mblog']
             mblog_id = mblog['id']
-            DYNAMIC_DICT[uid][mblog['id']] = get_content(mblog)
+            if mblog_id >= LAST_ID[uid]:
+                DYNAMIC_DICT[uid][mblog['id']] = get_content(mblog)
         logger.info(
             f'【{uname}】微博初始化,len = {len(DYNAMIC_DICT[uid])}', prefix, Fore.LIGHTYELLOW_EX)
         logger.debug(
@@ -167,11 +170,10 @@ def query_weibodynamic(uid, cookie, msg):
         USER_SIGN_DICT[uid] = sign
 
     cnt = 0
-    last_id = min(DYNAMIC_DICT[uid])
     for card in cards:
         mblog = card['mblog']
         mblog_id = mblog['id']
-        if mblog_id in DYNAMIC_DICT[uid] or mblog_id < last_id:
+        if mblog_id in DYNAMIC_DICT[uid] or mblog_id < LAST_ID[uid]:
             continue
         cnt += 1
         created_at = time.strptime(
@@ -207,29 +209,32 @@ def query_weibodynamic(uid, cookie, msg):
         DYNAMIC_DICT[uid][mblog_id] = content
         logger.debug(str(DYNAMIC_DICT[uid]), prefix, Fore.LIGHTYELLOW_EX)
 
-    # 尝试检测被删除的微博
-    st = [card['mblog']['id'] for card in cards]
-    last_id = st[-1]
-    st = set(st)
-    del_list = []
-    for id in DYNAMIC_DICT[uid]:
-        if id >= last_id and id not in st:
-            cnt -= 1
-            del_list.append(id)
-            logger.info(f'【{uname}】删除微博: {DYNAMIC_DICT[uid][id]}',
-                        prefix, Fore.LIGHTYELLOW_EX)
-            notify(f'【{uname}】删除微博', f'{DYNAMIC_DICT[uid][id]}',
-                   icon=icon_path,
-                   on_click=f'https://m.weibo.cn/profile/{uid}')
-    for id in del_list:
-        del DYNAMIC_DICT[uid][id]
-
     _total = USER_COUNT_DICT[uid]
     USER_COUNT_DICT[uid] = total
     if total == _total+cnt:
         return
+
     if total < _total+cnt:
         action = '删除了微博，但未能找到'
+        # 尝试检测被删除的微博
+        st = [card['mblog']['id'] for card in cards]
+        last_id = st[-1]
+        st = set(st)
+        del_list = []
+        for id in DYNAMIC_DICT[uid]:
+            if id >= last_id and id not in st:
+                cnt -= 1
+                del_list.append(id)
+                logger.info(f'【{uname}】删除微博: {DYNAMIC_DICT[uid][id]}',
+                            prefix, Fore.LIGHTYELLOW_EX)
+                notify(f'【{uname}】删除微博', f'{DYNAMIC_DICT[uid][id]}',
+                       icon=icon_path,
+                       on_click=f'https://m.weibo.cn/profile/{uid}')
+        for id in del_list:
+            del DYNAMIC_DICT[uid][id]
+        if total == _total+cnt:
+            return
+
     else:
         action = '发布了微博，但未能抓取'
     logger.info(f'【{uname}】{action}：{_total} -> {total}',
