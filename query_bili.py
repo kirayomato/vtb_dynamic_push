@@ -184,7 +184,7 @@ def query_bilidynamic(uid, cookie, msg):
             pic_url = card['image_urls'][0]
         url = f'https://www.bilibili.com/opus/{dynamic_id}'
         image = None
-        logger.info(f'【{uname}】{dynamic_time}：{action} {content}, url:{url}',
+        logger.info(f'【{uname}】{action} {dynamic_time}：{content}, url: {url}',
                     prefix, Fore.LIGHTBLUE_EX)
         notify(f"【{uname}】{action}", content,
                on_click=url, image=image,
