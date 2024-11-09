@@ -212,7 +212,7 @@ def query_bilidynamic(uid, cookie, msg):
                     'src': opus_path,
                     'placement': 'hero'
                 }
-        logger.info(f'【{uname}】{dynamic_time}：{action} {content}, url:{url}',
+        logger.info(f'【{uname}】{action} {dynamic_time}：{content}, url: {url}',
                     prefix, Fore.LIGHTBLUE_EX)
         notify(f"【{uname}】{action}", content,
                on_click=url, image=image,

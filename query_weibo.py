@@ -202,7 +202,7 @@ def query_weibodynamic(uid, cookie, msg):
                     'src': opus_path,
                     'placement': 'hero'
                 }
-        logger.info(f'【{uname}】{dynamic_time}：{action} {content}，url:{url}',
+        logger.info(f'【{uname}】{action} {dynamic_time}: {content}，url: {url}',
                     prefix, Fore.LIGHTYELLOW_EX)
         notify(f"【{uname}】{action}", content,
                on_click=url, image=image, icon=icon_path)
@@ -225,7 +225,7 @@ def query_weibodynamic(uid, cookie, msg):
             if id >= last_id and id not in st:
                 cnt -= 1
                 del_list.append(id)
-                logger.info(f'【{uname}】删除微博: {DYNAMIC_DICT[uid][id]}',
+                logger.info(f'【{uname}】删除微博：{DYNAMIC_DICT[uid][id]}',
                             prefix, Fore.LIGHTYELLOW_EX)
                 notify(f'【{uname}】删除微博', f'{DYNAMIC_DICT[uid][id]}',
                        icon=icon_path,
