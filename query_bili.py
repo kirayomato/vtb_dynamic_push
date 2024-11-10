@@ -66,6 +66,49 @@ def query_bilidynamic(uid, cookie, msg):
         msg[0] = datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' - ' + \
             Fore.LIGHTBLUE_EX + '休眠中' + Style.RESET_ALL
         time.sleep(t)
+
+    def get_content(item):
+        dynamic_type = item['desc']['type']
+        card = json.loads(item['card'])
+        action = '动态更新'
+        pic_url = None
+        if dynamic_type == 1:
+            # 转发动态
+            action = '转发动态'
+            content = card['item']['content']
+            try:
+                origin = json.loads(card['origin'])
+            except (UnicodeDecodeError, json.JSONDecodeError) as e:
+                origin = card['origin']
+                logger.warning(
+                    f'【{uid}】源动态解析出错:{e}, url:{query_url}, content:\n{origin}', prefix)
+            if 'videos' in origin:
+                pic_url = origin['pic']
+            elif 'item' in origin:
+                if 'pictures' in origin['item']:
+                    pic_url = origin['item']['pictures'][0]['img_src']
+            elif 'title' in origin:
+                pic_url = origin['image_urls'][0]
+        elif dynamic_type == 2:
+            # 图文动态
+            content = card['item']['description']
+            pic_url = card['item']['pictures'][0]['img_src']
+        elif dynamic_type == 4:
+            # 文字动态
+            content = card['item']['content']
+        elif dynamic_type == 8:
+            # 投稿动态
+            action = '发布投稿'
+            content = card['title']
+            pic_url = card['pic']
+        elif dynamic_type == 64:
+            # 专栏动态
+            action = '发布专栏'
+            content = card['title']
+            pic_url = card['image_urls'][0]
+
+        return content, pic_url, action
+
     prefix = '【查询动态状态】'
     if uid is None:
         return
@@ -110,9 +153,10 @@ def query_bilidynamic(uid, cookie, msg):
                 logger.warning(f'{uid}】动态列表为空', prefix)
             return
         item = cards[0]
-        uname = item['desc']['user_profile']['info']['uname']
-        face = item['desc']['user_profile']['info']['face']
-        sign = item['desc']['user_profile']['sign']
+        user = item['desc']['user_profile']
+        uname = user['info']['uname']
+        face = user['info']['face']
+        sign = user['sign']
     except (KeyError, TypeError):
         logger.error(
             f'【{uid}】返回数据不完整,url:{query_url}, 休眠三分钟\ndata:{result}', prefix)
@@ -121,13 +165,13 @@ def query_bilidynamic(uid, cookie, msg):
     msg[0] = datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' - ' + \
         Fore.LIGHTBLUE_EX+f'查询{uname}动态' + Style.RESET_ALL
     if DYNAMIC_DICT.get(uid, None) is None:
-        DYNAMIC_DICT[uid] = set()
+        DYNAMIC_DICT[uid] = {}
         DYNAMIC_NAME_DICT[uid] = uname
         USER_FACE_DICT[uid] = face
         USER_SIGN_DICT[uid] = sign
         for index in range(len(cards)):
-            DYNAMIC_DICT[uid].add(
-                cards[index]['desc']['dynamic_id'])
+            id = cards[index]['desc']['dynamic_id']
+            DYNAMIC_DICT[uid][id] = get_content(cards[index])[0]
         logger.info(
             f'【{uname}】动态初始化,len = {len(DYNAMIC_DICT[uid])}', prefix, Fore.LIGHTBLUE_EX)
         logger.debug(
@@ -148,59 +192,19 @@ def query_bilidynamic(uid, cookie, msg):
                on_click=f'https://space.bilibili.com/{uid}'
                )
         USER_SIGN_DICT[uid] = sign
+
     last_id = min(DYNAMIC_DICT[uid])
     for item in cards:
         dynamic_id = item['desc']['dynamic_id']
         if dynamic_id in DYNAMIC_DICT[uid] or dynamic_id < last_id:
             continue
-        dynamic_type = item['desc']['type']
-        # if dynamic_type not in [2, 4, 8, 64]:
-        #     logger.info(Fore.LIGHTBLUE_EX+
-        #         '【{uname}】动态有更新,但不在需要推送的动态类型列表中'.format(uname=uname))
-        #     return
 
         timestamp = item['desc']['timestamp']
         dynamic_time = time.strftime(
             "%Y-%m-%d %H:%M:%S", time.localtime(timestamp))
-        card_str = item['card']
-        card = json.loads(card_str)
-        content = None
-        pic_url = None
-        action = '动态更新'
-        if dynamic_type == 1:
-            # 转发动态
-            action = '转发动态'
-            content = card['item']['content']
-            try:
-                origin = json.loads(card['origin'])
-            except (UnicodeDecodeError, json.JSONDecodeError) as e:
-                origin = card['origin']
-                logger.warning(
-                    f'【{uid}】源动态解析出错:{e}, url:{query_url}, content:\n{origin}', prefix)
-            if 'videos' in origin:
-                pic_url = origin['pic']
-            elif 'item' in origin:
-                if 'pictures' in origin['item']:
-                    pic_url = origin['item']['pictures'][0]['img_src']
-            elif 'title' in origin:
-                pic_url = origin['image_urls'][0]
-        elif dynamic_type == 2:
-            # 图文动态
-            content = card['item']['description']
-            pic_url = card['item']['pictures'][0]['img_src']
-        elif dynamic_type == 4:
-            # 文字动态
-            content = card['item']['content']
-        elif dynamic_type == 8:
-            # 投稿动态
-            action = '发布投稿'
-            content = card['title']
-            pic_url = card['pic']
-        elif dynamic_type == 64:
-            # 专栏动态
-            action = '发布投稿'
-            content = card['title']
-            pic_url = card['image_urls'][0]
+
+        content, pic_url, action = get_content(item)
+
         url = f'https://www.bilibili.com/opus/{dynamic_id}'
         image = None
         if pic_url:
@@ -217,8 +221,23 @@ def query_bilidynamic(uid, cookie, msg):
         notify(f"【{uname}】{action}", content,
                on_click=url, image=image,
                icon=icon_path, pic_url=pic_url)
-        DYNAMIC_DICT[uid].add(dynamic_id)
+        DYNAMIC_DICT[uid][dynamic_id] = content
         logger.debug(str(DYNAMIC_DICT[uid]), prefix, Fore.LIGHTBLUE_EX)
+
+    # 检测删除动态
+    st = set([card['desc']['dynamic_id'] for card in cards])
+    last_id = min(st)
+    del_list = []
+    for id in DYNAMIC_DICT[uid]:
+        if id >= last_id and id not in st:
+            del_list.append(id)
+            logger.info(f'【{uname}】删除动态: {DYNAMIC_DICT[uid][id]}',
+                        prefix, Fore.LIGHTYELLOW_EX)
+            notify(f'【{uname}】删除动态', f'{DYNAMIC_DICT[uid][id]}',
+                   icon=icon_path,
+                   on_click=f'https://space.bilibili.com/{uid}')
+    for id in del_list:
+        del DYNAMIC_DICT[uid][id]
 
 
 # 此方法已废弃
