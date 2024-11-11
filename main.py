@@ -44,8 +44,6 @@ def weibo():
                 try:
                     query_weibodynamic(
                         uid, config.WeiboCookies, msg)
-                except KeyboardInterrupt:
-                    return
                 except BaseException as e:
                     logger.error(
                         f'【{uid}】出错【{e}】：{traceback.format_exc()}', prefix)
@@ -86,8 +84,6 @@ def bili_dy():
             for uid in uid_list:
                 try:
                     query_bilidynamic(uid, config.BiliCookies, msg)
-                except KeyboardInterrupt:
-                    return
                 except BaseException as e:
                     logger.error(
                         f'【{uid}】出错【{e}】：{traceback.format_exc()}', prefix)
@@ -124,8 +120,6 @@ def bili_live():
             try:
                 query_live_status_batch(
                     uid_list, config.BiliCookies, msg, special)
-            except KeyboardInterrupt:
-                return
             except BaseException as e:
                 logger.error(
                     f'出错【{e}】：{traceback.format_exc()}', prefix)
@@ -139,16 +133,6 @@ def bili_live():
         sleep(intervals_second)
 
 
-def print_state():
-    while True:
-        if sum(swi) == cnt:
-            global output_list
-            for i in range(3):
-                if msg[i]:
-                    output_list[i] = msg[i]
-        sleep(0.1)
-
-
 if __name__ == '__main__':
     if not os.path.exists('icon/cover'):
         os.makedirs('icon/cover')
@@ -157,12 +141,16 @@ if __name__ == '__main__':
     msg = [""]*3
     swi = [0]*3
     init(autoreset=True)
-    thread1 = threading.Thread(target=bili_dy)
-    thread2 = threading.Thread(target=bili_live)
-    thread3 = threading.Thread(target=weibo)
-    thread4 = threading.Thread(target=print_state)
+    thread1 = threading.Thread(target=bili_dy, daemon=True)
+    thread2 = threading.Thread(target=bili_live, daemon=True)
+    thread3 = threading.Thread(target=weibo, daemon=True)
     thread1.start()
     thread2.start()
     thread3.start()
-    thread4.start()
-    thread4.join()
+    while True:
+        if sum(swi) == cnt:
+            global output_list
+            for i in range(3):
+                if msg[i]:
+                    output_list[i] = msg[i]
+        sleep(0.1)

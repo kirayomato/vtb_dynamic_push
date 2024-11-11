@@ -42,7 +42,8 @@ class Config(object):
         self.BiliCookies = {}
         if not os.path.exists(self._path):
             logger.error('配置文件不存在: config.ini', '【Config】')
-        thread = threading.Thread(target=update_config, args=[self])
+        thread = threading.Thread(
+            target=update_config, args=[self], daemon=True)
         thread.start()
 
     def get(self, section, name):
