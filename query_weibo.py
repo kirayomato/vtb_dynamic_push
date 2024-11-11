@@ -83,6 +83,14 @@ def query_weibodynamic(uid, cookie, msg):
         else:
             return re.sub(r'<[^>]+>', '', mblog['text'])
 
+    def get_pic(card):
+        pic_url = card.get('original_pic', None)
+        if pic_url:
+            return pic_url
+        elif 'page_info' in card:
+            return card['page_info']['page_pic']['url']
+        return None
+
     if uid is None:
         return
     query_url = f'https://m.weibo.cn/api/container/getIndex?type=uid&value={uid}&containerid=107603{uid}&count=25'
@@ -180,14 +188,12 @@ def query_weibodynamic(uid, cookie, msg):
             mblog['created_at'], '%a %b %d %H:%M:%S %z %Y')
         dynamic_time = time.strftime('%Y-%m-%d %H:%M:%S', created_at)
         action = '微博更新'
+        pic_url = get_pic(mblog)
 
-        pic_url = mblog.get('original_pic', None)
         if 'retweeted_status' in mblog:
             action = '转发微博'
-            pic_url = mblog['retweeted_status'].get(
-                'original_pic', None)
-            if not pic_url and 'page_info' in mblog['retweeted_status']:
-                pic_url = mblog['retweeted_status']['page_info']['page_pic']['url']
+            if not pic_url:
+                pic_url = get_pic(card['retweeted_status'])
 
         url = card['scheme']
         content = get_content(mblog)
