@@ -61,8 +61,10 @@ def query_bilidynamic(uid, cookie, msg):
                 origin = json.loads(card['origin'])
             except (UnicodeDecodeError, json.JSONDecodeError) as e:
                 origin = card['origin']
+                dynamic_id = item['desc']['dynamic_id']
+                url = f'https://www.bilibili.com/opus/{dynamic_id}'
                 logger.warning(
-                    f'【{uid}】源动态解析出错:{e}, url:{query_url}, content:\n{origin}', prefix)
+                    f'【{uid}】源动态解析出错:{e}, url:{url}, content:\n{origin}', prefix)
             if 'videos' in origin:
                 pic_url = origin['pic']
             elif 'item' in origin:
