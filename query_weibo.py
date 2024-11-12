@@ -25,6 +25,8 @@ proxies = {
 }
 prefix = '【查询微博状态】'
 
+cookies_valid = False
+
 
 def get_icon(uid, face, path=''):
     headers = {
@@ -58,15 +60,19 @@ def get_icon(uid, face, path=''):
 
 
 def query_valid(uid, cookie):
-    query_url = 'https://m.weibo.cn/api/container/getIndex?type=uid&value={uid}&containerid=107603{uid}&count=25'.format(
-        uid=uid)
+    query_url = f'https://m.weibo.cn/api/container/getIndex?type=uid&value={uid}&containerid=107603{uid}&count=25'
     headers = get_headers(uid)
     try:
         response = requests.get(query_url, headers=headers,
                                 cookies=cookie, proxies=proxies, timeout=10)
         result = json.loads(str(response.content, "utf-8"))
         cards = result['data']['cards']
-        return len(cards) > 10
+        global cookies_valid
+        for card in cards:
+            if card['mblog']['visible']['type'] == 10:
+                cookies_valid = True
+                break
+        return cookies_valid
     except:
         return True
 
@@ -227,17 +233,19 @@ def query_weibodynamic(uid, cookie, msg):
         last_id = st[-1]
         st = set(st)
         del_list = []
-        for id in DYNAMIC_DICT[uid]:
-            if id >= last_id and id not in st:
-                cnt -= 1
-                del_list.append(id)
-                logger.info(f'【{uname}】删除微博：{DYNAMIC_DICT[uid][id]}',
-                            prefix, Fore.LIGHTYELLOW_EX)
-                notify(f'【{uname}】删除微博', f'{DYNAMIC_DICT[uid][id]}',
-                       icon=icon_path,
-                       on_click=f'https://m.weibo.cn/profile/{uid}')
-        for id in del_list:
-            del DYNAMIC_DICT[uid][id]
+        # cookies失效时不进行检测
+        if cookies_valid:
+            for id in DYNAMIC_DICT[uid]:
+                if id >= last_id and id not in st:
+                    cnt -= 1
+                    del_list.append(id)
+                    logger.info(f'【{uname}】删除微博：{DYNAMIC_DICT[uid][id]}',
+                                prefix, Fore.LIGHTYELLOW_EX)
+                    notify(f'【{uname}】删除微博', f'{DYNAMIC_DICT[uid][id]}',
+                           icon=icon_path,
+                           on_click=f'https://m.weibo.cn/profile/{uid}')
+            for id in del_list:
+                del DYNAMIC_DICT[uid][id]
         if total == _total+cnt:
             return
 
@@ -260,7 +268,7 @@ def get_headers(uid):
         'connection': 'keep-alive',
         'pragma': 'no-cache',
         'mweibo-pwa': '1',
-        'referer': 'https://m.weibo.cn/u/{}'.format(uid),
+        'referer': f'https://m.weibo.cn/u/{uid}',
         'sec-fetch-mode': 'cors',
         'sec-fetch-site': 'same-site',
         'x-requested-with': 'XMLHttpRequest',
