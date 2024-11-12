@@ -131,8 +131,11 @@ def query_weibodynamic(uid, cookie, msg):
             mblog_id = mblog['id']
             if mblog_id >= LAST_ID[uid]:
                 DYNAMIC_DICT[uid][mblog['id']] = get_content(mblog)
+        created_at = time.strptime(
+            cards[-1]['mblog']['created_at'], '%a %b %d %H:%M:%S %z %Y')
+        dynamic_time = time.strftime('%Y-%m-%d %H:%M:%S', created_at)
         logger.info(
-            f'【{uname}】微博初始化,len = {len(DYNAMIC_DICT[uid])}', prefix, Fore.LIGHTYELLOW_EX)
+            f'【{uname}】微博初始化, len={len(DYNAMIC_DICT[uid])}, last: {dynamic_time}', prefix, Fore.LIGHTYELLOW_EX)
         logger.debug(
             f'【{uname}】微博初始化 {DYNAMIC_DICT[uid]}', prefix, Fore.LIGHTYELLOW_EX)
         return
@@ -171,7 +174,7 @@ def query_weibodynamic(uid, cookie, msg):
         url = card['scheme']
         content = get_content(mblog)
         image = None
-        logger.info(f'【{uname}】{action} {dynamic_time}: {content}，url: {url}',
+        logger.info(f'【{uname}】{action}({total}) {dynamic_time}: {content}，url: {url}',
                     prefix, Fore.LIGHTYELLOW_EX)
         notify(f"【{uname}】{action}", content,
                on_click=url, image=image, icon=icon_path)
