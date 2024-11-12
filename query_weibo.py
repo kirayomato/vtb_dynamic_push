@@ -100,11 +100,10 @@ def query_weibodynamic(uid, cookie, msg):
         return
     try:
         cards = [i for i in result['data']['cards'] if i['card_type'] == 9]
-        n = len(cards)
-        if n == 0:
+        if len(cards) == 0:
             if DYNAMIC_DICT.get(uid, None) is None:
                 logger.debug(f'【{uid}】微博列表为空', prefix)
-                return
+            return
         card = cards[0]
         mblog = card['mblog']
         user = mblog['user']
@@ -167,7 +166,7 @@ def query_weibodynamic(uid, cookie, msg):
         if 'retweeted_status' in mblog:
             action = '转发微博'
             if not pic_url:
-                pic_url = get_pic(card['retweeted_status'])
+                pic_url = get_pic(mblog['retweeted_status'])
 
         url = card['scheme']
         content = get_content(mblog)
