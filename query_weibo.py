@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, date
 import json
 import re
 import time
@@ -15,6 +15,7 @@ from os import environ
 environ['NO_PROXY'] = '*'
 DYNAMIC_DICT = {}
 LAST_ID = {}
+FIRST_ID = {}
 USER_FACE_DICT = {}
 USER_SIGN_DICT = {}
 USER_NAME_DICT = {}
@@ -158,19 +159,23 @@ def query_weibodynamic(uid, cookie, msg):
         USER_NAME_DICT[uid] = uname
         USER_COUNT_DICT[uid] = total
         LAST_ID[uid] = cards[-1]['mblog']['id']
+        FIRST_ID[uid] = LAST_ID[uid]
         for card in cards:
             mblog = card['mblog']
             mblog_id = mblog['id']
             if mblog_id >= LAST_ID[uid]:
-                DYNAMIC_DICT[uid][mblog['id']] = get_content(mblog)
-        created_at = time.strptime(
+                DYNAMIC_DICT[uid][mblog_id] = get_content(mblog)
+                FIRST_ID[uid] = max(FIRST_ID[uid], mblog_id)
+
+        created_at = datetime.strptime(
             cards[-1]['mblog']['created_at'], '%a %b %d %H:%M:%S %z %Y')
-        dynamic_time = time.strftime('%Y-%m-%d %H:%M:%S', created_at)
+        dynamic_time = created_at.strftime('%Y-%m-%d %H:%M:%S')
         logger.info(
             f'【{uname}】微博初始化, len={len(DYNAMIC_DICT[uid])}, last: {dynamic_time}', prefix, Fore.LIGHTYELLOW_EX)
         logger.debug(
             f'【{uname}】微博初始化 {DYNAMIC_DICT[uid]}', prefix, Fore.LIGHTYELLOW_EX)
         return
+
     icon_path = get_icon(uid, face)
     if face != USER_FACE_DICT[uid]:
         logger.info(f'【{uname}】更改了头像', prefix, Fore.LIGHTYELLOW_EX)
@@ -189,22 +194,33 @@ def query_weibodynamic(uid, cookie, msg):
     for card in cards:
         mblog = card['mblog']
         mblog_id = mblog['id']
+
         if mblog_id in DYNAMIC_DICT[uid] or mblog_id < LAST_ID[uid]:
             continue
-        cnt += 1
-        created_at = time.strptime(
-            mblog['created_at'], '%a %b %d %H:%M:%S %z %Y')
-        dynamic_time = time.strftime('%Y-%m-%d %H:%M:%S', created_at)
-        action = '微博更新'
-        pic_url = get_pic(mblog)
 
+        created_at = datetime.strptime(
+            mblog['created_at'], '%a %b %d %H:%M:%S +0800 %Y')
+        dynamic_time = created_at.strftime('%Y-%m-%d %H:%M:%S')
+        today = datetime.combine(date.today(), datetime.min.time())
+        content = get_content(mblog)
+        url = card['scheme']
+
+        if mblog_id < FIRST_ID[uid] or created_at < today:
+            DYNAMIC_DICT[uid][mblog_id] = get_content(mblog)
+            logger.info(f'【{uname}】历史微博，不进行推送 {dynamic_time}: {content}，url: {url}',
+                        prefix, Fore.LIGHTYELLOW_EX)
+            return
+
+        cnt += 1
+        FIRST_ID[uid] = mblog_id
+        action = '微博更新'
+
+        pic_url = get_pic(mblog)
         if 'retweeted_status' in mblog:
             action = '转发微博'
             if not pic_url:
                 pic_url = get_pic(mblog['retweeted_status'])
 
-        url = card['scheme']
-        content = get_content(mblog)
         image = None
         if pic_url:
             opus_path = get_icon(uid, pic_url, 'opus/')
