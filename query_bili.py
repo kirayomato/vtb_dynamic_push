@@ -51,7 +51,7 @@ def get_icon(uid, face, path=''):
         headers = get_headers(uid)
         r = requests.get(face, headers=headers, proxies=proxies, timeout=10)
     except RequestException as e:
-        logger.warning(f'网络错误 url:{face}, error:{e}', '【下载B站图片】')
+        logger.warning(f'网络错误, error:{e}, url:{face}', '【下载B站图片】')
         return None
     with open(icon, 'wb') as f:
         f.write(r.content)
@@ -121,7 +121,7 @@ def query_bilidynamic(uid, cookie, msg):
         response = requests.get(query_url, headers=headers,
                                 cookies=cookie, proxies=proxies, timeout=10)
     except RequestException as e:
-        logger.warning(f'网络错误 url:{query_url}, error:{e}, 休眠一分钟', prefix)
+        logger.warning(f'网络错误, error:{e}, url:{query_url}, 休眠一分钟', prefix)
         sleep(60)
         return
     if response.status_code != 200:
@@ -129,11 +129,11 @@ def query_bilidynamic(uid, cookie, msg):
             return
         if response.status_code == 412:
             logger.warning(
-                f'触发风控 url:{query_url}, status:{response.status_code}, {response.reason}, 休眠五分钟', prefix)
+                f'触发风控, status:{response.status_code}, {response.reason} url:{query_url}, 休眠五分钟', prefix)
             sleep(300)
         else:
             logger.warning(
-                f'请求错误 url:{query_url}, status:{response.status_code}, {response.reason}, 休眠一分钟', prefix)
+                f'请求错误, status:{response.status_code}, {response.reason} url:{query_url}, 休眠一分钟', prefix)
             sleep(60)
         return
     try:
@@ -145,7 +145,7 @@ def query_bilidynamic(uid, cookie, msg):
         return
     if result['code'] != 0:
         logger.error(
-            f'【{uid}】请求返回数据code错误:{result["code"]}, url:{query_url}, msg:{result["message"]}, 休眠五分钟', prefix)
+            f'【{uid}】请求返回数据code错误:{result["code"]}, msg:{result["message"]}, url:{query_url}, 休眠五分钟', prefix)
         sleep(300)
         return
     try:
@@ -161,7 +161,7 @@ def query_bilidynamic(uid, cookie, msg):
         sign = user['sign']
     except (KeyError, TypeError):
         logger.error(
-            f'【{uid}】返回数据不完整,url:{query_url}, 休眠三分钟\ndata:{result}', prefix)
+            f'【{uid}】返回数据不完整, url:{query_url}, 休眠三分钟\ndata:{result}', prefix)
         sleep(180)
         return
     msg[0] = datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' - ' + \
@@ -300,12 +300,12 @@ def query_live_status_batch(uid_list, cookie, msg, special):
         response = requests.post(
             query_url, headers=headers, data=data, cookies=cookie, timeout=10)
     except RequestException as e:
-        logger.warning(f'网络错误 url:{query_url}, error:{e}, 休眠一分钟', prefix)
+        logger.warning(f'网络错误, error:{e}, url:{query_url}, 休眠一分钟', prefix)
         sleep(60)
         return
     if response.status_code != 200:
         logger.warning(
-            f'请求错误 url:{query_url} status:{response.status_code}, 休眠一分钟', prefix)
+            f'请求错误 status:{response.status_code}, url:{query_url}, 休眠一分钟', prefix)
         sleep(60)
         return
     try:
@@ -362,7 +362,8 @@ def query_live_status_batch(uid_list, cookie, msg, special):
                     'placement': 'hero'
                 }
             else:
-                logger.warning(f'【{uname}】图片下载失败,url:{room_cover_url}', prefix)
+                logger.warning(
+                    f'【{uname}】图片下载失败, url:{room_cover_url}', prefix)
             if ROOM_TITLE_DICT[uid] != room_title:
                 logger.info(f'【{uname}】更改了直播间标题：【{ROOM_TITLE_DICT[uid]}】 -> 【{room_title}】',
                             prefix, Fore.CYAN)
