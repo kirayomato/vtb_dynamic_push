@@ -158,7 +158,7 @@ def query_weibodynamic(uid, cookie, msg):
         USER_SIGN_DICT[uid] = sign
 
     cnt = 0
-    for card in cards:
+    for card in reversed(cards):
         mblog = card['mblog']
         mblog_id = mblog['id']
 
