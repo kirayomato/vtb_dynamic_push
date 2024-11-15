@@ -196,7 +196,7 @@ def query_bilidynamic(uid, cookie, msg):
         USER_SIGN_DICT[uid] = sign
 
     last_id = min(DYNAMIC_DICT[uid])
-    for item in cards:
+    for item in reversed(cards):
         dynamic_id = item['desc']['dynamic_id']
         if dynamic_id in DYNAMIC_DICT[uid] or dynamic_id < last_id:
             continue
