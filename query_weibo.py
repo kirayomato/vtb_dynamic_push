@@ -174,8 +174,8 @@ def query_weibodynamic(uid, cookie, msg):
 
         if mblog_id < FIRST_ID[uid] or created_at < today:
             DYNAMIC_DICT[uid][mblog_id] = get_content(mblog)
-            logger.info(f'【{uname}】历史微博，不进行推送 {dynamic_time}: {content}，url: {url}',
-                        prefix, Fore.LIGHTYELLOW_EX)
+            logger.debug(f'【{uname}】历史微博，不进行推送 {dynamic_time}: {content}，url: {url}',
+                         prefix, Fore.LIGHTYELLOW_EX)
             return
 
         cnt += 1
@@ -223,7 +223,8 @@ def query_weibodynamic(uid, cookie, msg):
                 del DYNAMIC_DICT[uid][id]
         if total == _total+cnt:
             return
-
+        elif total > _total+cnt:
+            action = '检测到微博被隐藏'
     else:
         action = '发布了微博，但未能抓取'
     logger.info(f'【{uname}】{action}：{_total} -> {total}',
