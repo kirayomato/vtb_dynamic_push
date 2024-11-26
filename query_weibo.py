@@ -43,7 +43,7 @@ def get_icon(uid, face, path=''):
         'Sec-Fetch-Site': 'cross-site',
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
     }
-    name = list(face.split('/'))[-1]
+    name = face.split('/')[-1].split('?')[0]
     icon = f'icon/{path}{name}'
     if exists(icon):
         return realpath(icon)
@@ -207,8 +207,8 @@ def query_weibodynamic(uid, cookie, msg):
 
         if mblog_id < FIRST_ID[uid] or created_at < today:
             DYNAMIC_DICT[uid][mblog_id] = get_content(mblog)
-            logger.info(f'【{uname}】历史微博，不进行推送 {dynamic_time}: {content}，url: {url}',
-                        prefix, Fore.LIGHTYELLOW_EX)
+            logger.debug(f'【{uname}】历史微博，不进行推送 {dynamic_time}: {content}，url: {url}',
+                         prefix, Fore.LIGHTYELLOW_EX)
             return
 
         cnt += 1
@@ -266,7 +266,8 @@ def query_weibodynamic(uid, cookie, msg):
                 del DYNAMIC_DICT[uid][id]
         if total == _total+cnt:
             return
-
+        elif total > _total+cnt:
+            action = '检测到微博被隐藏'
     else:
         action = '发布了微博，但未能抓取'
     logger.info(f'【{uname}】{action}：{_total} -> {total}',
