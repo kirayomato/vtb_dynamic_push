@@ -78,6 +78,15 @@ def query_bilidynamic(uid, cookie, msg):
             content = card['item']['content']
             try:
                 origin = json.loads(card['origin'])
+                content += '\n转发动态：【'
+                if 'title' in origin:
+                    content += origin['title']
+                else:
+                    if 'content' in origin['item']:
+                        content += origin['item']['content']
+                    else:
+                        content += origin['item']['description']
+                content += '】'
             except (UnicodeDecodeError, json.JSONDecodeError) as e:
                 origin = card['origin']
                 dynamic_id = item['desc']['dynamic_id']
