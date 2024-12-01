@@ -52,12 +52,6 @@ def query_weibodynamic(uid, cookie, msg):
             Fore.LIGHTYELLOW_EX + '休眠中' + Style.RESET_ALL
         time.sleep(t)
 
-    def get_content(mblog):
-        if mblog.get('raw_text', None):
-            return mblog['raw_text']
-        else:
-            return re.sub(r'<[^>]+>', '', mblog['text'])
-
     def get_pic(card):
         pic_url = card.get('original_pic', None)
         if pic_url:
@@ -65,6 +59,24 @@ def query_weibodynamic(uid, cookie, msg):
         elif 'page_info' in card:
             return card['page_info']['page_pic']['url']
         return None
+
+    def get_content(mblog):
+        action = '微博更新'
+        pic_url = get_pic(mblog)
+
+        if mblog.get('raw_text', None):
+            content = mblog['raw_text']
+        else:
+            content = re.sub(r'<[^>]+>', '', mblog['text'])
+        if 'retweeted_status' in mblog:
+            action = '转发微博'
+            content += '\n转发动态：【'
+            if not pic_url:
+                pic_url = get_pic(mblog['retweeted_status'])
+                content += re.sub(
+                    r'<[^>]+>', '', mblog['retweeted_status']['text'])
+            content += '】'
+        return content, pic_url, action
 
     if uid is None:
         return
@@ -132,7 +144,7 @@ def query_weibodynamic(uid, cookie, msg):
             mblog = card['mblog']
             mblog_id = mblog['id']
             if mblog_id >= LAST_ID[uid]:
-                DYNAMIC_DICT[uid][mblog_id] = get_content(mblog)
+                DYNAMIC_DICT[uid][mblog_id] = get_content(mblog)[0]
                 FIRST_ID[uid] = max(FIRST_ID[uid], mblog_id)
 
         created_at = datetime.strptime(
@@ -169,24 +181,17 @@ def query_weibodynamic(uid, cookie, msg):
             mblog['created_at'], '%a %b %d %H:%M:%S +0800 %Y')
         dynamic_time = created_at.strftime('%Y-%m-%d %H:%M:%S')
         today = datetime.combine(date.today(), datetime.min.time())
-        content = get_content(mblog)
+        content, pic_url, action = get_content(mblog)
         url = card['scheme']
 
         if mblog_id < FIRST_ID[uid] or created_at < today:
-            DYNAMIC_DICT[uid][mblog_id] = get_content(mblog)
+            DYNAMIC_DICT[uid][mblog_id] = get_content(mblog)[0]
             logger.debug(f'【{uname}】历史微博，不进行推送 {dynamic_time}: {content}，url: {url}',
                          prefix, Fore.LIGHTYELLOW_EX)
             return
 
         cnt += 1
         FIRST_ID[uid] = mblog_id
-        action = '微博更新'
-
-        pic_url = get_pic(mblog)
-        if 'retweeted_status' in mblog:
-            action = '转发微博'
-            if not pic_url:
-                pic_url = get_pic(mblog['retweeted_status'])
 
         image = None
         logger.info(f'【{uname}】{action}({total}) {dynamic_time}: {content}，url: {url}',
