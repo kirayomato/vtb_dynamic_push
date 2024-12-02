@@ -72,6 +72,7 @@ def query_bilidynamic(uid, cookie, msg):
         card = json.loads(item['card'])
         action = '动态更新'
         pic_url = None
+        content = None
         if dynamic_type == 1:
             # 转发动态
             action = '转发动态'
