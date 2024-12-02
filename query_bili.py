@@ -68,19 +68,19 @@ def query_bilidynamic(uid, cookie, msg):
                     else:
                         content += origin['item']['description']
                 content += '】'
+                if 'videos' in origin:
+                    pic_url = origin['pic']
+                elif 'item' in origin:
+                    if 'pictures' in origin['item']:
+                        pic_url = origin['item']['pictures'][0]['img_src']
+                elif 'title' in origin:
+                    pic_url = origin['image_urls'][0]
             except (UnicodeDecodeError, json.JSONDecodeError) as e:
                 origin = card['origin']
                 dynamic_id = item['desc']['dynamic_id']
                 url = f'https://www.bilibili.com/opus/{dynamic_id}'
                 logger.warning(
                     f'【{uid}】源动态解析出错:{e}, url:{url}, content:\n{origin}', prefix)
-            if 'videos' in origin:
-                pic_url = origin['pic']
-            elif 'item' in origin:
-                if 'pictures' in origin['item']:
-                    pic_url = origin['item']['pictures'][0]['img_src']
-            elif 'title' in origin:
-                pic_url = origin['image_urls'][0]
         elif dynamic_type == 2:
             # 图文动态
             content = card['item']['description']
