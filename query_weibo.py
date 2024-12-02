@@ -102,7 +102,7 @@ def query_weibodynamic(uid, cookie, msg):
             content = re.sub(r'<[^>]+>', '', mblog['text'])
         if 'retweeted_status' in mblog:
             action = '转发微博'
-            content += '\n转发动态：【'
+            content += '\n转发微博：【'
             if not pic_url:
                 pic_url = get_pic(mblog['retweeted_status'])
                 content += re.sub(
