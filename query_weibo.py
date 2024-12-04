@@ -63,11 +63,14 @@ def query_weibodynamic(uid, cookie, msg):
     def get_content(mblog):
         action = '微博更新'
         pic_url = get_pic(mblog)
-
-        if mblog.get('raw_text', None):
+        if mblog.get('raw_text'):
             content = mblog['raw_text']
         else:
             content = re.sub(r'<[^>]+>', '', mblog['text'])
+        if mblog.get('action_info'):
+            for act, val in mblog['action_info'].items():
+                val = mblog['action_info'][act]['list'][0]
+                content = act + val['text']
         if 'retweeted_status' in mblog:
             action = '转发微博'
             content += '\n转发微博：【'
