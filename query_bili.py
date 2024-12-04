@@ -142,7 +142,7 @@ def query_bilidynamic(uid, cookie, msg):
     try:
         cards = result['data']['cards']
         if len(cards) == 0:
-            if DYNAMIC_DICT.get(uid, None) is not None:
+            if DYNAMIC_DICT.get(uid) is not None:
                 logger.warning(f'{uid}】动态列表为空', prefix)
             return
         item = cards[0]
@@ -157,7 +157,7 @@ def query_bilidynamic(uid, cookie, msg):
         return
     msg[0] = datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' - ' + \
         Fore.LIGHTBLUE_EX+f'查询{uname}动态' + Style.RESET_ALL
-    if DYNAMIC_DICT.get(uid, None) is None:
+    if DYNAMIC_DICT.get(uid) is None:
         DYNAMIC_DICT[uid] = {}
         DYNAMIC_NAME_DICT[uid] = uname
         USER_FACE_DICT[uid] = face
@@ -247,12 +247,12 @@ def query_bilidynamic(uid, cookie, msg):
 #                 logger.error('【{uid}】获取不到liveStatus'.format(uid=uid), prefix)
 #                 return
 
-#             if LIVING_STATUS_DICT.get(uid, None) is None:
+#             if LIVING_STATUS_DICT.get(uid) is None:
 #                 LIVING_STATUS_DICT[uid] = live_status
 #                 logger.info(Fore.LIGHTBLUE_EX+'【{uname}】初始化'.format(uname=name), prefix)
 #                 return
 
-#             if LIVING_STATUS_DICT.get(uid, None) != live_status:
+#             if LIVING_STATUS_DICT.get(uid) != live_status:
 #                 LIVING_STATUS_DICT[uid] = live_status
 
 #                 room_id = result['data']['live_room']['roomid']
@@ -323,7 +323,7 @@ def query_live_status_batch(uid_list, cookie, msg, special):
             url = f'https://live.bilibili.com/{room_id}'
             msg[2] = datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' - ' + \
                 Fore.CYAN+f'查询{uname}直播状态' + Style.RESET_ALL
-            if LIVING_STATUS_DICT.get(uid, None) is None:
+            if LIVING_STATUS_DICT.get(uid) is None:
                 ROOM_TITLE_DICT[uid] = room_title
                 LIVING_STATUS_DICT[uid] = live_status
                 if room_cover_url == '':

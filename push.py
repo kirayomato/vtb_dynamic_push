@@ -352,6 +352,6 @@ push = Push()
 
 def notify(title, body, on_click=None, pic_url=None, **kwargs):
     priority = 6
-    if kwargs.get('audio', None):
+    if kwargs.get('audio'):
         priority = 10
     push.common_push(title, body, on_click, pic_url, priority)
