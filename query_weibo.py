@@ -85,7 +85,7 @@ def query_weibodynamic(uid, cookie, msg):
         time.sleep(t)
 
     def get_pic(card):
-        pic_url = card.get('original_pic', None)
+        pic_url = card.get('original_pic')
         if pic_url:
             return pic_url
         elif 'page_info' in card:
@@ -146,7 +146,7 @@ def query_weibodynamic(uid, cookie, msg):
     try:
         cards = [i for i in result['data']['cards'] if i['card_type'] == 9]
         if len(cards) == 0:
-            if DYNAMIC_DICT.get(uid, None) is None:
+            if DYNAMIC_DICT.get(uid) is None:
                 logger.debug(f'【{uid}】微博列表为空', prefix)
             return
         card = cards[0]
@@ -164,7 +164,7 @@ def query_weibodynamic(uid, cookie, msg):
         return
     msg[1] = datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' - ' + \
         Fore.LIGHTYELLOW_EX+f'查询{uname}微博' + Style.RESET_ALL
-    if DYNAMIC_DICT.get(uid, None) is None:
+    if DYNAMIC_DICT.get(uid) is None:
         DYNAMIC_DICT[uid] = {}
         USER_FACE_DICT[uid] = face
         USER_SIGN_DICT[uid] = sign
