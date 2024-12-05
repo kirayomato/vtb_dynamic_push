@@ -1,4 +1,3 @@
-import json
 import threading
 import os
 from time import sleep
@@ -7,7 +6,7 @@ from config import global_config as config
 from logger import logger, output_list, cnt
 from query_weibo import query_weibodynamic, query_valid, USER_NAME_DICT
 from query_bili import query_bilidynamic, query_live_status_batch, DYNAMIC_NAME_DICT, LIVE_NAME_DICT, try_cookies
-from colorama import Fore, init, Style
+from colorama import Fore, init
 from push import notify
 
 
@@ -149,7 +148,6 @@ if __name__ == '__main__':
     thread3.start()
     while True:
         if sum(swi) == cnt:
-            global output_list
             for i in range(3):
                 if msg[i]:
                     output_list[i] = msg[i]
