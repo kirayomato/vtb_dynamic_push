@@ -6,6 +6,8 @@ from time import sleep
 import threading
 import json
 from copy import deepcopy
+from time import time, strftime
+from push import notify
 
 
 def update_config(config):
@@ -22,8 +24,21 @@ def load_cookie(path, ck, name, prefix):
         with open(path, 'r') as f:
             temp = json.load(f)
         cookies = {}
+        expired = {}
         for cookie in temp:
             cookies[cookie.get('name')] = cookie.get('value')
+            expired[cookie.get('name')] = cookie.get('expirationDate', 0)
+        url = ''
+        if name == '微博':
+            expire = expired['ALF']
+            url = 'https://m.weibo.cn/'
+        else:
+            expire = expired['bili_jct']
+            url = 'https://www.bilibili.com/'
+        if expire - time() < 24*3600:
+            content = f'{name}Cookies将于{strftime("%Y-%m-%d %H:%M:%S", expire)}过期，请更新'
+            logger.warning(content, prefix)
+            notify(f'{name}Cookies即将过期', content, on_click=url)
         logger.debug(f'读取{path}', '【Cookies】', Fore.GREEN)
         if ck != cookies:
             ck = cookies
