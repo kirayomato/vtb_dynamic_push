@@ -1,7 +1,6 @@
 import json
 from logger import logger
 import random
-from config import global_config
 import requests
 prefix = '【消息推送】'
 USER_AGENTS = [
@@ -109,6 +108,7 @@ class Push(object):
     dingtalk_access_token = None
 
     def __init__(self):
+        from config import global_config
         self.pushplus_enable = global_config.get_raw(
             'push_pushplus', 'enable')
         self.pushplus_token = global_config.get_raw(
@@ -195,11 +195,12 @@ class Push(object):
         }
         push_url = f'http://{self.gotify_url}/message?token={self.gotify_token}'
         response = requests_post(push_url, json=body)
-        if response: 
+        if response:
             if response.status_code == 200:
                 logger.debug('gotify推送成功', prefix)
             else:
-                logger.error(f'gotify推送失败, code:{response.status_code}, msg:{response.text}', prefix)
+                logger.error(
+                    f'gotify推送失败, code:{response.status_code}, msg:{response.text}', prefix)
         else:
             logger.error('gotify推送失败, 请求失败', prefix)
 
@@ -346,12 +347,10 @@ class Push(object):
         logger.info('【推送_dingtalk】{msg}'.format(
             msg='成功' if check_response_is_ok(response) else '失败'))
 
-
-push = Push()
-
-
+            
 def notify(title, body, on_click=None, pic_url=None, **kwargs):
     priority = 6
+    push = Push()
     if kwargs.get('audio'):
         priority = 10
     push.common_push(title, body, on_click, pic_url, priority)
