@@ -5,8 +5,8 @@ from logger import logger
 from time import sleep
 import threading
 import json
-from copy import deepcopy
-from time import time, strftime
+from time import time
+from datetime import datetime
 from push import notify
 
 
@@ -36,7 +36,8 @@ def load_cookie(path, ck, name, prefix):
             expire = expired['bili_jct']
             url = 'https://www.bilibili.com/'
         if expire - time() < 24*3600:
-            content = f'{name}Cookies将于{strftime("%Y-%m-%d %H:%M:%S", expire)}过期，请更新'
+            t = datetime.fromtimestamp(expire)
+            content = f'{name}Cookies将于{t.strftime("%Y-%m-%d %H:%M:%S")}过期，请更新'
             logger.warning(content, prefix)
             notify(f'{name}Cookies即将过期', content, on_click=url)
         logger.debug(f'读取{path}', '【Cookies】', Fore.GREEN)
