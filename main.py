@@ -1,4 +1,3 @@
-import json
 import threading
 import os
 from time import sleep
@@ -8,7 +7,7 @@ from logger import logger
 from web import app
 from query_weibo import query_weibodynamic, query_valid, USER_NAME_DICT
 from query_bili import query_bilidynamic, query_live_status_batch, DYNAMIC_NAME_DICT, LIVE_NAME_DICT, try_cookies
-from colorama import Fore, init, Style
+from colorama import Fore, init
 from push import notify
 import uvicorn
 
