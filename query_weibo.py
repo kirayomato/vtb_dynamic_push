@@ -160,14 +160,14 @@ def query_weibodynamic(uid, cookie, msg):
         return
     icon_path = None
     if face != USER_FACE_DICT[uid]:
-        logger.info(f'【{uname}】更改了头像', prefix, Fore.LIGHTYELLOW_EX)
-        notify(f'【{uname}】更改了头像', '', icon=icon_path,
+        logger.info(f'【{uname}】更改了微博头像', prefix, Fore.LIGHTYELLOW_EX)
+        notify(f'【{uname}】更改了微博头像', '', icon=icon_path,
                on_click=f'https://m.weibo.cn/profile/{uid}')
         USER_FACE_DICT[uid] = face
     if sign != USER_SIGN_DICT[uid]:
-        logger.info(f'【{uname}】更改了签名：【{USER_SIGN_DICT[uid]}】 -> 【{sign}】',
+        logger.info(f'【{uname}】更改了微博签名：【{USER_SIGN_DICT[uid]}】 -> 【{sign}】',
                     prefix, Fore.LIGHTYELLOW_EX)
-        notify(f'【{uname}】更改了签名', f'【{USER_SIGN_DICT[uid]}】 -> 【{sign}】',
+        notify(f'【{uname}】更改了微博签名', f'【{USER_SIGN_DICT[uid]}】 -> 【{sign}】',
                icon=icon_path,
                on_click=f'https://m.weibo.cn/profile/{uid}')
         USER_SIGN_DICT[uid] = sign

@@ -172,15 +172,15 @@ def query_bilidynamic(uid, cookie, msg):
         return
     icon_path = None
     if face != USER_FACE_DICT[uid]:
-        logger.info(f'【{uname}】更改了头像', prefix, Fore.LIGHTBLUE_EX)
-        notify(f'【{uname}】更改了头像', '', icon=icon_path,
+        logger.info(f'【{uname}】更改了B站头像', prefix, Fore.LIGHTBLUE_EX)
+        notify(f'【{uname}】更改了B站头像', '', icon=icon_path,
                on_click=f'https://space.bilibili.com/{uid}', pic_url=face,
                )
         USER_FACE_DICT[uid] = face
     if sign != USER_SIGN_DICT[uid]:
-        logger.info(f'【{uname}】更改了签名：【{USER_SIGN_DICT[uid]}】 -> 【{sign}】',
+        logger.info(f'【{uname}】更改了B站签名：【{USER_SIGN_DICT[uid]}】 -> 【{sign}】',
                     prefix, Fore.LIGHTBLUE_EX)
-        notify(f'【{uname}】更改了签名', f'【{USER_SIGN_DICT[uid]}】 -> 【{sign}】',
+        notify(f'【{uname}】更改了B站签名', f'【{USER_SIGN_DICT[uid]}】 -> 【{sign}】',
                icon=icon_path,
                on_click=f'https://space.bilibili.com/{uid}'
                )
@@ -383,6 +383,7 @@ def get_headers(uid):
         'cache-control': 'max-age=0',
         'origin': 'https://space.bilibili.com/',
         'pragma': 'no-cache',
+        'connection': 'keep-alive',
         'referer': f'https://space.bilibili.com/{uid}/dynamic',
         'Sec-Ch-Ua': '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
         'Sec-Ch-Ua-Mobile': '?0',

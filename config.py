@@ -35,15 +35,15 @@ def load_cookie(path, ck, name, prefix):
         else:
             expire = expired['bili_jct']
             url = 'https://www.bilibili.com/'
+        t = datetime.fromtimestamp(expire).strftime("%Y-%m-%d %H:%M:%S")
         if expire - time() < 24*3600:
-            t = datetime.fromtimestamp(expire)
-            content = f'{name}Cookies将于{t.strftime("%Y-%m-%d %H:%M:%S")}过期，请更新'
+            content = f'{name}Cookies将于{t}过期，请更新'
             logger.warning(content, prefix)
             notify(f'{name}Cookies即将过期', content, on_click=url)
         logger.debug(f'读取{path}', '【Cookies】', Fore.GREEN)
         if ck != cookies:
             ck = cookies
-            logger.info(f'{name}Cookies更新', prefix, Fore.GREEN)
+            logger.info(f'{name}Cookies更新, 过期时间:{t}', prefix, Fore.GREEN)
     except BaseException as e:
         logger.error(f'{name}Cookies读取错误: {e}', prefix)
     return ck
