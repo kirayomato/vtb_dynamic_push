@@ -89,29 +89,29 @@ def query_weibodynamic(uid, cookie, msg):
         response = requests.get(query_url, headers=headers,
                                 cookies=cookie, proxies=proxies, timeout=10)
     except RequestException as e:
-        logger.warning(f'网络错误 error:{e}, url:{query_url}, 休眠一分钟', prefix)
+        logger.warning(f'网络错误 error:{e}, url: {query_url}, 休眠一分钟', prefix)
         sleep(60)
         return
     if response.status_code != 200:
         if response.status_code == 403:
             logger.warning(
-                f'触发风控 status:{response.status_code}, msg:{response.reason}, url:{query_url}, 休眠五分钟', prefix)
+                f'触发风控 status:{response.status_code}, msg:{response.reason}, url: {query_url}, 休眠五分钟', prefix)
             sleep(300)
         else:
             logger.warning(
-                f'请求错误 status:{response.status_code}, msg:{response.reason}, url:{query_url}, 休眠一分钟', prefix)
+                f'请求错误 status:{response.status_code}, msg:{response.reason}, url: {query_url}, 休眠一分钟', prefix)
             sleep(60)
         return
     try:
         result = json.loads(str(response.content, "utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as e:
         logger.error(
-            f'【{uid}】解析content出错:{e}, url:{query_url}, 休眠一分钟, content:\n{str(response.content, "utf-8")}', prefix)
+            f'【{uid}】解析content出错:{e}, url: {query_url}, 休眠一分钟, content:\n{str(response.content, "utf-8")}', prefix)
         sleep(60)
         return
     if result['ok'] not in (0, 1):
         logger.error(
-            f'【{uid}】请求返回数据code错误:{result["ok"]}, msg:{result["msg"]}, url:{query_url}, 休眠五分钟', prefix)
+            f'【{uid}】请求返回数据code错误:{result["ok"]}, msg:{result["msg"]}, url: {query_url}, 休眠五分钟', prefix)
         sleep(300)
         return
     try:
@@ -130,7 +130,7 @@ def query_weibodynamic(uid, cookie, msg):
         total = result['data']['cardlistInfo']['total']
     except KeyError:
         logger.error(
-            f'【{uid}】返回数据不完整,休眠一分钟, url:{query_url}\ndata:{result}', prefix)
+            f'【{uid}】返回数据不完整,休眠一分钟, url: {query_url}\ndata:{result}', prefix)
         sleep(60)
         return
     msg[1] = datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' - ' + \
