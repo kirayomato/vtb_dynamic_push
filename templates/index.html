@@ -38,7 +38,27 @@
                     // 显示所有日志
                     data[1].forEach(log => {
                         const p = document.createElement('p');
-                        p.textContent = log.msg;
+                        // 检查消息中是否包含 'url = '
+                        const urlMatch = log.msg.match(/https?:\/\/[^\s]+/i);
+                        if (urlMatch) {
+                            // 如果找到 URL，替换 msg 中的 URL 部分
+                            // 提取URL前的内容
+                            const before = log.msg.slice(0, urlMatch.index);
+                            // 提取URL后的内容
+                            const after = log.msg.slice(urlMatch.index + urlMatch[0].length);
+                            const url = urlMatch[0]; // 提取 URL
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.textContent = url; // 也可以设置为更友好的文本，如 '点击访问链接'
+                            a.target = '_blank'; // 可选：在新标签页中打开链接
+                            a.style.color = log.color;
+                            p.appendChild(document.createTextNode(before)); // 添加 'url' 之前的文本
+                            p.appendChild(a); // 添加链接
+                            p.appendChild(document.createTextNode(after));  // 添加 'url' 之后的文本
+                        } else {
+                            // 如果没有找到 URL，则直接设置文本内容
+                            p.textContent = log.msg;
+                        }
                         p.style.color = log.color;
                         logContainer.appendChild(p);
                     });
