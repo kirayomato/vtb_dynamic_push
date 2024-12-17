@@ -39,14 +39,14 @@
                     data[1].forEach(log => {
                         const p = document.createElement('p');
                         // 检查消息中是否包含 'url = '
-                        const urlMatch = log.msg.match(/https?:\/\/[^\s]+/i);
+                        const urlMatch = log.msg.match(/url: (https?:\/\/[^\s]+)/i);
                         if (urlMatch) {
                             // 如果找到 URL，替换 msg 中的 URL 部分
                             // 提取URL前的内容
-                            const before = log.msg.slice(0, urlMatch.index);
+                            const before = log.msg.slice(0, urlMatch.index + 5);
                             // 提取URL后的内容
-                            const after = log.msg.slice(urlMatch.index + urlMatch[0].length);
-                            const url = urlMatch[0]; // 提取 URL
+                            const after = log.msg.slice(urlMatch.index + urlMatch[1].length);
+                            const url = urlMatch[1]; // 提取 URL
                             const a = document.createElement('a');
                             a.href = url;
                             a.textContent = url; // 也可以设置为更友好的文本，如 '点击访问链接'
