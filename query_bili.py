@@ -353,7 +353,7 @@ def query_live_status_batch(uid_list, cookie, msg, special):
                 ROOM_COVER_DICT[uid] = room_cover_url
             if LIVING_STATUS_DICT[uid] != live_status:
                 if live_status == 1:
-                    logger.info(f'【{uname}】【{room_title}】开播了',
+                    logger.info(f'【{uname}】【{room_title}】开播了, url: {url}',
                                 prefix)
                     if uid in special:
                         audio = {
