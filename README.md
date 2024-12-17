@@ -9,7 +9,7 @@
 
 1. 支持填写cookies，获取仅粉丝可见内容，且在cookies失效时进行提示
 
-    检测微博cookies是否有效的原理为尝试获取一个微博全为粉丝可见的账号的微博，如果能成功获取到微博则说明cookies有效，需要先关注对应账号
+    检测微博cookies是否有效的原理为如果获取的微博列表中存在仅粉见微博，则说明有效，需要提供一个最近发过粉见微博的账号
 
     目前B站动态必须填写cookies才能获取，查询直播暂不需要
 
@@ -19,7 +19,7 @@
 
     点击消息或下方按钮即可打开对应动态/直播间链接
 
-    推送通知使用`win11toast`库实现，在Windows10上不保证能正常使用
+    推送通知使用`win11toast`库实现，在Windows10及其他操作系统上不保证能正常使用
 
 
 3. 微博和动态检测功能增加头像、签名变化的检测。直播检测功能增加直播间标题、封面变化的检测
@@ -40,17 +40,17 @@
 
 `weibo`下的参数
 - `enable_dynamic_push`是否启用微博推送
-
-- `uid_list`为需要扫描的博主uid列表，使用英文逗号分隔
-- `intervals_second`为扫描间隔秒数，不建议过于频繁
+- `uid_list`需要扫描的博主uid列表，使用英文逗号分隔
+- `intervals_second`每一轮扫描间隔秒数，实际api访问间隔为`intervals/len(uid_list)`，不建议过于频繁，否则可能触发风控
 - `enable_cookies_check`是否启用cookies检测功能，默认关闭
 - `cookies_check_uid`检测cookies使用的账号，默认为[Hitomi浅川瞳poi
-](https://weibo.com/u/1794972577)，需要关注。要求最近25条微博中公开微博小于5条，公开+仅粉丝可见微博大于5条。
+](https://weibo.com/u/1794972577)，需要关注，要求最近25条微博中包含粉见微博。
 
 `bili`下的参数
 - `enable_dynamic_push`是否启用B站动态推送
 - `dynamic_uid_list`为需要扫描动态的up主uid列表，使用英文逗号分隔
-- `dynamic_intervals_second`为动态扫描间隔秒数，不建议设置太频繁，否则可能触发风控
+- `dynamic_intervals_second`每一轮扫描间隔秒数，实际api访问间隔为`intervals/len(uid_list)`，不建议过于频繁，否则可能触发风控
+
 - `enable_living_push`是否启用开播推送
 - `dynamic_uid_list`为需要扫描直播的up主uid列表，使用英文逗号分隔。注意是uid而不是直播间号
 - `special_list`特别关注列表，在其中的up主开播时推送将会增加响铃，需要同时填写在`live_uid_list`中
