@@ -67,7 +67,7 @@ def requests_get(url, module_name='未指定', headers=None, params=None, use_pr
         response = requests.get(url, headers=headers,
                                 params=params, timeout=10)
     except Exception as e:
-        logger.error(f"网络错误 url: {url},error:{e}", prefix)
+        logger.error(f"网络错误 url: {url} ,error:{e}", prefix)
         return None
     return response
 
@@ -82,7 +82,7 @@ def requests_post(url, module_name='未指定', headers=None, params=None, data=
         response = requests.post(url, headers=headers, params=params,
                                  data=data, json=json, timeout=10)
     except Exception as e:
-        logger.error(f"网络错误 url: {url},error:{e}", prefix)
+        logger.error(f"网络错误 url: {url} ,error:{e}", prefix)
         return None
     return response
 
