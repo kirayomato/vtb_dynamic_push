@@ -244,7 +244,7 @@ def query_bilidynamic(uid, cookie, msg):
         if id >= last_id and id not in st:
             del_list.append(id)
             logger.info(f'【{uname}】删除动态: {DYNAMIC_DICT[uid][id]}',
-                        prefix, Fore.LIGHTYELLOW_EX)
+                        prefix, Fore.LIGHTBLUE_EX)
             notify(f'【{uname}】删除动态', f'{DYNAMIC_DICT[uid][id]}',
                    icon=icon_path,
                    on_click=f'https://space.bilibili.com/{uid}')
