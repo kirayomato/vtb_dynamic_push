@@ -27,7 +27,7 @@ def weibo():
     logger.info('开始检测微博', prefix, Fore.GREEN)
     test = 0
     while True:
-        intervals_second = int(
+        intervals_second = float(
             config.get_raw('weibo', 'intervals_second'))
         if cookies_check == 'true' and not query_valid(check_uid, config.WeiboCookies):
             test += 1
@@ -46,7 +46,7 @@ def weibo():
                 except BaseException as e:
                     logger.error(
                         f'【{uid}】出错【{e}】：{traceback.format_exc()}', prefix)
-                sleep(max(1, intervals_second/len(uid_list)))
+                sleep(max(1, intervals_second))
         else:
             logger.warning('未填写UID', prefix)
             return
@@ -66,7 +66,7 @@ def bili_dy():
     logger.info('开始检测动态', prefix, Fore.GREEN)
     test = 0
     while True:
-        intervals_second = int(config.get_raw(
+        intervals_second = float(config.get_raw(
             'bili', 'dynamic_intervals_second'))
         if not try_cookies(config.BiliCookies):
             test += 1
@@ -84,7 +84,7 @@ def bili_dy():
                 except BaseException as e:
                     logger.error(
                         f'【{uid}】出错【{e}】：{traceback.format_exc()}', prefix)
-                sleep(max(1, intervals_second/len(uid_list)))
+                sleep(max(1, intervals_second))
         else:
             logger.warning('未填写UID', prefix)
             return
