@@ -41,7 +41,7 @@
 `weibo`下的参数
 - `enable_dynamic_push`是否启用微博推送
 - `uid_list`需要扫描的博主uid列表，使用英文逗号分隔
-- `intervals_second`每一轮扫描间隔秒数，实际api访问间隔为`intervals/len(uid_list)`，不建议过于频繁，否则可能触发风控
+- `intervals_second`每个UID扫描间隔秒数，每轮间隔为`intervals*len(uid_list)`，不建议过于频繁，否则可能触发风控
 - `enable_cookies_check`是否启用cookies检测功能，默认关闭
 - `cookies_check_uid`检测cookies使用的账号，默认为[Hitomi浅川瞳poi
 ](https://weibo.com/u/1794972577)，需要关注，要求最近25条微博中包含粉见微博。
@@ -49,7 +49,7 @@
 `bili`下的参数
 - `enable_dynamic_push`是否启用B站动态推送
 - `dynamic_uid_list`为需要扫描动态的up主uid列表，使用英文逗号分隔
-- `dynamic_intervals_second`每一轮扫描间隔秒数，实际api访问间隔为`intervals/len(uid_list)`，不建议过于频繁，否则可能触发风控
+- `dynamic_intervals_second`每个UID扫描间隔秒数，每轮间隔为`intervals*len(uid_list)`，不建议过于频繁，否则可能触发风控
 
 - `enable_living_push`是否启用开播推送
 - `dynamic_uid_list`为需要扫描直播的up主uid列表，使用英文逗号分隔。注意是uid而不是直播间号

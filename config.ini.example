@@ -8,7 +8,7 @@ enable_cookies_check = false
 # 检测cookies使用的账号
 cookies_check_uid = 1794972577
 # 扫描间隔秒数，不建议设置太频繁，否则可能触发风控
-intervals_second = 30
+intervals_second = 3
 
 
 [bili]
@@ -17,7 +17,7 @@ enable_dynamic_push = true
 # 动态查询uid列表，使用英文逗号分隔
 dynamic_uid_list = 1932862336
 # 动态扫描间隔秒数，不建议设置太频繁，否则可能触发风控
-dynamic_intervals_second = 60
+dynamic_intervals_second = 5
 # 是否启用开播推送 true/false
 enable_living_push = true
 # 开播查询uid列表，使用英文逗号分隔
