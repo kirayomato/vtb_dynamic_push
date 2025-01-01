@@ -69,8 +69,10 @@ def query_weibodynamic(uid, cookie, msg):
             content = re.sub(r'<[^>]+>', '', mblog['text'])
         if mblog.get('action_info'):
             for act, val in mblog['action_info'].items():
+                action = act
                 val = mblog['action_info'][act]['list'][0]
-                content = act + val['text']
+                content = val['text']
+                break
         if 'retweeted_status' in mblog:
             action = '转发微博'
             content += '\n转发微博：【'
@@ -192,8 +194,8 @@ def query_weibodynamic(uid, cookie, msg):
             logger.debug(f'【{uname}】历史微博，不进行推送 {dynamic_time}: {content}，url: {url}',
                          prefix, Fore.LIGHTYELLOW_EX)
             return
-
-        cnt += 1
+        if action in ["微博更新", "转发微博"]:
+            cnt += 1
         FIRST_ID[uid] = mblog_id
 
         image = None
