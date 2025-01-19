@@ -112,8 +112,14 @@ def query_weibodynamic(uid, cookie, msg):
         sleep(60)
         return
     if result['ok'] not in (0, 1):
-        logger.error(
-            f'【{uid}】请求返回数据code错误:{result["ok"]}, msg:{result["msg"]}, url: {query_url} , 休眠五分钟\ndata:{result}', prefix)
+        if result['ok'] == -100:
+            logger.error(
+                f'触发风控，请完成验证码校验: {result["url"]} , url: {query_url} ,休眠五分钟\ndata:{result}', prefix)
+            notify(
+                '触发微博风控', '请完成验证码校验', on_click=result["url"])
+        else:
+            logger.error(
+                f'【{uid}】请求返回数据code错误:{result["ok"]}, msg:{result["msg"]}, url: {query_url} ,休眠五分钟\ndata:{result}', prefix)
         sleep(300)
         return
     try:
