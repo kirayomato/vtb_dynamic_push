@@ -154,8 +154,9 @@ def query_weibodynamic(uid, cookie, msg):
         for card in cards:
             mblog = card['mblog']
             mblog_id = mblog['id']
+            url = card['scheme']
             if mblog_id >= LAST_ID[uid]:
-                DYNAMIC_DICT[uid][mblog_id] = get_content(mblog)[0]
+                DYNAMIC_DICT[uid][mblog_id] = get_content(mblog)[0], url
                 FIRST_ID[uid] = max(FIRST_ID[uid], mblog_id)
 
         created_at = datetime.strptime(
@@ -196,7 +197,7 @@ def query_weibodynamic(uid, cookie, msg):
         url = card['scheme']
 
         if mblog_id < FIRST_ID[uid] or created_at < today:
-            DYNAMIC_DICT[uid][mblog_id] = get_content(mblog)[0]
+            DYNAMIC_DICT[uid][mblog_id] = get_content(mblog)[0], url
             logger.debug(f'【{uname}】历史微博，不进行推送 {dynamic_time}: {content}，url: {url}',
                          prefix, Fore.LIGHTYELLOW_EX)
             return
@@ -209,7 +210,7 @@ def query_weibodynamic(uid, cookie, msg):
                     prefix, Fore.LIGHTYELLOW_EX)
         notify(f"【{uname}】{action}", content,
                on_click=url, image=image, icon=icon_path)
-        DYNAMIC_DICT[uid][mblog_id] = content
+        DYNAMIC_DICT[uid][mblog_id] = content, url
         logger.debug(str(DYNAMIC_DICT[uid]), prefix, Fore.LIGHTYELLOW_EX)
 
     _total = USER_COUNT_DICT[uid]
@@ -230,11 +231,12 @@ def query_weibodynamic(uid, cookie, msg):
                 if id >= last_id and id not in st:
                     cnt -= 1
                     del_list.append(id)
-                    logger.info(f'【{uname}】删除微博：{DYNAMIC_DICT[uid][id]}',
+                    content, url = DYNAMIC_DICT[uid][id]
+                    logger.info(f'【{uname}】删除微博：{content}，url: {url}',
                                 prefix, Fore.LIGHTYELLOW_EX)
-                    notify(f'【{uname}】删除微博', f'{DYNAMIC_DICT[uid][id]}',
+                    notify(f'【{uname}】删除微博', f'{content}',
                            icon=icon_path,
-                           on_click=f'https://m.weibo.cn/profile/{uid}')
+                           on_click=url)
             for id in del_list:
                 del DYNAMIC_DICT[uid][id]
         if total == _total+cnt:
