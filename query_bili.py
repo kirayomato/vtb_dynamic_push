@@ -185,8 +185,9 @@ def query_bilidynamic(uid, cookie, msg):
         USER_FACE_DICT[uid] = face
         USER_SIGN_DICT[uid] = sign
         for index in range(len(cards)):
-            id = cards[index]['desc']['dynamic_id']
-            DYNAMIC_DICT[uid][id] = get_content(cards[index])[0]
+            dynamic_id = cards[index]['desc']['dynamic_id']
+            url = f'https://www.bilibili.com/opus/{dynamic_id}'
+            DYNAMIC_DICT[uid][dynamic_id] = get_content(cards[index])[0], url
         logger.info(
             f'【{uname}】动态初始化,len={len(DYNAMIC_DICT[uid])}', prefix, Fore.LIGHTBLUE_EX)
         logger.debug(
@@ -236,7 +237,7 @@ def query_bilidynamic(uid, cookie, msg):
         notify(f"【{uname}】{action}", content,
                on_click=url, image=image,
                icon=icon_path, pic_url=pic_url)
-        DYNAMIC_DICT[uid][dynamic_id] = content
+        DYNAMIC_DICT[uid][dynamic_id] = content, url
         logger.debug(str(DYNAMIC_DICT[uid]), prefix, Fore.LIGHTBLUE_EX)
 
     # 检测删除动态
@@ -246,9 +247,10 @@ def query_bilidynamic(uid, cookie, msg):
     for id in DYNAMIC_DICT[uid]:
         if id >= last_id and id not in st:
             del_list.append(id)
-            logger.info(f'【{uname}】删除动态: {DYNAMIC_DICT[uid][id]}',
+            content, url = DYNAMIC_DICT[uid][id]
+            logger.info(f'【{uname}】删除动态: {content}，url: {url}',
                         prefix, Fore.LIGHTBLUE_EX)
-            notify(f'【{uname}】删除动态', f'{DYNAMIC_DICT[uid][id]}',
+            notify(f'【{uname}】删除动态', f'{content}',
                    icon=icon_path,
                    on_click=f'https://space.bilibili.com/{uid}')
     for id in del_list:
