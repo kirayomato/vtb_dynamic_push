@@ -12,15 +12,15 @@ from push import notify
 
 def weibo():
     prefix = '【查询微博状态】'
-    enable_dynamic_push = config.get_raw(
+    enable_dynamic_push = config.get(
         'weibo', 'enable_dynamic_push')
-    cookies_check = config.get_raw(
+    cookies_check = config.get(
         'weibo', 'enable_cookies_check')
     if enable_dynamic_push != 'true':
         logger.warning('未开启微博推送功能', prefix)
         return
     if cookies_check == 'true':
-        check_uid = config.get_raw(
+        check_uid = config.get(
             'weibo', 'cookies_check_uid')
     global cnt
     cnt += 1
@@ -28,15 +28,15 @@ def weibo():
     test = 0
     while True:
         intervals_second = float(
-            config.get_raw('weibo', 'intervals_second'))
+            config.get('weibo', 'intervals_second'))
         if cookies_check == 'true' and not query_valid(check_uid, config.WeiboCookies):
             test += 1
-            if test == 5:
+            if test == 3:
                 logger.warning('微博Cookies无效', prefix)
                 notify("微博Cookies无效", "", on_click='https://m.weibo.cn/')
         else:
             test = 0
-        uid_list = config.get_raw('weibo', 'uid_list')
+        uid_list = config.get('weibo', 'uid_list')
         if uid_list:
             uid_list = set(uid_list.split(','))
             for uid in uid_list:
@@ -58,7 +58,7 @@ def weibo():
 
 def bili_dy():
     prefix = '【查询动态状态】'
-    enable_dynamic_push = config.get_raw(
+    enable_dynamic_push = config.get(
         'bili', 'enable_dynamic_push')
     if enable_dynamic_push != 'true':
         logger.warning('未开启动态推送功能', prefix)
@@ -68,7 +68,7 @@ def bili_dy():
     logger.info('开始检测动态', prefix, Fore.GREEN)
     test = 0
     while True:
-        intervals_second = float(config.get_raw(
+        intervals_second = float(config.get(
             'bili', 'dynamic_intervals_second'))
         if not try_cookies(config.BiliCookies):
             test += 1
@@ -77,7 +77,7 @@ def bili_dy():
                 notify("B站Cookies无效", "", on_click='https://www.bilibili.com/')
         else:
             test = 0
-        uid_list = config.get_raw('bili', 'dynamic_uid_list')
+        uid_list = config.get('bili', 'dynamic_uid_list')
         if uid_list:
             uid_list = set(uid_list.split(','))
             for uid in uid_list:
@@ -98,7 +98,7 @@ def bili_dy():
 
 def bili_live():
     prefix = '【查询直播状态】'
-    enable_living_push = config.get_raw('bili', 'enable_living_push')
+    enable_living_push = config.get('bili', 'enable_living_push')
     if enable_living_push != 'true':
         logger.warning('未开启直播推送功能', prefix)
         return
@@ -106,10 +106,10 @@ def bili_live():
     cnt += 1
     logger.info('开始检测直播', prefix, Fore.GREEN)
     while True:
-        intervals_second = int(config.get_raw(
+        intervals_second = int(config.get(
             'bili', 'live_intervals_second'))
-        uid_list = config.get_raw('bili', 'live_uid_list')
-        special = config.get_raw('bili', 'special_list')
+        uid_list = config.get('bili', 'live_uid_list')
+        special = config.get('bili', 'special_list')
         if special:
             special = set(special.split(','))
         else:
