@@ -109,31 +109,31 @@ class Push(object):
 
     def __init__(self):
         from config import global_config
-        self.pushplus_enable = global_config.get_raw(
+        self.pushplus_enable = global_config.get(
             'push_pushplus', 'enable')
-        self.pushplus_token = global_config.get_raw(
+        self.pushplus_token = global_config.get(
             'push_pushplus', 'pushplus_token')
 
-        self.gotify_enable = global_config.get_raw(
+        self.gotify_enable = global_config.get(
             'push_gotify', 'enable')
-        self.gotify_url = global_config.get_raw(
+        self.gotify_url = global_config.get(
             'push_gotify', 'gotify_url')
-        self.gotify_token = global_config.get_raw(
+        self.gotify_token = global_config.get(
             'push_gotify', 'gotify_token')
 
-        self.serverChan_enable = global_config.get_raw(
+        self.serverChan_enable = global_config.get(
             'push_serverChan', 'enable')
-        self.serverChan_sckey = global_config.get_raw(
+        self.serverChan_sckey = global_config.get(
             'push_serverChan', 'serverChan_SCKEY')
 
-        self.wechat_enable = global_config.get_raw('push_wechat', 'enable')
-        self.wechat_corp_id = global_config.get_raw('push_wechat', 'corp_id')
-        self.wechat_agent_id = global_config.get_raw('push_wechat', 'agent_id')
-        self.wechat_corp_secret = global_config.get_raw(
+        self.wechat_enable = global_config.get('push_wechat', 'enable')
+        self.wechat_corp_id = global_config.get('push_wechat', 'corp_id')
+        self.wechat_agent_id = global_config.get('push_wechat', 'agent_id')
+        self.wechat_corp_secret = global_config.get(
             'push_wechat', 'corp_secret')
 
-        self.dingtalk_enable = global_config.get_raw('push_dingtalk', 'enable')
-        self.dingtalk_access_token = global_config.get_raw(
+        self.dingtalk_enable = global_config.get('push_dingtalk', 'enable')
+        self.dingtalk_access_token = global_config.get(
             'push_dingtalk', 'access_token')
 
     def common_push(self, title, content, jump_url=None, pic_url=None, priority=6):
