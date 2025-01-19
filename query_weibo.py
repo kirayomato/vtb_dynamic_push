@@ -14,8 +14,6 @@ from os import environ
 
 environ['NO_PROXY'] = '*'
 DYNAMIC_DICT = {}
-LAST_ID = {}
-FIRST_ID = {}
 USER_FACE_DICT = {}
 USER_SIGN_DICT = {}
 USER_NAME_DICT = {}
@@ -181,15 +179,13 @@ def query_weibodynamic(uid, cookie, msg):
         USER_SIGN_DICT[uid] = sign
         USER_NAME_DICT[uid] = uname
         USER_COUNT_DICT[uid] = total
-        LAST_ID[uid] = cards[-1]['mblog']['id']
-        FIRST_ID[uid] = LAST_ID[uid]
+        LAST_ID = cards[-1]['mblog']['id']
         for card in cards:
             mblog = card['mblog']
             mblog_id = mblog['id']
             url = card['scheme']
-            if mblog_id >= LAST_ID[uid]:
+            if mblog_id >= LAST_ID:
                 DYNAMIC_DICT[uid][mblog_id] = get_content(mblog)[0], url
-                FIRST_ID[uid] = max(FIRST_ID[uid], mblog_id)
 
         created_at = datetime.strptime(
             cards[-1]['mblog']['created_at'], '%a %b %d %H:%M:%S %z %Y')
@@ -219,7 +215,7 @@ def query_weibodynamic(uid, cookie, msg):
         mblog = card['mblog']
         mblog_id = mblog['id']
 
-        if mblog_id in DYNAMIC_DICT[uid] or mblog_id < LAST_ID[uid]:
+        if mblog_id in DYNAMIC_DICT[uid] or mblog_id < min(DYNAMIC_DICT[uid]):
             continue
 
         created_at = datetime.strptime(
@@ -229,14 +225,13 @@ def query_weibodynamic(uid, cookie, msg):
         content, pic_url, action = get_content(mblog)
         url = card['scheme']
 
-        if mblog_id < FIRST_ID[uid] or created_at < today:
+        if mblog_id < max(DYNAMIC_DICT[uid]) or created_at < today:
             DYNAMIC_DICT[uid][mblog_id] = get_content(mblog)[0], url
             logger.debug(f'【{uname}】历史微博，不进行推送 {dynamic_time}: {content}，url: {url}',
                          prefix, Fore.LIGHTYELLOW_EX)
             return
         if action in ["微博更新", "转发微博"]:
             cnt += 1
-        FIRST_ID[uid] = mblog_id
 
         image = None
         if pic_url:
