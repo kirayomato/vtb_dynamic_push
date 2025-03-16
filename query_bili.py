@@ -45,6 +45,7 @@ def try_cookies(cookies=None):
 
 
 def get_icon(uid, face, path=""):
+    face = face.split('?')[0]
     name = list(face.split("/"))[-1]
     icon = f"icon/{path}{name}"
     if exists(icon):
