@@ -175,7 +175,8 @@ def query_weibodynamic(uid, cookie, msg):
             mblog_id = mblog["id"]
             url = card["scheme"]
             if mblog_id >= LAST_ID:
-                DYNAMIC_DICT[uid][mblog_id] = get_content(mblog)[0], url
+                content, pic_url, action = get_content(mblog)
+                DYNAMIC_DICT[uid][mblog_id] = content, pic_url, url
 
         created_at = datetime.strptime(
             cards[-1]["mblog"]["created_at"], "%a %b %d %H:%M:%S %z %Y"
@@ -231,7 +232,7 @@ def query_weibodynamic(uid, cookie, msg):
         url = card["scheme"]
 
         if mblog_id < max(DYNAMIC_DICT[uid]) or created_at < today:
-            DYNAMIC_DICT[uid][mblog_id] = get_content(mblog)[0], url
+            DYNAMIC_DICT[uid][mblog_id] = content, pic_url, url
             logger.debug(
                 f"【{uname}】历史微博，不进行推送 {dynamic_time}: {content}，url: {url}",
                 prefix,
@@ -250,7 +251,7 @@ def query_weibodynamic(uid, cookie, msg):
         notify(
             f"【{uname}】{action}", content, on_click=url, image=image, icon=icon_path
         )
-        DYNAMIC_DICT[uid][mblog_id] = content, url
+        DYNAMIC_DICT[uid][mblog_id] = content, pic_url, url
         logger.debug(str(DYNAMIC_DICT[uid]), prefix, Fore.LIGHTYELLOW_EX)
 
     _total = USER_COUNT_DICT[uid]
@@ -267,11 +268,12 @@ def query_weibodynamic(uid, cookie, msg):
         del_list = []
         # cookies失效时不进行检测
         if cookies_valid:
-            for id in DYNAMIC_DICT[uid]:
-                if id >= last_id and id not in st:
+            for _id in DYNAMIC_DICT[uid]:
+                if _id >= last_id and _id not in st:
                     cnt -= 1
-                    del_list.append(id)
-                    content, url = DYNAMIC_DICT[uid][id]
+                    del_list.append(_id)
+                    content, pic_url, url = DYNAMIC_DICT[uid][_id]
+                    image = None
                     logger.info(
                         f"【{uname}】删除微博：{content}，url: {url}",
                         prefix,
@@ -279,12 +281,13 @@ def query_weibodynamic(uid, cookie, msg):
                     )
                     notify(
                         f"【{uname}】删除微博",
-                        f"{content}",
-                        icon=icon_path,
+                        content,
                         on_click=url,
+                        image=image,
+                        icon=icon_path,
                     )
-            for id in del_list:
-                del DYNAMIC_DICT[uid][id]
+            for _id in del_list:
+                del DYNAMIC_DICT[uid][_id]
         if total == _total + cnt:
             return
         elif total > _total + cnt:
