@@ -2,7 +2,8 @@ import json
 from logger import logger
 import random
 import requests
-prefix = '【消息推送】'
+
+prefix = "【消息推送】"
 USER_AGENTS = [
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_7_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/27.0.1453.93 Safari/537.36",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/32.0.1664.3 Safari/537.36",
@@ -55,30 +56,34 @@ def get_random_useragent():
     return random.choice(USER_AGENTS)
 
 
-def requests_get(url, module_name='未指定', headers=None, params=None, use_proxy=False):
+def requests_get(url, module_name="未指定", headers=None, params=None, use_proxy=False):
     if headers is None:
         headers = {}
-    headers = dict({
-        'User-Agent': get_random_useragent()
-    }, **headers)
+    headers = dict({"User-Agent": get_random_useragent()}, **headers)
     try:
-        response = requests.get(url, headers=headers,
-                                params=params, timeout=10)
+        response = requests.get(url, headers=headers, params=params, timeout=10)
     except Exception as e:
         logger.error(f"网络错误 url: {url} ,error:{e}", prefix)
         return None
     return response
 
 
-def requests_post(url, module_name='未指定', headers=None, params=None, data=None, json=None, use_proxy=False):
+def requests_post(
+    url,
+    module_name="未指定",
+    headers=None,
+    params=None,
+    data=None,
+    json=None,
+    use_proxy=False,
+):
     if headers is None:
         headers = {}
-    headers = dict({
-        'User-Agent': get_random_useragent()
-    }, **headers)
+    headers = dict({"User-Agent": get_random_useragent()}, **headers)
     try:
-        response = requests.post(url, headers=headers, params=params,
-                                 data=data, json=json, timeout=10)
+        response = requests.post(
+            url, headers=headers, params=params, data=data, json=json, timeout=10
+        )
     except Exception as e:
         logger.error(f"网络错误 url: {url} ,error:{e}", prefix)
         return None
@@ -89,8 +94,9 @@ def check_response_is_ok(response=None):
     if response is None:
         return False
     if response.status_code != requests.codes.OK:
-        logger.error('status: {}, url: {}'.format(
-            response.status_code, response.url), prefix)
+        logger.error(
+            "status: {}, url: {}".format(response.status_code, response.url), prefix
+        )
         return False
     return True
 
@@ -109,32 +115,24 @@ class Push(object):
 
     def __init__(self):
         from config import global_config
-        self.pushplus_enable = global_config.get(
-            'push_pushplus', 'enable')
-        self.pushplus_token = global_config.get(
-            'push_pushplus', 'pushplus_token')
 
-        self.gotify_enable = global_config.get(
-            'push_gotify', 'enable')
-        self.gotify_url = global_config.get(
-            'push_gotify', 'gotify_url')
-        self.gotify_token = global_config.get(
-            'push_gotify', 'gotify_token')
+        self.pushplus_enable = global_config.get("push_pushplus", "enable")
+        self.pushplus_token = global_config.get("push_pushplus", "pushplus_token")
 
-        self.serverChan_enable = global_config.get(
-            'push_serverChan', 'enable')
-        self.serverChan_sckey = global_config.get(
-            'push_serverChan', 'serverChan_SCKEY')
+        self.gotify_enable = global_config.get("push_gotify", "enable")
+        self.gotify_url = global_config.get("push_gotify", "gotify_url")
+        self.gotify_token = global_config.get("push_gotify", "gotify_token")
 
-        self.wechat_enable = global_config.get('push_wechat', 'enable')
-        self.wechat_corp_id = global_config.get('push_wechat', 'corp_id')
-        self.wechat_agent_id = global_config.get('push_wechat', 'agent_id')
-        self.wechat_corp_secret = global_config.get(
-            'push_wechat', 'corp_secret')
+        self.serverChan_enable = global_config.get("push_serverChan", "enable")
+        self.serverChan_sckey = global_config.get("push_serverChan", "serverChan_SCKEY")
 
-        self.dingtalk_enable = global_config.get('push_dingtalk', 'enable')
-        self.dingtalk_access_token = global_config.get(
-            'push_dingtalk', 'access_token')
+        self.wechat_enable = global_config.get("push_wechat", "enable")
+        self.wechat_corp_id = global_config.get("push_wechat", "corp_id")
+        self.wechat_agent_id = global_config.get("push_wechat", "agent_id")
+        self.wechat_corp_secret = global_config.get("push_wechat", "corp_secret")
+
+        self.dingtalk_enable = global_config.get("push_dingtalk", "enable")
+        self.dingtalk_access_token = global_config.get("push_dingtalk", "access_token")
 
     def common_push(self, title, content, jump_url=None, pic_url=None, priority=6):
         """
@@ -147,20 +145,20 @@ class Push(object):
             content = ""
         if title is None:
             title = ""
-        if self.pushplus_enable == 'true':
+        if self.pushplus_enable == "true":
             self._push_plus_push(title, content, jump_url, pic_url)
 
-        if self.gotify_enable == 'true':
+        if self.gotify_enable == "true":
             self._gotify_push(title, content, jump_url, pic_url, priority)
 
-        if self.serverChan_enable == 'true':
+        if self.serverChan_enable == "true":
             self._server_chan_push(title, content, jump_url)
 
-        if self.wechat_enable == 'true':
+        if self.wechat_enable == "true":
             access_token = self._get_wechat_access_token()
             self._wechat_push(access_token, title, content, jump_url, pic_url)
 
-        if self.dingtalk_enable == 'true':
+        if self.dingtalk_enable == "true":
             self._dingtalk_push(title, content, jump_url, pic_url)
 
     def _gotify_push(self, title, content, url=None, pic_url=None, priority=6):
@@ -171,13 +169,13 @@ class Push(object):
         :url: 跳转地址
         :pic_url：图片地址
         """
-        content += f'\n\n[链接]({url})'
+        content += f"\n\n[链接]({url})"
         if pic_url:
             content += f"\n\n![Image]({pic_url})"
 
-        if '更改' in title:
+        if "更改" in title:
             priority = 2
-        elif '转发' in title:
+        elif "转发" in title:
             priority = 4
 
         body = {
@@ -185,24 +183,22 @@ class Push(object):
             "message": content,
             "priority": priority,
             "extras": {
-                "client::display": {
-                    "contentType": "text/markdown"
-                },
-                "client::notification": {
-                    "bigImageUrl": pic_url
-                }
-            }
+                "client::display": {"contentType": "text/markdown"},
+                "client::notification": {"bigImageUrl": pic_url},
+            },
         }
-        push_url = f'http://{self.gotify_url}/message?token={self.gotify_token}'
+        push_url = f"http://{self.gotify_url}/message?token={self.gotify_token}"
         response = requests_post(push_url, json=body)
         if response:
             if response.status_code == 200:
-                logger.debug('gotify推送成功', prefix)
+                logger.debug("gotify推送成功", prefix)
             else:
                 logger.error(
-                    f'gotify推送失败, code:{response.status_code}, msg:{response.text}', prefix)
+                    f"gotify推送失败, code:{response.status_code}, msg:{response.text}",
+                    prefix,
+                )
         else:
-            logger.error('gotify推送失败, 请求失败', prefix)
+            logger.error("gotify推送失败, 请求失败", prefix)
 
     def _push_plus_push(self, title, content, url=None, pic_url=None):
         """
@@ -212,28 +208,30 @@ class Push(object):
         :url: 跳转地址
         :pic_url：图片地址
         """
-        content += f'<br/>[链接]({url})'
+        content += f"<br/>[链接]({url})"
         if pic_url:
             content += f"<br/><br/><img src='{pic_url}'/>"
         body = {
             "token": f"{self.pushplus_token}",
             "title": f"{title}",
             "content": f"{content}",
-            "template": 'markdown'
+            "template": "markdown",
         }
-        push_url = 'http://www.pushplus.plus/send/'
+        push_url = "http://www.pushplus.plus/send/"
         response = requests_post(push_url, data=body)
         try:
-            result = json.loads(str(response.content, 'utf-8'))
+            result = json.loads(str(response.content, "utf-8"))
         except json.JSONDecodeError as e:
             logger.error(
-                f'解析content出错{e}\ncontent:{str(response.content, "utf-8")}', prefix)
+                f'解析content出错{e}\ncontent:{str(response.content, "utf-8")}', prefix
+            )
             return
-        if result['code'] == 200:
-            logger.debug('pushplus推送成功', prefix)
+        if result["code"] == 200:
+            logger.debug("pushplus推送成功", prefix)
         else:
             logger.error(
-                f'pushplus推送失败, code:{result["code"]}, msg:{result["msg"]}', prefix)
+                f'pushplus推送失败, code:{result["code"]}, msg:{result["msg"]}', prefix
+            )
 
     def _server_chan_push(self, title, content, url=None, pic_url=None):
         """
@@ -242,28 +240,26 @@ class Push(object):
         :content: 内容
         :url: 跳转地址
         """
-        content += f'\n\n[链接]({url})'
+        content += f"\n\n[链接]({url})"
         if pic_url:
             content += f"\n\n![Image]({pic_url})"
-        body = {
-            "title": f"{title}",
-            "desp": f"{content}"
-        }
-        push_url = f'https://sctapi.ftqq.com/{self.serverChan_sckey}.send'
+        body = {"title": f"{title}", "desp": f"{content}"}
+        push_url = f"https://sctapi.ftqq.com/{self.serverChan_sckey}.send"
         response = requests.post(push_url, params=body)
         if check_response_is_ok(response):
-            logger.debug('server_chan推送成功', prefix)
+            logger.debug("server_chan推送成功", prefix)
         else:
-            logger.error('server_chan推送失败', prefix)
+            logger.error("server_chan推送失败", prefix)
 
     def _get_wechat_access_token(self):
         access_token = None
-        url = 'https://qyapi.weixin.qq.com/cgi-bin/gettoken?corpid={corpid}&corpsecret={corpsecret}'.format(
-            corpid=self.wechat_corp_id, corpsecret=self.wechat_corp_secret)
-        response = requests_get(url, '推送_wechat_获取access_tokon')
+        url = "https://qyapi.weixin.qq.com/cgi-bin/gettoken?corpid={corpid}&corpsecret={corpsecret}".format(
+            corpid=self.wechat_corp_id, corpsecret=self.wechat_corp_secret
+        )
+        response = requests_get(url, "推送_wechat_获取access_tokon")
         if check_response_is_ok(response):
-            result = json.loads(str(response.content, 'utf-8'))
-            access_token = result['access_token']
+            result = json.loads(str(response.content, "utf-8"))
+            access_token = result["access_token"]
         return access_token
 
     def _wechat_push(self, access_token, title, content, url=None, pic_url=None):
@@ -275,17 +271,15 @@ class Push(object):
         :param url: 跳转url
         :param pic_url: 图片url
         """
-        push_url = 'https://qyapi.weixin.qq.com/cgi-bin/message/send'
-        params = {
-            "access_token": access_token
-        }
+        push_url = "https://qyapi.weixin.qq.com/cgi-bin/message/send"
+        params = {"access_token": access_token}
         body = {
             "touser": "@all",
             "agentid": self.wechat_agent_id,
             "safe": 0,
             "enable_id_trans": 0,
             "enable_duplicate_check": 0,
-            "duplicate_check_interval": 1800
+            "duplicate_check_interval": 1800,
         }
 
         if pic_url is None:
@@ -294,7 +288,7 @@ class Push(object):
                 "title": title,
                 "description": content,
                 "url": url,
-                "btntxt": "打开详情"
+                "btntxt": "打开详情",
             }
         else:
             body["msgtype"] = "news"
@@ -304,15 +298,19 @@ class Push(object):
                         "title": title,
                         "description": content,
                         "url": url,
-                        "picurl": pic_url
+                        "picurl": pic_url,
                     }
                 ]
             }
 
         response = requests_post(
-            push_url, '推送_wechat', params=params, data=json.dumps(body))
-        logger.info('【推送_wechat】{msg}'.format(
-            msg='成功' if check_response_is_ok(response) else '失败'))
+            push_url, "推送_wechat", params=params, data=json.dumps(body)
+        )
+        logger.info(
+            "【推送_wechat】{msg}".format(
+                msg="成功" if check_response_is_ok(response) else "失败"
+            )
+        )
 
     def _dingtalk_push(self, title, content, url=None, pic_url=None):
         """
@@ -322,35 +320,35 @@ class Push(object):
         :param url: 跳转url
         :param pic_url: 图片url
         """
-        push_url = 'https://oapi.dingtalk.com/robot/send'
-        headers = {
-            "Content-Type": "application/json"
-        }
-        params = {
-            "access_token": self.dingtalk_access_token
-        }
+        push_url = "https://oapi.dingtalk.com/robot/send"
+        headers = {"Content-Type": "application/json"}
+        params = {"access_token": self.dingtalk_access_token}
         body = {
             "msgtype": "link",
-            "link": {
-                "title": title,
-                "text": content,
-                "messageUrl": url
-            }
+            "link": {"title": title, "text": content, "messageUrl": url},
         }
 
         if pic_url is not None:
             body["link"]["picUrl"] = pic_url
 
         response = requests_post(
-            push_url, '推送_dingtalk', headers=headers, params=params, data=json.dumps(body))
+            push_url,
+            "推送_dingtalk",
+            headers=headers,
+            params=params,
+            data=json.dumps(body),
+        )
         logger.debug(response.json())
-        logger.info('【推送_dingtalk】{msg}'.format(
-            msg='成功' if check_response_is_ok(response) else '失败'))
+        logger.info(
+            "【推送_dingtalk】{msg}".format(
+                msg="成功" if check_response_is_ok(response) else "失败"
+            )
+        )
 
 
 def notify(title, body, on_click=None, pic_url=None, **kwargs):
     priority = 6
     push = Push()
-    if kwargs.get('audio'):
+    if kwargs.get("audio"):
         priority = 10
     push.common_push(title, body, on_click, pic_url, priority)

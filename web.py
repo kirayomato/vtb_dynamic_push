@@ -41,6 +41,7 @@ async def write_file(content: str = Body(..., media_type="text/plain")):
         file.write(content + "\n")
     return {"message": "Content written successfully"}
 
+
 # ANSI 转义码和 HTML 颜色对照
 ansi_to_html_colors = {
     30: "#000000",  # 黑色
@@ -58,11 +59,11 @@ ansi_to_html_colors = {
     94: "#8080FF",  # 亮蓝色
     95: "#FF80FF",  # 亮洋红
     96: "#80FFFF",  # 亮青色
-    97: "#FFFFFF"   # 亮白色
+    97: "#FFFFFF",  # 亮白色
 }
 
 # 解析 ANSI 转义序列的正则表达式
-ansi_escape = re.compile(r'\x1b\[(?P<code>[0-9;]+)m')
+ansi_escape = re.compile(r"\x1b\[(?P<code>[0-9;]+)m")
 
 # 将 ANSI 转义码转换为 HTML span 标签
 
@@ -70,7 +71,7 @@ ansi_escape = re.compile(r'\x1b\[(?P<code>[0-9;]+)m')
 def ansi_code_to_html(text):
     match = ansi_escape.match(text)
     if match is not None:
-        codes = match.group('code').split(';')
+        codes = match.group("code").split(";")
         code = int(codes[0])
         return ansi_to_html_colors[code]
     else:
@@ -87,12 +88,12 @@ class OutputList(io.StringIO):
         t = s.split()
         color = ansi_code_to_html(t[6][:5])
         if color:
-            log['color'] = color
+            log["color"] = color
             t[6] = t[6][5:]
-            log['msg'] = ' '.join(t)[:-4]
+            log["msg"] = " ".join(t)[:-4]
         else:
-            log['color'] = '#FFFFFF'
-            log['msg'] = ' '.join(t)
+            log["color"] = "#FFFFFF"
+            log["msg"] = " ".join(t)
         self.output_list.append(log)
         super().write(s)
         global updated
