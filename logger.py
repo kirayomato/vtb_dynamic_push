@@ -6,6 +6,8 @@ from colorama import Fore, Style
 from time import time
 from collections import deque
 from reprint import output
+import shutil
+from datetime import datetime, timedelta
 
 
 def clear_output(fn):
@@ -18,6 +20,36 @@ def clear_output(fn):
         cnt = cnt0
 
     return wrapper
+
+
+def move_old_logs(directory):
+    """
+    将指定目录及其子目录下修改日期在一个月前的 .log 文件移动到 old 文件夹中。
+
+    :param directory: 要处理的目录路径
+    """
+    # 获取一个月前的日期
+    old_date = datetime.now() - timedelta(days=30)
+    old_dir = os.path.join(directory, "old")  # old 文件夹路径
+
+    # 如果 old 文件夹不存在，则创建
+    if not os.path.exists(old_dir):
+        os.makedirs(old_dir)
+
+    # 遍历目录及其子目录下的所有文件
+    for files in os.listdir(directory):
+        for file in files:
+            if ".log" in file:  # 只处理 .log 文件
+                file_path = os.path.join(directory, file)
+                # 获取文件的最后修改时间
+                file_mtime = datetime.fromtimestamp(os.path.getmtime(file_path))
+                # 如果修改时间早于一个月前，则移动文件
+                if file_mtime < old_date:
+                    try:
+                        shutil.move(file_path, os.path.join(old_dir, file))
+                        logger.info(f"已将 {file_path} 移动到 {old_dir}")
+                    except Exception as e:
+                        logger.error(f"移动 {file_path} 失败: {e}")
 
 
 class mylogger:
@@ -86,3 +118,4 @@ class mylogger:
 with output(output_type="list", initial_len=3, interval=0) as output_list:
     logger = mylogger()
     cnt = 0
+    move_old_logs("log")
