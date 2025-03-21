@@ -213,7 +213,7 @@ def query_bilidynamic(uid, cookie, msg):
         for index in range(len(cards)):
             dynamic_id = cards[index]["desc"]["dynamic_id"]
             url = f"https://www.bilibili.com/opus/{dynamic_id}"
-            DYNAMIC_DICT[uid][dynamic_id] = get_content(cards[index])[0], url
+            DYNAMIC_DICT[uid][dynamic_id] = get_content(cards[index])
         logger.info(
             f"【{uname}】动态初始化,len={len(DYNAMIC_DICT[uid])}",
             prefix,
@@ -280,28 +280,36 @@ def query_bilidynamic(uid, cookie, msg):
             icon=icon_path,
             pic_url=pic_url,
         )
-        DYNAMIC_DICT[uid][dynamic_id] = content, url
+        DYNAMIC_DICT[uid][dynamic_id] = content, pic_url, action
         logger.debug(str(DYNAMIC_DICT[uid]), prefix, Fore.LIGHTBLUE_EX)
 
     # 检测删除动态
     st = set([card["desc"]["dynamic_id"] for card in cards])
     last_id = min(st)
     del_list = []
-    for id in DYNAMIC_DICT[uid]:
-        if id >= last_id and id not in st:
-            del_list.append(id)
-            content, url = DYNAMIC_DICT[uid][id]
+    for _id in DYNAMIC_DICT[uid]:
+        if _id >= last_id and _id not in st:
+            del_list.append(_id)
+            content, pic_url, action = DYNAMIC_DICT[uid][_id]
+            url = f"https://www.bilibili.com/opus/{_id}"
+            image = None
+            if pic_url:
+                opus_path = get_icon(uid, pic_url, "opus/")
+                if opus_path:
+                    image = {"src": opus_path, "placement": "hero"}
             logger.info(
                 f"【{uname}】删除动态: {content}，url: {url}", prefix, Fore.LIGHTBLUE_EX
             )
             notify(
                 f"【{uname}】删除动态",
-                f"{content}",
+                content,
+                on_click=url,
+                image=image,
                 icon=icon_path,
-                on_click=f"https://space.bilibili.com/{uid}",
+                pic_url=pic_url,
             )
-    for id in del_list:
-        del DYNAMIC_DICT[uid][id]
+    for _id in del_list:
+        del DYNAMIC_DICT[uid][_id]
 
 
 # 此方法已废弃
