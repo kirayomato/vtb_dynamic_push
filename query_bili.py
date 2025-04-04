@@ -190,10 +190,10 @@ def query_bilidynamic(uid, cookie, msg):
         DYNAMIC_NAME_DICT[uid] = uname
         USER_FACE_DICT[uid] = face
         USER_SIGN_DICT[uid] = sign
-        for index in range(len(cards)):
-            dynamic_id = cards[index]["desc"]["dynamic_id"]
+        for card in cards:
+            dynamic_id = card["desc"]["dynamic_id"]
             url = f"https://www.bilibili.com/opus/{dynamic_id}"
-            DYNAMIC_DICT[uid][dynamic_id] = get_content(cards[index])
+            DYNAMIC_DICT[uid][dynamic_id] = get_content(card)
         logger.info(
             f"【{uname}】动态初始化,len={len(DYNAMIC_DICT[uid])}",
             prefix,
@@ -383,6 +383,7 @@ def query_live_status_batch(uid_list, cookie, msg, special):
         for uid, item_info in live_status_list.items():
             try:
                 uname = item_info["uname"]
+                area = item_info["area_v2_name"]
                 LIVE_NAME_DICT[uid] = uname
                 # face = item_info['face']
                 live_status = item_info["live_status"]
@@ -412,9 +413,13 @@ def query_live_status_batch(uid_list, cookie, msg, special):
                     room_cover_url = keyframe
                 ROOM_COVER_DICT[uid] = room_cover_url
                 if live_status == 1:
-                    logger.info(f"【{uname}】【{room_title}】直播中", prefix)
+                    logger.info(f"【{uname}】【{area}】【{room_title}】直播中", prefix)
                 else:
-                    logger.info(f"【{uname}】【{room_title}】未开播", prefix, Fore.CYAN)
+                    logger.info(
+                        f"【{uname}】【{area}】【{room_title}】未开播",
+                        prefix,
+                        Fore.CYAN,
+                    )
                 continue
             icon_path = None
             image = None
@@ -445,7 +450,8 @@ def query_live_status_batch(uid_list, cookie, msg, special):
             if LIVING_STATUS_DICT[uid] != live_status:
                 if live_status == 1:
                     logger.info(
-                        f"【{uname}】【{room_title}】开播了, url: {url}", prefix
+                        f"【{uname}】【{area}】【{room_title}】开播了, url: {url}",
+                        prefix,
                     )
                     if uid in special:
                         audio = {
@@ -456,7 +462,7 @@ def query_live_status_batch(uid_list, cookie, msg, special):
                         audio = None
                     notify(
                         f"【{uname}】开播了",
-                        room_title,
+                        f"【{area}】" + room_title,
                         on_click=url,
                         audio=audio,
                         image=image,
@@ -467,9 +473,13 @@ def query_live_status_batch(uid_list, cookie, msg, special):
                     logger.info(f"【{uname}】下播了", prefix, Fore.CYAN)
                 LIVING_STATUS_DICT[uid] = live_status
             elif live_status == 1:
-                logger.debug(f"【{uname}】【{room_title}】直播中", prefix, Fore.GREEN)
+                logger.debug(
+                    f"【{uname}】【{area}】【{room_title}】直播中", prefix, Fore.GREEN
+                )
             else:
-                logger.debug(f"【{uname}】【{room_title}】未开播", prefix, Fore.CYAN)
+                logger.debug(
+                    f"【{uname}】【{area}】【{room_title}】未开播", prefix, Fore.CYAN
+                )
 
 
 def get_headers(uid):
