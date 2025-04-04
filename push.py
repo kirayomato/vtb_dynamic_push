@@ -357,6 +357,8 @@ def notify(
     pic_url=None,
     **kwargs,
 ):
+    if body:
+        body = body.replace("\x0b", "\n")
     priority = 6
     push = Push()
     if kwargs.get("audio"):
