@@ -23,7 +23,8 @@
     <div id="log-container">
         <!-- 日志内容会显示在这里 -->
     </div>
-    <button onclick="showInputDialog()">更新微博Cookies</button>
+    <button onclick="UpdataWeibo()">更新微博Cookies</button>
+    <button onclick="UpdataBili()">更新B站Cookies</button>
     <script>
         var init = 1;
         function fetchLogs() {
@@ -69,16 +70,21 @@
                 });
         }
         // 显示输入对话框
-        function showInputDialog() {
-            const content = prompt("Enter new cookies:");
+        function UpdataWeibo() {
+            const content = prompt("Enter new Weibo cookies:");
             if (content !== null) {
-                writeToFile(content);
+                writeToFile(content, "weibo");
             }
         }
-
+        function UpdataBili() {
+            const content = prompt("Enter new Bili cookies:");
+            if (content !== null) {
+                writeToFile(content, "bili");
+            }
+        }
         // 向后端发送写入请求
-        function writeToFile(content) {
-            fetch('/write-file', {
+        function writeToFile(content, type) {
+            fetch(`/write-${type}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'text/plain'

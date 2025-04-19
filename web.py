@@ -35,9 +35,16 @@ async def get_logs():
     return update, log_data
 
 
-@app.post("/write-file", response_class=JSONResponse)
-async def write_file(content: str = Body(..., media_type="text/plain")):
-    with open("WeiboCookies.json", "w") as file:  # 使用 "a" 模式追加内容
+@app.post("/write-weibo", response_class=JSONResponse)
+async def write_weibo(content: str = Body(..., media_type="text/plain")):
+    with open("WeiboCookies.json", "w") as file:
+        file.write(content + "\n")
+    return {"message": "Content written successfully"}
+
+
+@app.post("/write-bili", response_class=JSONResponse)
+async def write_bili(content: str = Body(..., media_type="text/plain")):
+    with open("BiliCookies.json", "w") as file:
         file.write(content + "\n")
     return {"message": "Content written successfully"}
 
