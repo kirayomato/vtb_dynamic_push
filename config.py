@@ -39,7 +39,7 @@ def load_cookie(path, ck, name, prefix):
         if expire - time() < 24 * 3600:
             content = f"{name}Cookies将于{t}过期，请更新"
             logger.warning(content, prefix)
-            notify(f"{name}Cookies即将过期", content, on_click=url)
+            # notify(f"{name}Cookies即将过期", content, on_click=url)
         logger.debug(f"读取{path}", "【Cookies】", Fore.GREEN)
         if ck != cookies:
             ck = cookies
