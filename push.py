@@ -3,6 +3,11 @@ from logger import logger
 import random
 import requests
 
+
+class PushException(Exception):
+    pass
+
+
 prefix = "【消息推送】"
 USER_AGENTS = [
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_7_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/27.0.1453.93 Safari/537.36",
@@ -197,8 +202,10 @@ class Push(object):
                     f"gotify推送失败, code:{response.status_code}, msg:{response.text}",
                     prefix,
                 )
+                raise PushException
         else:
             logger.error("gotify推送失败, 请求失败", prefix)
+            raise PushException
 
     def _push_plus_push(self, title, content, url=None, pic_url=None):
         """
@@ -225,13 +232,14 @@ class Push(object):
             logger.error(
                 f'解析content出错{e}\ncontent:{str(response.content, "utf-8")}', prefix
             )
-            return
+            raise PushException
         if result["code"] == 200:
             logger.debug("pushplus推送成功", prefix)
         else:
             logger.error(
                 f'pushplus推送失败, code:{result["code"]}, msg:{result["msg"]}', prefix
             )
+            raise PushException
 
     def _server_chan_push(self, title, content, url=None, pic_url=None):
         """
@@ -250,6 +258,7 @@ class Push(object):
             logger.debug("server_chan推送成功", prefix)
         else:
             logger.error("server_chan推送失败", prefix)
+            raise PushException
 
     def _get_wechat_access_token(self):
         access_token = None
