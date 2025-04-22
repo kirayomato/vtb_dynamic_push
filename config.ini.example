@@ -27,6 +27,13 @@ special_list = 1932862336
 # 直播扫描间隔秒数，不建议设置太频繁，否则可能触发风控
 live_intervals_second = 30
 
+[afd]
+# 是否启用动态推送 true/false
+enable_dynamic_push = true
+# 爱发电查询uid列表，使用英文逗号分隔
+uid_list = 41c5ed886d6211eda89a52540025c377
+# 动态扫描间隔秒数，不建议设置太频繁
+intervals_second = 30
 
 [push_serverChan]
 # 是否启用 true/false
