@@ -12,6 +12,7 @@ from query_bili import (
     LIVE_NAME_DICT,
     try_cookies,
 )
+from query_afd import query_afddynamic, AFD_NAME_DICT
 from colorama import Fore, init
 from push import notify
 
@@ -103,6 +104,40 @@ def bili_dy():
             )
 
 
+def afd_dy():
+    prefix = "【查询爱发电】"
+    enable_dynamic_push = config.get("afd", "enable_dynamic_push")
+    if enable_dynamic_push != "true":
+        logger.warning("未开启动态推送功能", prefix)
+        return
+    global cnt
+    cnt += 1
+    logger.info("开始检测爱发电", prefix, Fore.GREEN)
+    while True:
+        intervals_second = float(config.get("afd", "intervals_second"))
+        uid_list = config.get("afd", "uid_list")
+        if uid_list:
+            uid_list = set(uid_list.split(","))
+            for uid in uid_list:
+                try:
+                    query_afddynamic(uid, None, msg)
+                except BaseException as e:
+                    logger.error(
+                        f"【{uid}】出错【{e}】：{traceback.format_exc()}", prefix
+                    )
+                sleep(max(1, intervals_second))
+        else:
+            logger.warning("未填写UID", prefix)
+            return
+        if not swi[3]:
+            swi[3] = 1
+            logger.info(
+                f'监控列表({len(AFD_NAME_DICT)}):{",".join(AFD_NAME_DICT.values())}',
+                prefix,
+                Fore.LIGHTCYAN_EX,
+            )
+
+
 def bili_live():
     prefix = "【查询直播状态】"
     enable_living_push = config.get("bili", "enable_living_push")
@@ -144,18 +179,20 @@ if __name__ == "__main__":
         os.makedirs("icon/cover")
     if not os.path.exists("icon/opus"):
         os.makedirs("icon/opus")
-    msg = [""] * 3
-    swi = [0] * 3
+    msg = [""] * 4
+    swi = [0] * 4
     init(autoreset=True)
     thread1 = threading.Thread(target=bili_dy, daemon=True)
     thread2 = threading.Thread(target=bili_live, daemon=True)
     thread3 = threading.Thread(target=weibo, daemon=True)
+    thread4 = threading.Thread(target=afd_dy, daemon=True)
     thread1.start()
     thread2.start()
     thread3.start()
+    thread4.start()
     while True:
         if sum(swi) == cnt:
-            for i in range(3):
+            for i in range(4):
                 if msg[i]:
                     output_list[i] = msg[i]
         sleep(0.1)
