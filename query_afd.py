@@ -17,6 +17,7 @@ DYNAMIC_DICT = {}
 USER_FACE_DICT = {}
 USER_SIGN_DICT = {}
 AFD_NAME_DICT = {}
+REAL_ID_DICR = {}
 USER_COUNT_DICT = {}
 DEL_COUNT_DICT = {}
 proxies = {
@@ -46,6 +47,25 @@ def get_icon(face, path=""):
     return realpath(icon)
 
 
+def get_realid(uid, cookie):
+    if uid is None:
+        return
+    if REAL_ID_DICR.get(uid) is not None:
+        return REAL_ID_DICR[uid]
+    try:
+        query_url = f"https://afdian.com/api/user/get-profile-by-slug?url_slug={uid}"
+        headers = get_headers()
+        response = requests.get(
+            query_url, headers=headers, cookies=cookie, proxies=proxies, timeout=10
+        )
+        result = json.loads(str(response.content, "utf-8"))
+        REAL_ID_DICR[uid] = result["data"]["user"]["user_id"]
+        return REAL_ID_DICR[uid]
+    except BaseException as e:
+        logger.warning(f"获取真实UID失败:{e}, url: {query_url} ,休眠一分钟", prefix)
+        return None
+
+
 def query_afddynamic(uid, cookie, msg):
     def sleep(t):
         msg[3] = (
@@ -70,9 +90,11 @@ def query_afddynamic(uid, cookie, msg):
         dynamic_time = mblog["publish_time"]
         return content, pic_url, action, dynamic_time
 
+    uid = get_realid(uid, cookie)
     if uid is None:
         return
-    query_url = f"https://afdian.com/api/post/get-list?user_id={uid}"
+
+    query_url = f"https://afdian.com/api/post/get-list?user_id={uid}&type=old&publish_sn=&per_page=10&group_id=&all=1&is_public=&plan_id=&title=&name="
     headers = get_headers()
     try:
         response = requests.get(

@@ -115,7 +115,7 @@ class mylogger:
         self.logger.error(msg, stacklevel=3)
 
 
-with output(output_type="list", initial_len=3, interval=0) as output_list:
+with output(output_type="list", initial_len=4, interval=0) as output_list:
     logger = mylogger()
     cnt = 0
     move_old_logs("log")
