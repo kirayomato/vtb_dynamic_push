@@ -98,7 +98,7 @@ def query_bilidynamic(uid, cookie, msg):
                 if "videos" in origin:
                     pic_url = origin["pic"]
                 elif "item" in origin:
-                    if "pictures" in origin["item"]:
+                    if origin["item"].get("pictures"):
                         pic_url = origin["item"]["pictures"][0]["img_src"]
                 elif "title" in origin:
                     pic_url = origin["image_urls"][0]
@@ -117,7 +117,8 @@ def query_bilidynamic(uid, cookie, msg):
         elif dynamic_type == 2:
             # 图文动态
             content = card["item"]["description"]
-            pic_url = card["item"]["pictures"][0]["img_src"]
+            if card["item"].get("pictures"):
+                pic_url = card["item"]["pictures"][0]["img_src"]
         elif dynamic_type == 4:
             # 文字动态
             content = card["item"]["content"]
