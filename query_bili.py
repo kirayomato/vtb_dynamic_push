@@ -91,10 +91,14 @@ def query_bilidynamic(uid, cookie, msg):
                 if "title" in origin:
                     content += origin["title"]
                 else:
-                    if "content" in origin["item"]:
-                        content += origin["item"]["content"]
-                    else:
-                        content += origin["item"]["description"]
+                    if "item" in origin:
+                        if "content" in origin["item"]:
+                            content += origin["item"]["content"]
+                        else:
+                            content += origin["item"]["description"]
+                    elif "live_play_info" in origin:
+                        content += origin["live_play_info"]["title"]
+                        pic_url = origin["live_play_info"]["cover"]
                 if "videos" in origin:
                     pic_url = origin["pic"]
                 elif "item" in origin:
