@@ -157,7 +157,7 @@ def query_bilidynamic(uid, cookie, msg):
         if response.status_code == 429:
             return
         if response.status_code == 412:
-            logger.warning(
+            logger.error(
                 f'触发风控, status:{response.status_code}, {response.reason} url: {query_url} ,休眠五分钟\ncontent:{str(response.content, "utf-8")}',
                 prefix,
             )
