@@ -5,9 +5,6 @@ from logger import logger
 from time import sleep
 import threading
 import json
-from time import time
-from datetime import datetime
-from push import notify
 
 
 def update_config(config):
@@ -24,26 +21,12 @@ def load_cookie(path, ck, name, prefix):
         with open(path, "r") as f:
             temp = json.load(f)
         cookies = {}
-        expired = {}
         for cookie in temp:
             cookies[cookie.get("name")] = cookie.get("value")
-            expired[cookie.get("name")] = cookie.get("expirationDate", 0)
-        url = ""
-        if name == "微博":
-            expire = expired["ALF"]
-            url = "https://m.weibo.cn/"
-        else:
-            expire = expired["bili_jct"]
-            url = "https://www.bilibili.com/"
-        t = datetime.fromtimestamp(expire).strftime("%Y-%m-%d %H:%M:%S")
-        if expire - time() < 24 * 3600:
-            content = f"{name}Cookies将于{t}过期，请更新"
-            logger.warning(content, prefix)
-            # notify(f"{name}Cookies即将过期", content, on_click=url)
         logger.debug(f"读取{path}", "【Cookies】", Fore.GREEN)
         if ck != cookies:
             ck = cookies
-            logger.info(f"{name}Cookies更新, 过期时间:{t}", prefix, Fore.GREEN)
+            logger.info(f"{name}Cookies更新", prefix, Fore.GREEN)
     except BaseException as e:
         logger.error(f"{name}Cookies读取错误: {e}", prefix)
     return ck
