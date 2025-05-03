@@ -4,6 +4,7 @@ from logger import logger
 import random
 from colorama import Fore
 import requests
+from config import global_config
 
 
 class PushException(Exception):
@@ -121,8 +122,6 @@ class Push(object):
     dingtalk_access_token = None
 
     def __init__(self):
-        from config import global_config
-
         self.pushplus_enable = global_config.get("push_pushplus", "enable")
         self.pushplus_token = global_config.get("push_pushplus", "pushplus_token")
 
