@@ -2,7 +2,7 @@ import threading
 import os
 from time import sleep
 import traceback
-from config import global_config as config
+from push import global_config as config
 from logger import logger, output_list, cnt
 from query_weibo import query_weibodynamic, query_valid, USER_NAME_DICT
 from query_bili import (

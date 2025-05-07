@@ -6,6 +6,7 @@ from push import notify
 from logger import logger
 import requests
 from requests.exceptions import RequestException
+from config import general_headers
 
 # from PIL import Image
 from os.path import realpath, exists
@@ -29,19 +30,7 @@ cookies_valid = False
 
 
 def get_icon(uid, face, path=""):
-    headers = {
-        "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
-        "accept-encoding": "utf-8, gzip, deflate, zstd",
-        "Accept-Language": "zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7",
-        "Referer": "https://weibo.com/",
-        "Sec-Ch-Ua": '"Google Chrome";v="119", "Chromium";v="119", "Not?A_Brand";v="24"',
-        "Sec-Ch-Ua-Mobile": "?0",
-        "Sec-Ch-Ua-Platform": '"Windows"',
-        "Sec-Fetch-Dest": "image",
-        "Sec-Fetch-Mode": "no-cors",
-        "Sec-Fetch-Site": "cross-site",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
-    }
+    headers = get_headers(uid)
     face = face.split("?")[0]
     name = face.split("/")[-1]
     icon = f"icon/{path}{name}"
@@ -51,6 +40,8 @@ def get_icon(uid, face, path=""):
         r = requests.get(face, headers=headers, proxies=proxies, timeout=10)
     except RequestException as e:
         logger.warning(f"网络错误 error:{e}, url:{face}", "【下载微博图片】")
+        return None
+    if r.status_code != 200:
         return None
     with open(icon, "wb") as f:
         f.write(r.content)
@@ -351,17 +342,11 @@ def query_weibodynamic(uid, cookie, msg):
 
 
 def get_headers(uid):
-    return {
-        "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 11_0 like Mac OS X) AppleWebKit/604.1.38 (KHTML, like Gecko) Version/11.0 Mobile/15A372 Safari/604.1",
-        "accept": "application/json, text/plain, */*",
-        "accept-encoding": "utf-8, gzip, deflate, zstd",
-        "accept-language": "zh-CN,zh;q=0.9",
-        "cache-control": "no-cache",
-        "connection": "keep-alive",
-        "pragma": "no-cache",
-        "mweibo-pwa": "1",
-        "referer": f"https://m.weibo.cn/u/{uid}",
-        "sec-fetch-mode": "cors",
-        "sec-fetch-site": "same-site",
-        "x-requested-with": "XMLHttpRequest",
-    }
+    headers = general_headers.copy()
+    headers["origin"] = "https://m.weibo.cn/"
+    headers["referer"] = f"https://m.weibo.cn/u/{uid}"
+    headers["mweibo-pwa"] = "1"
+    headers["x-requested-with"] = "XMLHttpRequest"
+    headers["Sec-Ch-Ua-Mobile"] = "?1"
+    headers["Sec-Ch-Ua-Platform"] = "Android"
+    return headers
