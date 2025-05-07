@@ -6,6 +6,9 @@ from push import notify
 from logger import logger
 import requests
 from requests.exceptions import RequestException
+from config import general_headers
+
+# from PIL import Image
 from os.path import realpath, exists
 from colorama import Fore, Style
 from os import environ
@@ -82,7 +85,8 @@ def query_weibodynamic(uid, cookie, msg):
             content += "\n转发微博：【"
             if not pic_url:
                 pic_url = get_pic(mblog["retweeted_status"])
-                content += re.sub(r"<[^>]+>", "", mblog["retweeted_status"]["text"])
+                content += re.sub(r"<[^>]+>", "",
+                                  mblog["retweeted_status"]["text"])
             content += "】"
         return content, pic_url, action
 
@@ -306,17 +310,11 @@ def query_weibodynamic(uid, cookie, msg):
 
 
 def get_headers(uid):
-    return {
-        "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 11_0 like Mac OS X) AppleWebKit/604.1.38 (KHTML, like Gecko) Version/11.0 Mobile/15A372 Safari/604.1",
-        "accept": "application/json, text/plain, */*",
-        "accept-encoding": "utf-8, gzip, deflate, zstd",
-        "accept-language": "zh-CN,zh;q=0.9",
-        "cache-control": "no-cache",
-        "connection": "keep-alive",
-        "pragma": "no-cache",
-        "mweibo-pwa": "1",
-        "referer": f"https://m.weibo.cn/u/{uid}",
-        "sec-fetch-mode": "cors",
-        "sec-fetch-site": "same-site",
-        "x-requested-with": "XMLHttpRequest",
-    }
+    headers = general_headers.copy()
+    headers["origin"] = "https://m.weibo.cn/"
+    headers["referer"] = f"https://m.weibo.cn/u/{uid}"
+    headers["mweibo-pwa"] = "1"
+    headers["x-requested-with"] = "XMLHttpRequest"
+    headers["Sec-Ch-Ua-Mobile"] = "?1"
+    headers["Sec-Ch-Ua-Platform"] = "Android"
+    return headers

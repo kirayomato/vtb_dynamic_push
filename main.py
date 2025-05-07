@@ -2,7 +2,7 @@ import threading
 import os
 from time import sleep
 import traceback
-from config import global_config as config
+from push import global_config as config
 from logger import logger
 from web import app
 from query_weibo import query_weibodynamic, query_valid, USER_NAME_DICT
@@ -71,7 +71,8 @@ def bili_dy():
     logger.info("开始检测动态", prefix, Fore.GREEN)
     test = 0
     while True:
-        intervals_second = float(config.get("bili", "dynamic_intervals_second"))
+        intervals_second = float(config.get(
+            "bili", "dynamic_intervals_second"))
         if not try_cookies(config.BiliCookies):
             test += 1
             if test == 5:
@@ -152,7 +153,8 @@ def bili_live():
         if uid_list:
             uid_list = set(uid_list.split(","))
             try:
-                query_live_status_batch(uid_list, config.BiliCookies, msg, special)
+                query_live_status_batch(
+                    uid_list, config.BiliCookies, msg, special)
             except BaseException as e:
                 logger.error(f"出错【{e}】：{traceback.format_exc()}", prefix)
         else:

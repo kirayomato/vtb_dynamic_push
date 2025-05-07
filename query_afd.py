@@ -5,6 +5,7 @@ from push import notify
 from logger import logger
 import requests
 from requests.exceptions import RequestException
+from config import general_headers
 
 # from PIL import Image
 from os.path import realpath, exists
@@ -27,17 +28,16 @@ proxies = {
 prefix = "【查询爱发电】"
 
 
-def get_realid(uid, cookie):
+def get_realid(uid):
     if uid is None:
         return
     if REAL_ID_DICR.get(uid) is not None:
         return REAL_ID_DICR[uid]
     try:
         query_url = f"https://afdian.com/api/user/get-profile-by-slug?url_slug={uid}"
-        headers = get_headers()
+        headers = get_headers(uid)
         response = requests.get(
-            query_url, headers=headers, cookies=cookie, proxies=proxies, timeout=10
-        )
+            query_url, headers=headers, proxies=proxies, timeout=10)
         result = json.loads(str(response.content, "utf-8"))
         REAL_ID_DICR[uid] = result["data"]["user"]["user_id"]
         return REAL_ID_DICR[uid]
@@ -70,12 +70,12 @@ def query_afddynamic(uid, cookie, msg):
         dynamic_time = mblog["publish_time"]
         return content, pic_url, action, dynamic_time
 
-    uid = get_realid(uid, cookie)
+    real_uid = get_realid(uid)
     if uid is None:
         return
 
-    query_url = f"https://afdian.com/api/post/get-list?user_id={uid}&type=old&publish_sn=&per_page=10&group_id=&all=1&is_public=&plan_id=&title=&name="
-    headers = get_headers()
+    query_url = f"https://afdian.com/api/post/get-list?user_id={real_uid}&type=old&publish_sn=&per_page=10&group_id=&all=1&is_public=&plan_id=&title=&name="
+    headers = get_headers(uid)
     try:
         response = requests.get(
             query_url, headers=headers, cookies=cookie, proxies=proxies, timeout=10
@@ -237,16 +237,8 @@ def query_afddynamic(uid, cookie, msg):
         del DYNAMIC_DICT[uid][_id]
 
 
-def get_headers():
-    return {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
-        "accept": "application/json, text/plain, */*",
-        "accept-encoding": "utf-8, gzip, deflate, zstd",
-        "accept-language": "zh-CN,zh;q=0.9",
-        "cache-control": "no-cache",
-        "connection": "keep-alive",
-        "pragma": "no-cache",
-        "referer": "https://afdian.com",
-        "sec-fetch-mode": "navigate",
-        "sec-fetch-site": "same-site",
-    }
+def get_headers(uid):
+    headers = general_headers.copy()
+    headers["origin"] = "https://afdian.com/"
+    headers["referer"] = f"https://afdian.com/a/{uid}"
+    return headers

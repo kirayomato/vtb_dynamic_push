@@ -4,6 +4,7 @@ import requests
 from requests.exceptions import RequestException
 from push import notify
 from logger import logger
+from config import general_headers
 
 # from PIL import Image
 from os.path import realpath, exists
@@ -135,6 +136,11 @@ def query_bilidynamic(uid, cookie, msg):
         return
     if response.status_code != 200:
         if response.status_code == 429:
+            logger.warning(
+                f'触发风控, status:{response.status_code}, {response.reason} url: {query_url} ,休眠一分钟',
+                prefix,
+            )
+            sleep(60)
             return
         if response.status_code == 412:
             logger.warning(
@@ -240,7 +246,8 @@ def query_bilidynamic(uid, cookie, msg):
             continue
 
         timestamp = item["desc"]["timestamp"]
-        dynamic_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(timestamp))
+        dynamic_time = time.strftime(
+            "%Y-%m-%d %H:%M:%S", time.localtime(timestamp))
 
         content, pic_url, action = get_content(item)
 
@@ -488,21 +495,7 @@ def query_live_status_batch(uid_list, cookie, msg, special):
 
 
 def get_headers(uid):
-    return {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-        "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-        "accept-encoding": "utf-8, gzip, deflate, zstd",
-        "accept-language": "zh-CN,zh;q=0.9",
-        "cache-control": "max-age=0",
-        "origin": "https://space.bilibili.com/",
-        "pragma": "no-cache",
-        "connection": "keep-alive",
-        "referer": f"https://space.bilibili.com/{uid}/dynamic",
-        "Sec-Ch-Ua": '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
-        "Sec-Ch-Ua-Mobile": "?0",
-        "Sec-Ch-Ua-Platform": '"Windows"',
-        "Sec-Fetch-Dest": "document",
-        "Sec-Fetch-Mode": "navigate",
-        "Sec-Fetch-Site": "none",
-        "Sec-Fetch-User": "?1",
-    }
+    headers = general_headers.copy()
+    headers["origin"] = "https://space.bilibili.com/"
+    headers["referer"] = f"https://space.bilibili.com/{uid}/dynamic"
+    return headers
