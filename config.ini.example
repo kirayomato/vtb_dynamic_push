@@ -31,7 +31,7 @@ live_intervals_second = 30
 # 是否启用动态推送 true/false
 enable_dynamic_push = true
 # 爱发电查询uid列表，使用英文逗号分隔
-uid_list = 41c5ed886d6211eda89a52540025c377
+uid_list = mareep
 # 动态扫描间隔秒数，不建议设置太频繁
 intervals_second = 30
 
