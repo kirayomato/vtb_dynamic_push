@@ -15,6 +15,7 @@ from query_bili import (
 from query_afd import query_afddynamic, AFD_NAME_DICT
 from colorama import Fore, init
 from push import notify
+from push import global_config as config
 import uvicorn
 
 
