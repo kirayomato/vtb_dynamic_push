@@ -2,7 +2,6 @@ import threading
 import os
 from time import sleep
 import traceback
-from push import global_config as config
 from logger import logger, output_list, cnt
 from query_weibo import query_weibodynamic, query_valid, USER_NAME_DICT
 from query_bili import (
@@ -15,6 +14,7 @@ from query_bili import (
 from query_afd import query_afddynamic, AFD_NAME_DICT
 from colorama import Fore, init
 from push import notify
+from push import global_config as config
 
 
 def weibo():
@@ -52,7 +52,7 @@ def weibo():
                 sleep(max(1, intervals_second))
         else:
             logger.warning("未填写UID", prefix)
-            return
+            sleep(30)
         if not swi[1]:
             swi[1] = 1
             logger.info(
@@ -94,7 +94,7 @@ def bili_dy():
                 sleep(max(1, intervals_second))
         else:
             logger.warning("未填写UID", prefix)
-            return
+            sleep(30)
         if not swi[0]:
             swi[0] = 1
             logger.info(
@@ -128,7 +128,7 @@ def afd_dy():
                 sleep(max(1, intervals_second))
         else:
             logger.warning("未填写UID", prefix)
-            return
+            sleep(30)
         if not swi[3]:
             swi[3] = 1
             logger.info(
@@ -163,7 +163,7 @@ def bili_live():
                 logger.error(f"出错【{e}】：{traceback.format_exc()}", prefix)
         else:
             logger.warning("未填写UID", prefix)
-            return
+            sleep(30)
         if not swi[2]:
             swi[2] = 1
             logger.info(
@@ -195,4 +195,4 @@ if __name__ == "__main__":
             for i in range(4):
                 if msg[i]:
                     output_list[i] = msg[i]
-        sleep(0.1)
+            sleep(0.1)
