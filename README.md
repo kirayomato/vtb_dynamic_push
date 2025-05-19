@@ -58,6 +58,11 @@
 - `special_list`特别关注列表，在其中的up主开播时推送将会增加响铃，需要同时填写在`live_uid_list`中
 - `live_intervals_second`为直播扫描间隔秒数，不建议设置太频繁，否则可能触发风控
 
+`afd`下的参数
+- `enable_dynamic_push`是否启用爱发电推送 
+- `uid_list`爱发电查询uid列表，使用英文逗号分隔
+- `intervals_second`动态扫描间隔秒数，不建议设置太频繁
+
 `push_serverChan`下的参数
 
 - `enable`是否启用serverChan推送
