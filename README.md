@@ -61,7 +61,7 @@
 `afd`下的参数
 - `enable_dynamic_push`是否启用爱发电推送 
 - `uid_list`爱发电查询uid列表，使用英文逗号分隔
-- `intervals_second`动态扫描间隔秒数，不建议设置太频繁
+- `intervals_second`每个UID扫描间隔秒数，每轮间隔为`intervals*len(uid_list)`，不建议过于频繁，否则可能触发风控
 
 `push_serverChan`下的参数
 

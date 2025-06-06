@@ -8,7 +8,7 @@ enable_cookies_check = false
 # 检测cookies使用的账号
 cookies_check_uid = 1794972577
 # 扫描间隔秒数，不建议设置太频繁，否则可能触发风控
-intervals_second = 3
+intervals_second = 5
 
 
 [bili]
@@ -27,6 +27,7 @@ special_list = 1932862336
 # 直播扫描间隔秒数，不建议设置太频繁，否则可能触发风控
 live_intervals_second = 30
 
+
 [afd]
 # 是否启用动态推送 true/false
 enable_dynamic_push = true
@@ -34,6 +35,7 @@ enable_dynamic_push = true
 uid_list = mareep
 # 动态扫描间隔秒数，不建议设置太频繁
 intervals_second = 30
+
 
 [push_serverChan]
 # 是否启用 true/false
@@ -66,9 +68,10 @@ enable = false
 # 机器人秘钥
 pushplus_token = 
 
+
 [push_gotify]
 # 是否启用 true/false
-enable = 
+enable = false
 # gotify推送地址
 gotify_url = 
 # gotify推送token
