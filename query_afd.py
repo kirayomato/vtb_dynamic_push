@@ -15,6 +15,7 @@ from os import environ
 
 environ["NO_PROXY"] = "*"
 DYNAMIC_DICT = {}
+PLAN_DICT = {}
 USER_FACE_DICT = {}
 USER_SIGN_DICT = {}
 AFD_NAME_DICT = {}
@@ -36,8 +37,7 @@ def get_realid(uid):
     try:
         query_url = f"https://afdian.com/api/user/get-profile-by-slug?url_slug={uid}"
         headers = get_headers(uid)
-        response = requests.get(
-            query_url, headers=headers, proxies=proxies, timeout=10)
+        response = requests.get(query_url, headers=headers, proxies=proxies, timeout=10)
         result = json.loads(str(response.content, "utf-8"))
         REAL_ID_DICR[uid] = result["data"]["user"]["user_id"]
         return REAL_ID_DICR[uid]
@@ -85,18 +85,11 @@ def query_afddynamic(uid, cookie, msg):
         sleep(60)
         return
     if response.status_code != 200:
-        if response.status_code == 403:
-            logger.warning(
-                f'触发风控 status:{response.status_code}, msg:{response.reason}, url: {query_url} ,休眠五分钟\ncontent:{str(response.content, "utf-8")}',
-                prefix,
-            )
-            sleep(300)
-        else:
-            logger.warning(
-                f'请求错误 status:{response.status_code}, msg:{response.reason}, url: {query_url} ,休眠一分钟\ncontent:{str(response.content, "utf-8")}',
-                prefix,
-            )
-            sleep(60)
+        logger.warning(
+            f'请求错误 status:{response.status_code}, msg:{response.reason}, url: {query_url} ,休眠一分钟\ncontent:{str(response.content, "utf-8")}',
+            prefix,
+        )
+        sleep(60)
         return
     try:
         result = json.loads(str(response.content, "utf-8"))
@@ -148,7 +141,7 @@ def query_afddynamic(uid, cookie, msg):
         for mblog in cards:
             mblog_id = mblog["post_id"]
             content, pic_url, action, dynamic_time = get_content(mblog)
-            DYNAMIC_DICT[uid][mblog_id] = content, pic_url, home_url, dynamic_time
+            DYNAMIC_DICT[uid][mblog_id] = content, pic_url, dynamic_time
 
         created_at = datetime.fromtimestamp(cards[-1]["publish_time"])
         dynamic_time = created_at.strftime("%Y-%m-%d %H:%M:%S")
@@ -208,7 +201,7 @@ def query_afddynamic(uid, cookie, msg):
             icon=icon_path,
             pic_url=pic_url,
         )
-        DYNAMIC_DICT[uid][dynamic_id] = content, pic_url, action, dynamic_time
+        DYNAMIC_DICT[uid][dynamic_id] = content, pic_url, dynamic_time
         logger.debug(str(DYNAMIC_DICT[uid]), prefix, Fore.LIGHTCYAN_EX)
 
     # 检测删除动态
@@ -218,7 +211,7 @@ def query_afddynamic(uid, cookie, msg):
     for _id in DYNAMIC_DICT[uid]:
         if _id not in st and DYNAMIC_DICT[uid][_id][3] > last_time:
             del_list.append(_id)
-            content, pic_url, action = DYNAMIC_DICT[uid][_id]
+            content, pic_url, dynamic_time = DYNAMIC_DICT[uid][_id]
             image = None
             logger.info(
                 f"【{uname}】删除动态: {content}，url: {home_url}",
@@ -235,6 +228,128 @@ def query_afddynamic(uid, cookie, msg):
             )
     for _id in del_list:
         del DYNAMIC_DICT[uid][_id]
+    query_afdplan(sleep, headers, cookie, uid, uname, real_uid, home_url, icon_path)
+
+
+def query_afdplan(sleep, headers, cookie, uid, uname, real_uid, home_url, icon_path):
+    def get_plan_content(mblog):
+        action = "爱发电计划更新"
+        pic_url = mblog["pic"] if mblog["pic"] else None
+        content = f'【{mblog["name"]}】:{mblog["desc"]}'
+        dynamic_time = mblog["update_time"]
+        return content, pic_url, action, dynamic_time
+
+    query_url = f"https://afdian.com/api/creator/get-plans?user_id={real_uid}&album_id=&unlock_plan_ids=&diy=&affiliate_code="
+    try:
+        response = requests.get(
+            query_url, headers=headers, cookies=cookie, proxies=proxies, timeout=10
+        )
+    except RequestException as e:
+        logger.warning(f"网络错误 error:{e}, url: {query_url} ,休眠一分钟", prefix)
+        sleep(60)
+        return
+    if response.status_code != 200:
+        logger.warning(
+            f'请求错误 status:{response.status_code}, msg:{response.reason}, url: {query_url} ,休眠一分钟\ncontent:{str(response.content, "utf-8")}',
+            prefix,
+        )
+        sleep(60)
+        return
+    try:
+        result = json.loads(str(response.content, "utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as e:
+        logger.error(
+            f'【{uid}】解析content出错:{e}, url: {query_url} ,休眠一分钟\ncontent:{str(response.content, "utf-8")}',
+            prefix,
+        )
+        sleep(60)
+        return
+    if result["ec"] != 200:
+        logger.error(
+            f'【{uid}】请求返回数据code错误:{result["ec"]}, msg:{result["em"]}, url: {query_url} ,休眠五分钟\ndata:{result}',
+            prefix,
+        )
+        sleep(300)
+        return
+    try:
+        cards = [i for i in result["data"]["list"] + result["data"]["sale_list"]]
+        if len(cards) == 0:
+            if DYNAMIC_DICT.get(uid) is None:
+                logger.debug(f"【{uid}】爱发电列表为空", prefix)
+            return
+    except KeyError:
+        logger.error(
+            f"【{uid}】返回数据不完整, url: {query_url} ,休眠一分钟\ndata:{result}",
+            prefix,
+        )
+        sleep(60)
+        return
+
+    if PLAN_DICT.get(uid) is None:
+        PLAN_DICT[uid] = {}
+        for mblog in cards:
+            mblog_id = mblog["plan_id"]
+            content, pic_url, action, dynamic_time = get_plan_content(mblog)
+            PLAN_DICT[uid][mblog_id] = content, pic_url
+
+        logger.info(
+            f"【{uname}】爱发电计划初始化, len={len(PLAN_DICT[uid])}",
+            prefix,
+            Fore.LIGHTCYAN_EX,
+        )
+        logger.debug(
+            f"【{uname}】爱发电计划初始化 {PLAN_DICT[uid]}", prefix, Fore.LIGHTCYAN_EX
+        )
+        return
+
+    for card in reversed(cards):
+        plan_id = card["plan_id"]
+        if plan_id in PLAN_DICT[uid]:
+            continue
+
+        content, pic_url, action, dynamic_time = get_plan_content(card)
+        created_at = datetime.fromtimestamp(dynamic_time)
+        display_time = created_at.strftime("%Y-%m-%d %H:%M:%S")
+        image = None
+        logger.info(
+            f"【{uname}】{action} {display_time}：{content}, url: {home_url}",
+            prefix,
+            Fore.LIGHTCYAN_EX,
+        )
+        notify(
+            f"【{uname}】{action}",
+            content,
+            on_click=home_url,
+            image=image,
+            icon=icon_path,
+            pic_url=pic_url,
+        )
+        PLAN_DICT[uid][plan_id] = content, pic_url
+        logger.debug(str(PLAN_DICT[uid]), prefix, Fore.LIGHTCYAN_EX)
+
+    # 检测删除计划
+    st = set([card["plan_id"] for card in cards])
+    del_list = []
+    for _id in PLAN_DICT[uid]:
+        if _id not in st:
+            del_list.append(_id)
+            content, pic_url = PLAN_DICT[uid][_id]
+            image = None
+            logger.info(
+                f"【{uname}】删除计划: {content}，url: {home_url}",
+                prefix,
+                Fore.LIGHTCYAN_EX,
+            )
+            notify(
+                f"【{uname}】删除计划",
+                content,
+                on_click=home_url,
+                image=image,
+                icon=icon_path,
+                pic_url=pic_url,
+            )
+    for _id in del_list:
+        del PLAN_DICT[uid][_id]
 
 
 def get_headers(uid):
