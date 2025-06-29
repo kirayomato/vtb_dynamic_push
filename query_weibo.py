@@ -96,6 +96,7 @@ def query_weibodynamic(uid, cookie, msg):
             content = mblog["raw_text"]
         else:
             content = re.sub(r"<[^>]+>", "", mblog["text"])
+
         if mblog.get("action_info"):
             for act, val in mblog["action_info"].items():
                 action = act
@@ -206,9 +207,9 @@ def query_weibodynamic(uid, cookie, msg):
         created_at = datetime.strptime(
             cards[-1]["mblog"]["created_at"], "%a %b %d %H:%M:%S %z %Y"
         )
-        dynamic_time = created_at.strftime("%Y-%m-%d %H:%M:%S")
+        display_time = created_at.strftime("%Y-%m-%d %H:%M:%S")
         logger.info(
-            f"【{uname}】微博初始化, len={len(DYNAMIC_DICT[uid])}, last: {dynamic_time}",
+            f"【{uname}】微博初始化, len={len(DYNAMIC_DICT[uid])}, last: {display_time}",
             prefix,
             Fore.LIGHTYELLOW_EX,
         )
@@ -252,7 +253,7 @@ def query_weibodynamic(uid, cookie, msg):
         created_at = datetime.strptime(
             mblog["created_at"], "%a %b %d %H:%M:%S +0800 %Y"
         )
-        dynamic_time = created_at.strftime("%Y-%m-%d %H:%M:%S")
+        display_time = created_at.strftime("%Y-%m-%d %H:%M:%S")
         today = datetime.combine(date.today(), datetime.min.time())
         content, pic_url, action = get_content(mblog)
         url = card["scheme"]
@@ -260,7 +261,7 @@ def query_weibodynamic(uid, cookie, msg):
         if mblog_id < max(DYNAMIC_DICT[uid]) or created_at < today:
             DYNAMIC_DICT[uid][mblog_id] = content, pic_url, url
             logger.debug(
-                f"【{uname}】历史微博，不进行推送 {dynamic_time}: {content}，url: {url}",
+                f"【{uname}】历史微博，不进行推送 {display_time}: {content}，url: {url}",
                 prefix,
                 Fore.LIGHTYELLOW_EX,
             )
@@ -276,7 +277,7 @@ def query_weibodynamic(uid, cookie, msg):
             else:
                 image = {"src": opus_path, "placement": "hero"}
         logger.info(
-            f"【{uname}】{action}({total}) {dynamic_time}: {content}，url: {url}",
+            f"【{uname}】{action}({total}) {display_time}: {content}，url: {url}",
             prefix,
             Fore.LIGHTYELLOW_EX,
         )
