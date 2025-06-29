@@ -137,7 +137,7 @@ def query_bilidynamic(uid, cookie, msg):
     if response.status_code != 200:
         if response.status_code == 429:
             logger.warning(
-                f'触发风控, status:{response.status_code}, {response.reason} url: {query_url} ,休眠一分钟',
+                f"触发风控, status:{response.status_code}, {response.reason} url: {query_url} ,休眠一分钟",
                 prefix,
             )
             sleep(60)
@@ -204,7 +204,8 @@ def query_bilidynamic(uid, cookie, msg):
         for card in cards:
             dynamic_id = card["desc"]["dynamic_id"]
             url = f"https://www.bilibili.com/opus/{dynamic_id}"
-            DYNAMIC_DICT[uid][dynamic_id] = get_content(card)
+            content, pic_url, action = get_content(card)
+            DYNAMIC_DICT[uid][dynamic_id] = content, pic_url
         logger.info(
             f"【{uname}】动态初始化,len={len(DYNAMIC_DICT[uid])}",
             prefix,
@@ -266,7 +267,7 @@ def query_bilidynamic(uid, cookie, msg):
             icon=icon_path,
             pic_url=pic_url,
         )
-        DYNAMIC_DICT[uid][dynamic_id] = content, pic_url, action
+        DYNAMIC_DICT[uid][dynamic_id] = content, pic_url
         logger.debug(str(DYNAMIC_DICT[uid]), prefix, Fore.LIGHTBLUE_EX)
 
     # 检测删除动态
@@ -276,7 +277,7 @@ def query_bilidynamic(uid, cookie, msg):
     for _id in DYNAMIC_DICT[uid]:
         if _id >= last_id and _id not in st:
             del_list.append(_id)
-            content, pic_url, action = DYNAMIC_DICT[uid][_id]
+            content, pic_url = DYNAMIC_DICT[uid][_id]
             url = f"https://www.bilibili.com/opus/{_id}"
             image = None
             logger.info(
