@@ -155,6 +155,7 @@ def query_afddynamic(uid, cookie, msg):
         + f"查询{uname}爱发电"
         + Style.RESET_ALL
     )
+    icon_path = None
     if DYNAMIC_DICT.get(uid) is None:
         DYNAMIC_DICT[uid] = {}
         USER_FACE_DICT[uid] = face
@@ -175,8 +176,9 @@ def query_afddynamic(uid, cookie, msg):
         logger.debug(
             f"【{uname}】爱发电初始化 {DYNAMIC_DICT[uid]}", prefix, Fore.LIGHTCYAN_EX
         )
+        query_afdplan(sleep, headers, cookie, uid, uname, real_uid, home_url, icon_path)
         return
-
+        
     icon_path = get_icon(uid, face)
     if face != USER_FACE_DICT[uid]:
         logger.info(f"【{uname}】更改了爱发电头像", prefix, Fore.LIGHTCYAN_EX)
@@ -237,7 +239,7 @@ def query_afddynamic(uid, cookie, msg):
     del_list = []
     last_time = min([card["publish_time"] for card in cards])
     for _id in DYNAMIC_DICT[uid]:
-        if _id not in st and DYNAMIC_DICT[uid][_id][3] > last_time:
+        if _id not in st and DYNAMIC_DICT[uid][_id][2] > last_time:
             del_list.append(_id)
             content, pic_url, dynamic_time = DYNAMIC_DICT[uid][_id]
             image = None
