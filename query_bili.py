@@ -66,7 +66,11 @@ def query_bilidynamic(uid, cookie, msg):
             # 转发动态
             action = "转发动态"
             content = card["item"]["content"]
-            content += "\n转发动态：【"
+            if card.get("origin_user"):
+                origin_user = card["origin_user"]["info"]["uname"]
+                content += f"\n\n转发[{origin_user}]的动态：\n【"
+            else:
+                content += "\n\n转发动态：\n【"
             try:
                 origin = json.loads(card["origin"])
                 if "title" in origin:
@@ -255,7 +259,7 @@ def query_bilidynamic(uid, cookie, msg):
         url = f"https://www.bilibili.com/opus/{dynamic_id}"
         image = None
         logger.info(
-            f"【{uname}】{action} {dynamic_time}：{content}, url: {url}",
+            f"【{uname}】{action} {dynamic_time}：\n{content}, url: {url}",
             prefix,
             Fore.LIGHTBLUE_EX,
         )
@@ -281,7 +285,9 @@ def query_bilidynamic(uid, cookie, msg):
             url = f"https://www.bilibili.com/opus/{_id}"
             image = None
             logger.info(
-                f"【{uname}】删除动态: {content}，url: {url}", prefix, Fore.LIGHTBLUE_EX
+                f"【{uname}】删除动态: \n{content}，url: {url}",
+                prefix,
+                Fore.LIGHTBLUE_EX,
             )
             notify(
                 f"【{uname}】删除动态",
