@@ -105,10 +105,11 @@ def query_weibodynamic(uid, cookie, msg):
                 break
         if "retweeted_status" in mblog:
             action = "转发微博"
-            content += "\n转发微博：【"
+            origin_user = mblog["retweeted_status"]["user"]["screen_name"]
+            content += f"\n\n转发[{origin_user}]的微博：\n【"
             if not pic_url:
                 pic_url = get_pic(mblog["retweeted_status"])
-                content += re.sub(r"<[^>]+>", "", mblog["retweeted_status"]["text"])
+            content += re.sub(r"<[^>]+>", "", mblog["retweeted_status"]["text"])
             content += "】"
         return content, pic_url, action
 
@@ -261,7 +262,7 @@ def query_weibodynamic(uid, cookie, msg):
         if mblog_id < max(DYNAMIC_DICT[uid]) or created_at < today:
             DYNAMIC_DICT[uid][mblog_id] = content, pic_url, url
             logger.debug(
-                f"【{uname}】历史微博，不进行推送 {display_time}: {content}，url: {url}",
+                f"【{uname}】历史微博，不进行推送 {display_time}: \n{content}，url: {url}",
                 prefix,
                 Fore.LIGHTYELLOW_EX,
             )
@@ -277,7 +278,7 @@ def query_weibodynamic(uid, cookie, msg):
             else:
                 image = {"src": opus_path, "placement": "hero"}
         logger.info(
-            f"【{uname}】{action}({total}) {display_time}: {content}，url: {url}",
+            f"【{uname}】{action}({total}) {display_time}: \n{content}，url: {url}",
             prefix,
             Fore.LIGHTYELLOW_EX,
         )
@@ -312,7 +313,7 @@ def query_weibodynamic(uid, cookie, msg):
                         if opus_path:
                             image = {"src": opus_path, "placement": "hero"}
                     logger.info(
-                        f"【{uname}】删除微博：{content}，url: {url}",
+                        f"【{uname}】删除微博：\n{content}，url: {url}",
                         prefix,
                         Fore.LIGHTYELLOW_EX,
                     )
