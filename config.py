@@ -1,5 +1,6 @@
 import configparser
 import os
+import traceback
 from colorama import Fore, Style
 from logger import logger
 from time import sleep
@@ -45,14 +46,15 @@ class Config(object):
         thread = threading.Thread(target=update_config, args=[self], daemon=True)
         thread.start()
 
-    def get(self, section, name):
+    def get(self, section, name, origin=None):
         logger.debug(
             Fore.GREEN + f"【Config】加载配置{section}下的{name}" + Style.RESET_ALL
         )
         try:
             return self._config.get(section, name)
-        except:
-            return None
+        except BaseException as e:
+            logger.error(f"【Config】出错【{e}】：{traceback.format_exc()}")
+            return origin
 
     def update(self):
         logger.debug("更新Config", "【Config】", Fore.GREEN)
