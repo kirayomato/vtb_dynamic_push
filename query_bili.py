@@ -110,9 +110,9 @@ def query_bilidynamic(uid, cookie, msg):
                     pic_url = origin["pic"]
                 elif "item" in origin:
                     if origin["item"].get("pictures"):
-                        pic_url = origin["item"]["pictures"][0]["img_src"]
+                        pic_url = [i["img_src"] for i in origin["item"]["pictures"]]
                 elif "title" in origin:
-                    pic_url = origin["image_urls"][0]
+                    pic_url = origin["image_urls"]
             except (UnicodeDecodeError, json.JSONDecodeError) as e:
                 origin = card["origin"]
                 content += card["origin"]
@@ -129,7 +129,7 @@ def query_bilidynamic(uid, cookie, msg):
             # 图文动态
             content = card["item"]["description"]
             if card["item"].get("pictures"):
-                pic_url = card["item"]["pictures"][0]["img_src"]
+                pic_url = [i["img_src"] for i in card["item"]["pictures"]]
         elif dynamic_type == 4:
             # 文字动态
             content = card["item"]["content"]
@@ -142,7 +142,7 @@ def query_bilidynamic(uid, cookie, msg):
             # 专栏动态
             action = "发布专栏"
             content = card["title"]
-            pic_url = card["image_urls"][0]
+            pic_url = card["image_urls"]
 
         return content, pic_url, action
 
@@ -280,7 +280,11 @@ def query_bilidynamic(uid, cookie, msg):
         url = f"https://www.bilibili.com/opus/{dynamic_id}"
         image = None
         if pic_url:
-            opus_path = get_icon(uid, pic_url, "opus/")
+            if isinstance(pic_url, list):
+                for i in reversed(pic_url):
+                    opus_path = get_icon(uid, i, "opus/")
+            else:
+                opus_path = get_icon(uid, pic_url, "opus/")
             if opus_path is None:
                 logger.warning(f"【{uname}】图片下载失败, url: {pic_url}", prefix)
             else:
@@ -312,7 +316,10 @@ def query_bilidynamic(uid, cookie, msg):
             url = f"https://www.bilibili.com/opus/{_id}"
             image = None
             if pic_url:
-                opus_path = get_icon(uid, pic_url, "opus/")
+                if isinstance(pic_url, list):
+                    opus_path = get_icon(uid, pic_url[0], "opus/")
+                else:
+                    opus_path = get_icon(uid, pic_url, "opus/")
                 if opus_path:
                     image = {"src": opus_path, "placement": "hero"}
             logger.info(

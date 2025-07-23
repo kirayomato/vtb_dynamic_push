@@ -82,9 +82,9 @@ def query_weibodynamic(uid, cookie, msg):
         time.sleep(t)
 
     def get_pic(card):
-        pic_url = card.get("original_pic")
+        pic_url = card.get("pics")
         if pic_url:
-            return pic_url
+            return [i["large"]["url"] for i in pic_url]
         elif "page_info" in card:
             return card["page_info"]["page_pic"]["url"]
         return None
@@ -105,8 +105,11 @@ def query_weibodynamic(uid, cookie, msg):
                 break
         if "retweeted_status" in mblog:
             action = "转发微博"
-            origin_user = mblog["retweeted_status"]["user"]["screen_name"]
-            content += f"\n\n转发[{origin_user}]的微博：\n【"
+            if mblog["retweeted_status"].get("user"):
+                origin_user = mblog["retweeted_status"]["user"]["screen_name"]
+                content += f"\n\n转发[{origin_user}]的微博：\n【"
+            else:
+                content += "\n\n转发微博：\n【"
             if not pic_url:
                 pic_url = get_pic(mblog["retweeted_status"])
             content += re.sub(r"<[^>]+>", "", mblog["retweeted_status"]["text"])
@@ -272,7 +275,11 @@ def query_weibodynamic(uid, cookie, msg):
 
         image = None
         if pic_url:
-            opus_path = get_icon(uid, pic_url, "opus/")
+            if isinstance(pic_url, list):
+                for i in reversed(pic_url):
+                    opus_path = get_icon(uid, i, "opus/")
+            else:
+                opus_path = get_icon(uid, pic_url, "opus/")
             if opus_path is None:
                 logger.warning(f"【{uname}】图片下载失败，url:{pic_url}", prefix)
             else:
@@ -309,7 +316,10 @@ def query_weibodynamic(uid, cookie, msg):
                     content, pic_url, url = DYNAMIC_DICT[uid][_id]
                     image = None
                     if pic_url:
-                        opus_path = get_icon(uid, pic_url, "opus/")
+                        if isinstance(pic_url, list):
+                            opus_path = get_icon(uid, pic_url[0], "opus/")
+                        else:
+                            opus_path = get_icon(uid, pic_url, "opus/")
                         if opus_path:
                             image = {"src": opus_path, "placement": "hero"}
                     logger.info(
