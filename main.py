@@ -30,8 +30,11 @@ def weibo():
         check_uid = config.get("weibo", "cookies_check_uid")
     logger.info("开始检测微博", prefix, Fore.GREEN)
     test = 0
+    intervals_second = 5
     while True:
-        intervals_second = float(config.get("weibo", "intervals_second"))
+        intervals_second = float(
+            config.get("weibo", "intervals_second", intervals_second)
+        )
         if cookies_check == "true" and not query_valid(check_uid, config.WeiboCookies):
             test += 1
             if test == 3:
@@ -70,9 +73,11 @@ def bili_dy():
         return
     logger.info("开始检测动态", prefix, Fore.GREEN)
     test = 0
+    intervals_second = 5
     while True:
-        intervals_second = float(config.get(
-            "bili", "dynamic_intervals_second"))
+        intervals_second = float(
+            config.get("bili", "dynamic_intervals_second", intervals_second)
+        )
         if not try_cookies(config.BiliCookies):
             test += 1
             if test == 5:
@@ -110,8 +115,11 @@ def afd_dy():
         logger.warning("未开启动态推送功能", prefix)
         return
     logger.info("开始检测爱发电", prefix, Fore.GREEN)
+    intervals_second = 10
     while True:
-        intervals_second = float(config.get("afd", "intervals_second"))
+        intervals_second = float(
+            config.get("afd", "intervals_second", intervals_second)
+        )
         uid_list = config.get("afd", "uid_list")
         if uid_list:
             uid_list = set(uid_list.split(","))
@@ -142,8 +150,11 @@ def bili_live():
         logger.warning("未开启直播推送功能", prefix)
         return
     logger.info("开始检测直播", prefix, Fore.GREEN)
+    intervals_second = 30
     while True:
-        intervals_second = int(config.get("bili", "live_intervals_second"))
+        intervals_second = int(
+            config.get("bili", "live_intervals_second", intervals_second)
+        )
         uid_list = config.get("bili", "live_uid_list")
         special = config.get("bili", "special_list")
         if special:
