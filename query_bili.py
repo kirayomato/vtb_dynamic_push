@@ -11,7 +11,7 @@ from os.path import realpath, exists
 from colorama import Fore, Style
 from os import environ
 from datetime import datetime
-
+import re
 
 environ["NO_PROXY"] = "*"
 DYNAMIC_DICT = {}
@@ -26,6 +26,13 @@ proxies = {
     "http": "",
     "https": "",
 }
+
+
+def format_re(text):
+    # 匹配两个及以上连续换行符的位置
+    # 用两个换行符加 '> ' 来替换
+    result = re.sub(r"(\n{2,})", r"\n\n> ", text)
+    return result
 
 
 def try_cookies(cookies=None):
@@ -96,15 +103,15 @@ def query_bilidynamic(uid, cookie, msg):
             try:
                 origin = json.loads(card["origin"])
                 if "title" in origin:
-                    content += origin["title"]
+                    ori_content = origin["title"]
                 else:
                     if "item" in origin:
                         if "content" in origin["item"]:
-                            content += origin["item"]["content"]
+                            ori_content = origin["item"]["content"]
                         else:
-                            content += origin["item"]["description"]
+                            ori_content = origin["item"]["description"]
                     elif "live_play_info" in origin:
-                        content += origin["live_play_info"]["title"]
+                        ori_content = origin["live_play_info"]["title"]
                         pic_url = origin["live_play_info"]["cover"]
                 if "videos" in origin:
                     pic_url = origin["pic"]
@@ -113,9 +120,11 @@ def query_bilidynamic(uid, cookie, msg):
                         pic_url = [i["img_src"] for i in origin["item"]["pictures"]]
                 elif "title" in origin:
                     pic_url = origin["image_urls"]
+                content += format_re(ori_content)
+
             except (UnicodeDecodeError, json.JSONDecodeError) as e:
                 origin = card["origin"]
-                content += card["origin"]
+                content += origin
                 dynamic_id = item["desc"]["dynamic_id"]
                 url = f"https://www.bilibili.com/opus/{dynamic_id}"
                 logger.warning(
