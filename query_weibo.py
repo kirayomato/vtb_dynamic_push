@@ -60,9 +60,9 @@ def query_weibodynamic(uid, cookie, msg):
         time.sleep(t)
 
     def get_pic(card):
-        pic_url = card.get("original_pic")
+        pic_url = card.get("pics")
         if pic_url:
-            return pic_url
+            return [i["large"]["url"] for i in pic_url]
         elif "page_info" in card:
             return card["page_info"]["page_pic"]["url"]
         return None
@@ -83,8 +83,11 @@ def query_weibodynamic(uid, cookie, msg):
                 break
         if "retweeted_status" in mblog:
             action = "转发微博"
-            origin_user = mblog["retweeted_status"]["user"]["screen_name"]
-            content += f"\n\n转发[{origin_user}]的微博：\n【"
+            if mblog["retweeted_status"].get("user"):
+                origin_user = mblog["retweeted_status"]["user"]["screen_name"]
+                content += f"\n\n转发[{origin_user}]的微博：\n【"
+            else:
+                content += "\n\n转发微博：\n【"
             if not pic_url:
                 pic_url = get_pic(mblog["retweeted_status"])
             content += re.sub(r"<[^>]+>", "", mblog["retweeted_status"]["text"])
@@ -248,6 +251,8 @@ def query_weibodynamic(uid, cookie, msg):
             cnt += 1
 
         image = None
+        if isinstance(pic_url, list):
+            pic_url = pic_url[0]
         logger.info(
             f"【{uname}】{action}({total}) {display_time}: \n{content}，url: {url}",
             prefix,
@@ -279,6 +284,8 @@ def query_weibodynamic(uid, cookie, msg):
                     del_list.append(_id)
                     content, pic_url, url = DYNAMIC_DICT[uid][_id]
                     image = None
+                    if isinstance(pic_url, list):
+                        pic_url = pic_url[0]
                     logger.info(
                         f"【{uname}】删除微博：\n{content}，url: {url}",
                         prefix,

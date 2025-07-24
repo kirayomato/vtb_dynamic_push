@@ -88,9 +88,9 @@ def query_bilidynamic(uid, cookie, msg):
                     pic_url = origin["pic"]
                 elif "item" in origin:
                     if origin["item"].get("pictures"):
-                        pic_url = origin["item"]["pictures"][0]["img_src"]
+                        pic_url = [i["img_src"] for i in origin["item"]["pictures"]]
                 elif "title" in origin:
-                    pic_url = origin["image_urls"][0]
+                    pic_url = origin["image_urls"]
             except (UnicodeDecodeError, json.JSONDecodeError) as e:
                 origin = card["origin"]
                 content += card["origin"]
@@ -107,7 +107,7 @@ def query_bilidynamic(uid, cookie, msg):
             # 图文动态
             content = card["item"]["description"]
             if card["item"].get("pictures"):
-                pic_url = card["item"]["pictures"][0]["img_src"]
+                pic_url = [i["img_src"] for i in card["item"]["pictures"]]
         elif dynamic_type == 4:
             # 文字动态
             content = card["item"]["content"]
@@ -120,7 +120,7 @@ def query_bilidynamic(uid, cookie, msg):
             # 专栏动态
             action = "发布专栏"
             content = card["title"]
-            pic_url = card["image_urls"][0]
+            pic_url = card["image_urls"]
 
         return content, pic_url, action
 
@@ -251,13 +251,14 @@ def query_bilidynamic(uid, cookie, msg):
             continue
 
         timestamp = item["desc"]["timestamp"]
-        dynamic_time = time.strftime(
-            "%Y-%m-%d %H:%M:%S", time.localtime(timestamp))
+        dynamic_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(timestamp))
 
         content, pic_url, action = get_content(item)
 
         url = f"https://www.bilibili.com/opus/{dynamic_id}"
         image = None
+        if isinstance(pic_url, list):
+            pic_url = pic_url[0]
         logger.info(
             f"【{uname}】{action} {dynamic_time}：\n{content}, url: {url}",
             prefix,
@@ -284,6 +285,8 @@ def query_bilidynamic(uid, cookie, msg):
             content, pic_url = DYNAMIC_DICT[uid][_id]
             url = f"https://www.bilibili.com/opus/{_id}"
             image = None
+            if isinstance(pic_url, list):
+                pic_url = pic_url[0]
             logger.info(
                 f"【{uname}】删除动态: \n{content}，url: {url}",
                 prefix,
