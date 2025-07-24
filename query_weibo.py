@@ -13,7 +13,6 @@ from os.path import realpath, exists
 from colorama import Fore, Style
 from os import environ
 
-
 environ["NO_PROXY"] = "*"
 DYNAMIC_DICT = {}
 USER_FACE_DICT = {}
@@ -27,6 +26,13 @@ proxies = {
 prefix = "【查询微博状态】"
 
 cookies_valid = False
+
+
+def format_re(text):
+    # 匹配两个及以上连续换行符的位置
+    # 用两个换行符加 '> ' 来替换
+    result = re.sub(r"(\n{2,})", r"\n\n> ", text)
+    return result
 
 
 def query_valid(uid, cookie):
@@ -90,7 +96,9 @@ def query_weibodynamic(uid, cookie, msg):
                 content += "\n\n转发微博：\n> "
             if not pic_url:
                 pic_url = get_pic(mblog["retweeted_status"])
-            content += re.sub(r"<[^>]+>", "", mblog["retweeted_status"]["text"])
+            content += format_re(
+                re.sub(r"<[^>]+>", "", mblog["retweeted_status"]["text"])
+            )
         return content, pic_url, action
 
     if uid is None:
