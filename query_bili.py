@@ -68,9 +68,9 @@ def query_bilidynamic(uid, cookie, msg):
             content = card["item"]["content"]
             if card.get("origin_user"):
                 origin_user = card["origin_user"]["info"]["uname"]
-                content += f"\n\n转发[{origin_user}]的动态：\n【"
+                content += f"\n\n转发**{origin_user}**的动态：\n> "
             else:
-                content += "\n\n转发动态：\n【"
+                content += "\n\n转发动态：\n> "
             try:
                 origin = json.loads(card["origin"])
                 if "title" in origin:
@@ -100,8 +100,6 @@ def query_bilidynamic(uid, cookie, msg):
                     f"【{uid}】源动态解析出错:{e}, url: {url} \ncontent:{origin}",
                     prefix,
                 )
-
-            content += "】"
 
         elif dynamic_type == 2:
             # 图文动态
