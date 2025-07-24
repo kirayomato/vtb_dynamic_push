@@ -107,13 +107,12 @@ def query_weibodynamic(uid, cookie, msg):
             action = "转发微博"
             if mblog["retweeted_status"].get("user"):
                 origin_user = mblog["retweeted_status"]["user"]["screen_name"]
-                content += f"\n\n转发[{origin_user}]的微博：\n【"
+                content += f"\n\n转发**{origin_user}**的微博：\n> "
             else:
-                content += "\n\n转发微博：\n【"
+                content += "\n\n转发微博：\n> "
             if not pic_url:
                 pic_url = get_pic(mblog["retweeted_status"])
             content += re.sub(r"<[^>]+>", "", mblog["retweeted_status"]["text"])
-            content += "】"
         return content, pic_url, action
 
     if uid is None:
