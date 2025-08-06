@@ -230,6 +230,21 @@ def query_weibodynamic(uid, cookie, msg):
         return
 
     icon_path = get_icon(uid, face)
+
+    if uname != USER_NAME_DICT[uid]:
+        logger.info(
+            f"【{uname}】更改了微博昵称【{USER_NAME_DICT[uid]}】 -> 【{uname}】",
+            prefix,
+            Fore.LIGHTBLUE_EX,
+        )
+        notify(
+            f"【{uname}】更改了微博昵称",
+            f"【{USER_NAME_DICT[uid]}】 -> 【{uname}】",
+            icon=icon_path,
+            on_click=f"https://m.weibo.cn/profile/{uid}",
+        )
+        USER_NAME_DICT[uid] = uname
+
     if face != USER_FACE_DICT[uid]:
         logger.info(f"【{uname}】更改了微博头像", prefix, Fore.LIGHTYELLOW_EX)
         notify(
@@ -239,6 +254,7 @@ def query_weibodynamic(uid, cookie, msg):
             on_click=f"https://m.weibo.cn/profile/{uid}",
         )
         USER_FACE_DICT[uid] = face
+
     if sign != USER_SIGN_DICT[uid]:
         logger.info(
             f"【{uname}】更改了微博签名：【{USER_SIGN_DICT[uid]}】 -> 【{sign}】",

@@ -249,6 +249,21 @@ def query_bilidynamic(uid, cookie, msg):
         )
         return
     icon_path = get_icon(uid, face)
+
+    if uname != DYNAMIC_NAME_DICT[uid]:
+        logger.info(
+            f"【{uname}】更改了B站昵称【{DYNAMIC_NAME_DICT[uid]}】 -> 【{uname}】",
+            prefix,
+            Fore.LIGHTBLUE_EX,
+        )
+        notify(
+            f"【{uname}】更改了B站昵称",
+            f"【{DYNAMIC_NAME_DICT[uid]}】 -> 【{uname}】",
+            icon=icon_path,
+            on_click=f"https://space.bilibili.com/{uid}",
+        )
+        DYNAMIC_NAME_DICT[uid] = uname
+
     if face != USER_FACE_DICT[uid]:
         logger.info(f"【{uname}】更改了B站头像", prefix, Fore.LIGHTBLUE_EX)
         notify(
@@ -259,6 +274,7 @@ def query_bilidynamic(uid, cookie, msg):
             pic_url=face,
         )
         USER_FACE_DICT[uid] = face
+
     if sign != USER_SIGN_DICT[uid]:
         logger.info(
             f"【{uname}】更改了B站签名：【{USER_SIGN_DICT[uid]}】 -> 【{sign}】",
