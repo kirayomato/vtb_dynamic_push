@@ -15,6 +15,7 @@ from query_afd import query_afddynamic, AFD_NAME_DICT
 from colorama import Fore, init
 from push import notify
 from push import global_config as config
+from random import random
 
 
 def weibo():
@@ -52,10 +53,10 @@ def weibo():
                     logger.error(
                         f"【{uid}】出错【{e}】：{traceback.format_exc()}", prefix
                     )
-                sleep(max(1, intervals_second))
+                sleep(max(1, intervals_second) * (1 + random() / 10))
         else:
             logger.warning("未填写UID", prefix)
-            sleep(30)
+            return
         if not swi[1]:
             swi[1] = 1
             logger.info(
@@ -97,10 +98,10 @@ def bili_dy():
                     logger.error(
                         f"【{uid}】出错【{e}】：{traceback.format_exc()}", prefix
                     )
-                sleep(max(1, intervals_second))
+                sleep(max(1, intervals_second) * (1 + random() / 10))
         else:
             logger.warning("未填写UID", prefix)
-            sleep(30)
+            return
         if not swi[0]:
             swi[0] = 1
             logger.info(
@@ -134,10 +135,10 @@ def afd_dy():
                     logger.error(
                         f"【{uid}】出错【{e}】：{traceback.format_exc()}", prefix
                     )
-                sleep(max(1, intervals_second))
+                sleep(max(1, intervals_second) * (1 + random() / 10))
         else:
             logger.warning("未填写UID", prefix)
-            sleep(30)
+            return
         if not swi[3]:
             swi[3] = 1
             logger.info(
@@ -175,7 +176,7 @@ def bili_live():
                 logger.error(f"出错【{e}】：{traceback.format_exc()}", prefix)
         else:
             logger.warning("未填写UID", prefix)
-            sleep(30)
+            return
         if not swi[2]:
             swi[2] = 1
             logger.info(
@@ -183,7 +184,7 @@ def bili_live():
                 prefix,
                 Fore.CYAN,
             )
-        sleep(intervals_second)
+        sleep(intervals_second * (1 + random() / 10))
 
 
 if __name__ == "__main__":
