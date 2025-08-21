@@ -1,8 +1,8 @@
 import json
 from logger import logger
-import random
 import requests
 from config import Config, general_headers
+import re
 
 
 class PushException(Exception):
@@ -302,6 +302,8 @@ class Push(object):
 
 
 def notify(title, body, on_click=None, pic_url=None, **kwargs):
+    if body:
+        body = re.sub(r"[\x00-\x1F\x7F]", "", body)
     priority = 6
     push = Push()
     if body:
