@@ -1,10 +1,9 @@
 from win11toast import notify as _notify
 import json
 from logger import logger
-import random
-from colorama import Fore
 import requests
 from config import Config, general_headers
+import re
 
 
 class PushException(Exception):
@@ -313,7 +312,7 @@ def notify(
     **kwargs,
 ):
     if body:
-        body = body.replace("\x0b", "\n")
+        body = re.sub(r"[\x00-\x1F\x7F]", "", body)
     priority = 6
     push = Push()
     if kwargs.get("audio"):
