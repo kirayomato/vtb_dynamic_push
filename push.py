@@ -310,4 +310,6 @@ def notify(title, body, on_click=None, pic_url=None, **kwargs):
         body = body.replace("\x0b", "\n")
     if kwargs.get("audio"):
         priority = 10
+    if isinstance(pic_url, list):
+        pic_url = pic_url[0]
     push.common_push(title, body, on_click, pic_url, priority)
