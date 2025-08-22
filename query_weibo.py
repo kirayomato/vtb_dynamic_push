@@ -1,4 +1,5 @@
 from datetime import datetime, date
+from functools import partial
 import json
 import re
 import time
@@ -7,9 +8,9 @@ from logger import logger
 import requests
 from requests.exceptions import RequestException
 from config import general_headers
+from utils import check_diff, get_icon, get_image
 
 # from PIL import Image
-from os.path import realpath, exists
 from colorama import Fore, Style
 from os import environ
 
@@ -33,28 +34,6 @@ def format_re(text):
     # 用两个换行符加 '> ' 来替换
     result = re.sub(r"(\n{2,})", r"\n\n> ", text)
     return result
-
-
-def get_icon(uid, face, path=""):
-    headers = get_headers(uid)
-    face = face.split("?")[0]
-    name = face.split("/")[-1]
-    icon = f"icon/{path}{name}"
-    if exists(icon):
-        return realpath(icon)
-    try:
-        r = requests.get(face, headers=headers, proxies=proxies, timeout=10)
-    except RequestException as e:
-        logger.warning(f"网络错误 error:{e}, url:{face}", "【下载微博图片】")
-        return None
-    if r.status_code != 200:
-        return None
-    with open(icon, "wb") as f:
-        f.write(r.content)
-    # img = Image.open(icon)
-    # img = img.resize((64, 64))
-    # img.save(f'icon/{uid}.ico')
-    return realpath(icon)
 
 
 def query_valid(uid, cookie):
@@ -136,17 +115,14 @@ def query_weibodynamic(uid, cookie, msg):
         sleep(60)
         return
     if response.status_code != 200:
+        error_text = (
+            f"status:{response.status_code}, {response.reason} url: {query_url}"
+        )
         if response.status_code == 403:
-            logger.warning(
-                f'触发风控 status:{response.status_code}, msg:{response.reason}, url: {query_url} ,休眠五分钟\ncontent:{str(response.content, "utf-8")}',
-                prefix,
-            )
+            logger.error(f"触发风控, {error_text} ,休眠五分钟", prefix)
             sleep(300)
         else:
-            logger.warning(
-                f'请求错误 status:{response.status_code}, msg:{response.reason}, url: {query_url} ,休眠一分钟\ncontent:{str(response.content, "utf-8")}',
-                prefix,
-            )
+            logger.warning(f"请求错误, {error_text} ,休眠一分钟", prefix)
             sleep(60)
         return
     try:
@@ -186,6 +162,7 @@ def query_weibodynamic(uid, cookie, msg):
         face = face[: face.find("?")]
         sign = user["description"]
         total = result["data"]["cardlistInfo"]["total"]
+        home_url = f"https://m.weibo.cn/profile/{uid}"
     except KeyError:
         logger.error(
             f"【{uid}】返回数据不完整, url: {query_url} ,休眠一分钟\ndata:{result}",
@@ -213,7 +190,7 @@ def query_weibodynamic(uid, cookie, msg):
             url = card["scheme"]
             if mblog_id >= LAST_ID:
                 content, pic_url, action = get_content(mblog)
-                DYNAMIC_DICT[uid][mblog_id] = content, pic_url, url
+                DYNAMIC_DICT[uid][mblog_id] = content, pic_url
 
         created_at = datetime.strptime(
             cards[-1]["mblog"]["created_at"], "%a %b %d %H:%M:%S %z %Y"
@@ -229,45 +206,20 @@ def query_weibodynamic(uid, cookie, msg):
         )
         return
 
-    icon_path = get_icon(uid, face)
+    icon_path = get_icon(headers, face, prefix)
 
-    if uname != USER_NAME_DICT[uid]:
-        logger.info(
-            f"【{uname}】更改了微博昵称【{USER_NAME_DICT[uid]}】 -> 【{uname}】",
-            prefix,
-            Fore.LIGHTBLUE_EX,
-        )
-        notify(
-            f"【{uname}】更改了微博昵称",
-            f"【{USER_NAME_DICT[uid]}】 -> 【{uname}】",
-            icon=icon_path,
-            on_click=f"https://m.weibo.cn/profile/{uid}",
-        )
-        USER_NAME_DICT[uid] = uname
-
-    if face != USER_FACE_DICT[uid]:
-        logger.info(f"【{uname}】更改了微博头像", prefix, Fore.LIGHTYELLOW_EX)
-        notify(
-            f"【{uname}】更改了微博头像",
-            "",
-            icon=icon_path,
-            on_click=f"https://m.weibo.cn/profile/{uid}",
-        )
-        USER_FACE_DICT[uid] = face
-
-    if sign != USER_SIGN_DICT[uid]:
-        logger.info(
-            f"【{uname}】更改了微博签名：【{USER_SIGN_DICT[uid]}】 -> 【{sign}】",
-            prefix,
-            Fore.LIGHTYELLOW_EX,
-        )
-        notify(
-            f"【{uname}】更改了微博签名",
-            f"【{USER_SIGN_DICT[uid]}】 -> 【{sign}】",
-            icon=icon_path,
-            on_click=f"https://m.weibo.cn/profile/{uid}",
-        )
-        USER_SIGN_DICT[uid] = sign
+    chk_diff = partial(
+        check_diff,
+        uid=uid,
+        uname=uname,
+        prefix=prefix,
+        color=Fore.LIGHTYELLOW_EX,
+        on_click=home_url,
+        icon_path=icon_path,
+    )
+    chk_diff(face, USER_FACE_DICT, "微博头像", True, pic=face)
+    chk_diff(sign, USER_SIGN_DICT, "微博签名", False)
+    chk_diff(uname, USER_NAME_DICT, "微博昵称", False)
 
     cnt = 0
     for card in reversed(cards):
@@ -286,7 +238,7 @@ def query_weibodynamic(uid, cookie, msg):
         url = card["scheme"]
 
         if mblog_id < max(DYNAMIC_DICT[uid]) or created_at < today:
-            DYNAMIC_DICT[uid][mblog_id] = content, pic_url, url
+            DYNAMIC_DICT[uid][mblog_id] = content, pic_url
             logger.debug(
                 f"【{uname}】历史微博，不进行推送 {display_time}: \n{content}，url: {url}",
                 prefix,
@@ -296,17 +248,8 @@ def query_weibodynamic(uid, cookie, msg):
         if action in ["微博更新", "转发微博"]:
             cnt += 1
 
-        image = None
-        if pic_url:
-            if isinstance(pic_url, list):
-                for i in reversed(pic_url):
-                    opus_path = get_icon(uid, i, "opus/")
-            else:
-                opus_path = get_icon(uid, pic_url, "opus/")
-            if opus_path is None:
-                logger.warning(f"【{uname}】图片下载失败，url:{pic_url}", prefix)
-            else:
-                image = {"src": opus_path, "placement": "hero"}
+        image = get_image(pic_url, headers, prefix)
+
         logger.info(
             f"【{uname}】{action}({total}) {display_time}: \n{content}，url: {url}",
             prefix,
@@ -315,7 +258,7 @@ def query_weibodynamic(uid, cookie, msg):
         notify(
             f"【{uname}】{action}", content, on_click=url, image=image, icon=icon_path
         )
-        DYNAMIC_DICT[uid][mblog_id] = content, pic_url, url
+        DYNAMIC_DICT[uid][mblog_id] = content, pic_url
         logger.debug(str(DYNAMIC_DICT[uid]), prefix, Fore.LIGHTYELLOW_EX)
 
     _total = USER_COUNT_DICT[uid]
@@ -336,15 +279,11 @@ def query_weibodynamic(uid, cookie, msg):
                 if _id >= last_id and _id not in st:
                     cnt -= 1
                     del_list.append(_id)
-                    content, pic_url, url = DYNAMIC_DICT[uid][_id]
-                    image = None
-                    if pic_url:
-                        if isinstance(pic_url, list):
-                            opus_path = get_icon(uid, pic_url[0], "opus/")
-                        else:
-                            opus_path = get_icon(uid, pic_url, "opus/")
-                        if opus_path:
-                            image = {"src": opus_path, "placement": "hero"}
+                    content, pic_url = DYNAMIC_DICT[uid][_id]
+                    url = f"https://m.weibo.cn/detail/{_id}"
+
+                    image = get_image(pic_url, headers, prefix)
+
                     logger.info(
                         f"【{uname}】删除微博：\n{content}，url: {url}",
                         prefix,

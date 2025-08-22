@@ -1,4 +1,5 @@
 from datetime import datetime
+from functools import partial
 import json
 import time
 from push import notify
@@ -6,9 +7,9 @@ from logger import logger
 import requests
 from requests.exceptions import RequestException
 from config import general_headers
+from utils import check_diff, get_icon, get_image
 
 # from PIL import Image
-from os.path import realpath, exists
 from colorama import Fore, Style
 from os import environ
 
@@ -27,28 +28,6 @@ proxies = {
     "https": "",
 }
 prefix = "【查询爱发电】"
-
-
-def get_icon(uid, face, path=""):
-    headers = get_headers(uid)
-    face = face.split("?")[0]
-    name = face.split("/")[-1]
-    icon = f"icon/{path}{name}"
-    if exists(icon):
-        return realpath(icon)
-    try:
-        r = requests.get(face, headers=headers, proxies=proxies, timeout=10)
-    except RequestException as e:
-        logger.warning(f"网络错误 error:{e}, url:{face}", "【下载爱发电图片】")
-        return None
-    if r.status_code != 200:
-        return None
-    with open(icon, "wb") as f:
-        f.write(r.content)
-    # img = Image.open(icon)
-    # img = img.resize((64, 64))
-    # img.save(f'icon/{uid}.ico')
-    return realpath(icon)
 
 
 def get_realid(uid):
@@ -80,9 +59,10 @@ def query_afddynamic(uid, cookie, msg):
         time.sleep(t)
 
     def get_pic(card):
-        pic_url = card["pics"]
-        if len(pic_url):
-            return pic_url[0]
+        if pic_url := card.get("pics"):
+            return pic_url
+        elif cover := card.get("cover"):
+            return cover
         return None
 
     def get_content(mblog):
@@ -177,29 +157,19 @@ def query_afddynamic(uid, cookie, msg):
         )
         return
 
-    icon_path = get_icon(uid, face)
-    if face != USER_FACE_DICT[uid]:
-        logger.info(f"【{uname}】更改了爱发电头像", prefix, Fore.LIGHTCYAN_EX)
-        notify(
-            f"【{uname}】更改了爱发电头像",
-            "",
-            icon=icon_path,
-            on_click=home_url,
-        )
-        USER_FACE_DICT[uid] = face
-    if sign != USER_SIGN_DICT[uid]:
-        logger.info(
-            f"【{uname}】更改了爱发电签名：【{USER_SIGN_DICT[uid]}】 -> 【{sign}】",
-            prefix,
-            Fore.LIGHTCYAN_EX,
-        )
-        notify(
-            f"【{uname}】更改了爱发电签名",
-            f"【{USER_SIGN_DICT[uid]}】 -> 【{sign}】",
-            icon=icon_path,
-            on_click=home_url,
-        )
-        USER_SIGN_DICT[uid] = sign
+    icon_path = get_icon(headers, face, prefix)
+    chk_diff = partial(
+        check_diff,
+        uid=uid,
+        uname=uname,
+        prefix=prefix,
+        color=Fore.LIGHTCYAN_EX,
+        on_click=home_url,
+        icon_path=icon_path,
+    )
+    chk_diff(face, USER_FACE_DICT, "爱发电头像", True, pic=face)
+    chk_diff(sign, USER_SIGN_DICT, "爱发电签名", False)
+    chk_diff(uname, AFD_NAME_DICT, "爱发电昵称", False)
 
     for card in reversed(cards):
         dynamic_id = card["post_id"]
@@ -209,13 +179,9 @@ def query_afddynamic(uid, cookie, msg):
         content, pic_url, action, dynamic_time = get_content(card)
         created_at = datetime.fromtimestamp(dynamic_time)
         display_time = created_at.strftime("%Y-%m-%d %H:%M:%S")
-        image = None
-        if pic_url:
-            opus_path = get_icon(uid, pic_url, "opus/")
-            if opus_path is None:
-                logger.warning(f"【{uname}】图片下载失败, url: {pic_url}", prefix)
-            else:
-                image = {"src": opus_path, "placement": "hero"}
+
+        image = get_image(pic_url, headers, prefix)
+
         logger.info(
             f"【{uname}】{action} {display_time}：{content}, url: {home_url}",
             prefix,
@@ -240,11 +206,9 @@ def query_afddynamic(uid, cookie, msg):
         if _id not in st and DYNAMIC_DICT[uid][_id][2] > last_time:
             del_list.append(_id)
             content, pic_url, dynamic_time = DYNAMIC_DICT[uid][_id]
-            image = None
-            if pic_url:
-                opus_path = get_icon(uid, pic_url, "opus/")
-                if opus_path:
-                    image = {"src": opus_path, "placement": "hero"}
+
+            image = get_image(pic_url, headers, prefix)
+
             logger.info(
                 f"【{uname}】删除动态: {content}，url: {home_url}",
                 prefix,
@@ -266,7 +230,7 @@ def query_afddynamic(uid, cookie, msg):
 def query_afdplan(sleep, headers, cookie, uid, uname, real_uid, home_url, icon_path):
     def get_plan_content(mblog):
         action = "爱发电计划更新"
-        pic_url = mblog["pic"] if mblog["pic"] else None
+        pic_url = mblog["pic"]
         content = f'【{mblog["name"]}】:{mblog["desc"]}'
         dynamic_time = mblog["update_time"]
         return content, pic_url, action, dynamic_time
@@ -342,13 +306,9 @@ def query_afdplan(sleep, headers, cookie, uid, uname, real_uid, home_url, icon_p
         content, pic_url, action, dynamic_time = get_plan_content(card)
         created_at = datetime.fromtimestamp(dynamic_time)
         display_time = created_at.strftime("%Y-%m-%d %H:%M:%S")
-        image = None
-        if pic_url:
-            opus_path = get_icon(uid, pic_url, "opus/")
-            if opus_path is None:
-                logger.warning(f"【{uname}】图片下载失败, url: {pic_url}", prefix)
-            else:
-                image = {"src": opus_path, "placement": "hero"}
+
+        image = get_image(pic_url, headers, prefix)
+
         logger.info(
             f"【{uname}】{action} {display_time}：{content}, url: {home_url}",
             prefix,
@@ -372,11 +332,9 @@ def query_afdplan(sleep, headers, cookie, uid, uname, real_uid, home_url, icon_p
         if _id not in st:
             del_list.append(_id)
             content, pic_url = PLAN_DICT[uid][_id]
-            image = None
-            if pic_url:
-                opus_path = get_icon(uid, pic_url, "opus/")
-                if opus_path:
-                    image = {"src": opus_path, "placement": "hero"}
+
+            image = get_image(pic_url, headers, prefix)
+
             logger.info(
                 f"【{uname}】删除计划: {content}，url: {home_url}",
                 prefix,

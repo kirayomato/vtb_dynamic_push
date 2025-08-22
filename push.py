@@ -317,6 +317,8 @@ def notify(
     push = Push()
     if kwargs.get("audio"):
         priority = 10
+    if isinstance(pic_url, list):
+        pic_url = pic_url[0]
     push.common_push(title, body, on_click, pic_url, priority)
     if on_click is None:
         return _notify(
