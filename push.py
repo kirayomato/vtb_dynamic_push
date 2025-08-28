@@ -312,7 +312,7 @@ def notify(
     **kwargs,
 ):
     if body:
-        body = re.sub(r"[\x00-\x1F\x7F]", "", body)
+        body = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", body)
     priority = 6
     push = Push()
     if kwargs.get("audio"):
