@@ -156,8 +156,8 @@ def query_bilidynamic(uid, cookie, msg):
             sleep(60)
             return
         if response.status_code == 412:
-            logger.error(f"触发风控, {error_text} ,休眠五分钟", prefix)
-            sleep(300)
+            logger.error(f"触发风控, {error_text} ,休眠十分钟", prefix)
+            sleep(600)
         else:
             logger.warning(f"请求错误, {error_text} ,休眠一分钟", prefix)
             sleep(60)
@@ -447,7 +447,7 @@ def query_live_status_batch(uid_list, cookie, msg, special):
                 uid=uid,
                 uname=uname,
                 prefix=prefix,
-                color=Fore.LIGHTGREEN_EX,
+                color=Fore.CYAN,
                 on_click=live_url,
                 icon_path=icon_path,
             )
