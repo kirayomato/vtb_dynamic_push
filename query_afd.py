@@ -1,6 +1,7 @@
 from datetime import datetime
 from functools import partial
 import json
+from random import random
 import time
 from push import notify
 from logger import logger
@@ -47,7 +48,7 @@ def get_realid(uid):
         return None
 
 
-def query_afddynamic(uid, cookie, msg):
+def query_afddynamic(uid, cookie, msg, intervals_second):
     def sleep(t):
         msg[3] = (
             datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -224,6 +225,7 @@ def query_afddynamic(uid, cookie, msg):
             )
     for _id in del_list:
         del DYNAMIC_DICT[uid][_id]
+    sleep(max(1, intervals_second) * (1 + random() / 10))
     query_afdplan(sleep, headers, cookie, uid, uname, real_uid, home_url, icon_path)
 
 
