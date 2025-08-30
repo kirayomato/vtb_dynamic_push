@@ -21,7 +21,7 @@ from random import random
 
 
 def weibo():
-    prefix = "【查询微博状态】"
+    prefix = "【查询微博动态】"
     enable_dynamic_push = config.get("weibo", "enable_dynamic_push")
     cookies_check = config.get("weibo", "enable_cookies_check")
     if enable_dynamic_push != "true":
@@ -33,9 +33,6 @@ def weibo():
     test = 0
     intervals_second = 5
     while True:
-        intervals_second = float(
-            config.get("weibo", "intervals_second", intervals_second)
-        )
         if cookies_check == "true" and not query_valid(check_uid, config.WeiboCookies):
             test += 1
             if test == 3:
@@ -53,6 +50,9 @@ def weibo():
                     logger.error(
                         f"【{uid}】出错【{e}】：{traceback.format_exc()}", prefix
                     )
+                intervals_second = float(
+                    config.get("weibo", "intervals_second", intervals_second)
+                )
                 sleep(max(1, intervals_second) * (1 + random() / 10))
         else:
             logger.warning("未填写UID", prefix)
@@ -76,9 +76,6 @@ def bili_dy():
     test = 0
     intervals_second = 5
     while True:
-        intervals_second = float(
-            config.get("bili", "dynamic_intervals_second", intervals_second)
-        )
         if not try_cookies(config.BiliCookies):
             test += 1
             if test == 5:
@@ -96,6 +93,9 @@ def bili_dy():
                     logger.error(
                         f"【{uid}】出错【{e}】：{traceback.format_exc()}", prefix
                     )
+                intervals_second = float(
+                    config.get("bili", "dynamic_intervals_second", intervals_second)
+                )
                 sleep(max(1, intervals_second) * (1 + random() / 10))
         else:
             logger.warning("未填写UID", prefix)
@@ -118,15 +118,15 @@ def afd_dy():
     logger.info("开始检测爱发电", prefix, Fore.GREEN)
     intervals_second = 10
     while True:
-        intervals_second = float(
-            config.get("afd", "intervals_second", intervals_second)
-        )
         uid_list = config.get("afd", "uid_list")
         if uid_list:
             uid_list = set(uid_list.split(","))
             for uid in uid_list:
+                intervals_second = (
+                    float(config.get("afd", "intervals_second", intervals_second)) / 2
+                )
                 try:
-                    query_afddynamic(uid, None, msg)
+                    query_afddynamic(uid, None, msg, intervals_second)
                 except BaseException as e:
                     logger.error(
                         f"【{uid}】出错【{e}】：{traceback.format_exc()}", prefix
