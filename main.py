@@ -20,6 +20,24 @@ import uvicorn
 from random import random
 
 
+def crash_handler(args):
+    logger.error(
+        f"任务【{args.thread.name}】崩溃: \n{''.join(traceback.format_exception(args.exc_type, args.exc_value, args.exc_traceback))}"
+    )
+    notify(
+        f"任务【{args.thread.name}】崩溃",
+        "".join(
+            traceback.format_exception(
+                args.exc_type, args.exc_value, args.exc_traceback
+            )
+        ),
+    )
+
+
+# 注册全局异常钩子
+threading.excepthook = crash_handler
+
+
 def weibo():
     prefix = "【查询微博动态】"
     enable_dynamic_push = config.get("weibo", "enable_dynamic_push")
@@ -67,7 +85,7 @@ def weibo():
 
 
 def bili_dy():
-    prefix = "【查询动态状态】"
+    prefix = "【查询B站动态】"
     enable_dynamic_push = config.get("bili", "enable_dynamic_push")
     if enable_dynamic_push != "true":
         logger.warning("未开启动态推送功能", prefix)
@@ -145,7 +163,7 @@ def afd_dy():
 
 
 def bili_live():
-    prefix = "【查询直播状态】"
+    prefix = "【查询B站直播】"
     enable_living_push = config.get("bili", "enable_living_push")
     if enable_living_push != "true":
         logger.warning("未开启直播推送功能", prefix)
@@ -190,10 +208,10 @@ if __name__ == "__main__":
     msg = [""] * 4
     swi = [0] * 4
     init(autoreset=True)
-    thread1 = threading.Thread(target=bili_dy, daemon=True)
-    thread2 = threading.Thread(target=bili_live, daemon=True)
-    thread3 = threading.Thread(target=weibo, daemon=True)
-    thread4 = threading.Thread(target=afd_dy, daemon=True)
+    thread1 = threading.Thread(target=bili_dy, daemon=True, name="查询B站动态")
+    thread2 = threading.Thread(target=bili_live, daemon=True, name="查询B站直播")
+    thread3 = threading.Thread(target=weibo, daemon=True, name="查询微博动态")
+    thread4 = threading.Thread(target=afd_dy, daemon=True, name="查询爱发电")
     thread1.start()
     thread2.start()
     thread3.start()
