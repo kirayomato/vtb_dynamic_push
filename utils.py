@@ -4,6 +4,7 @@ import requests
 from requests.exceptions import RequestException
 from logger import logger
 from push import notify
+from pathlib import Path
 
 proxies = {
     "http": "",
@@ -11,16 +12,18 @@ proxies = {
 }
 
 
-def get_icon(headers, face, prefix, path=""):
-    face = face.split("?")[0]
-    name = face.split("/")[-1]
-    icon = f"icon/{path}{name}"
+def get_icon(headers, image_url, prefix, platform, uname, _type):
+    image_url = image_url.split("?")[0]
+    name = image_url.split("/")[-1]
+    dir_path = Path("image") / platform / uname / _type
+    dir_path.mkdir(parents=True, exist_ok=True)
+    icon = str(dir_path / name)
     if exists(icon):
         return realpath(icon)
     try:
-        r = requests.get(face, headers=headers, proxies=proxies, timeout=10)
+        r = requests.get(image_url, headers=headers, proxies=proxies, timeout=10)
     except RequestException as e:
-        logger.warning(f"网络错误, error:{e}, url: {face}", prefix)
+        logger.warning(f"网络错误, error:{e}, url: {image_url}", prefix)
         return None
     if r.status_code != 200:
         return None
@@ -67,14 +70,14 @@ def check_diff(
         _dict[uid] = ori
 
 
-def get_image(pic_url, headers, prefix):
+def get_image(pic_url, headers, prefix, platform, uname, _type):
     image = None
     if pic_url:
         if isinstance(pic_url, list):
-            for i in reversed(pic_url):
-                opus_path = get_icon(headers, i, prefix, "opus/")
+            for url in reversed(pic_url):
+                opus_path = get_icon(headers, url, prefix, platform, uname, _type)
         else:
-            opus_path = get_icon(headers, pic_url, prefix, "opus/")
+            opus_path = get_icon(headers, pic_url, prefix, platform, uname, _type)
         if opus_path is None:
             logger.warning(f"图片下载失败, url: {pic_url}", prefix)
         else:

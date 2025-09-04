@@ -439,7 +439,6 @@ def query_live_status_batch(uid_list, cookie, msg, special):
                 continue
 
             icon_path = None
-
             image = None
 
             chk_diff = partial(
