@@ -407,6 +407,8 @@ def query_live_status_batch(uid_list, cookie, msg, special):
                 room_title = item_info["title"]
                 room_cover_url = item_info["cover_from_user"]
                 keyframe = item_info["keyframe"]
+                if room_cover_url == "":
+                    room_cover_url = keyframe
             except (KeyError, TypeError):
                 logger.error(
                     f"【{uid}】返回数据不完整, url: {query_url} ,休眠一分钟\ndata:{item_info}",
@@ -425,8 +427,6 @@ def query_live_status_batch(uid_list, cookie, msg, special):
             if LIVING_STATUS_DICT.get(uid) is None:
                 ROOM_TITLE_DICT[uid] = room_title
                 LIVING_STATUS_DICT[uid] = live_status
-                if room_cover_url == "":
-                    room_cover_url = keyframe
                 ROOM_COVER_DICT[uid] = room_cover_url
                 if live_status == 1:
                     logger.info(f"【{uname}】【{area}】【{room_title}】直播中", prefix)
