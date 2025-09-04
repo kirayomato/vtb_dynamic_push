@@ -206,7 +206,7 @@ def query_weibodynamic(uid, cookie, msg):
         )
         return
 
-    icon_path = get_icon(headers, face, prefix)
+    icon_path = get_icon(headers, face, prefix, "weibo", uname, "face")
 
     chk_diff = partial(
         check_diff,
@@ -248,7 +248,7 @@ def query_weibodynamic(uid, cookie, msg):
         if action in ["微博更新", "转发微博"]:
             cnt += 1
 
-        image = get_image(pic_url, headers, prefix)
+        image = get_image(pic_url, headers, prefix, "weibo", uname, "dynamic")
 
         logger.info(
             f"【{uname}】{action}({total}) {display_time}: \n{content}，url: {url}",
@@ -282,7 +282,9 @@ def query_weibodynamic(uid, cookie, msg):
                     content, pic_url = DYNAMIC_DICT[uid][_id]
                     url = f"https://m.weibo.cn/detail/{_id}"
 
-                    image = get_image(pic_url, headers, prefix)
+                    image = get_image(
+                        pic_url, headers, prefix, "weibo", uname, "dynamic"
+                    )
 
                     logger.info(
                         f"【{uname}】删除微博：\n{content}，url: {url}",

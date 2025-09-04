@@ -206,10 +206,6 @@ def bili_live():
 
 
 if __name__ == "__main__":
-    if not os.path.exists("icon/cover"):
-        os.makedirs("icon/cover")
-    if not os.path.exists("icon/opus"):
-        os.makedirs("icon/opus")
     msg = [""] * 4
     swi = [0] * 4
     init(autoreset=True)

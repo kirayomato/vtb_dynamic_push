@@ -159,7 +159,7 @@ def query_afddynamic(uid, cookie, msg, intervals_second):
         )
         return
 
-    icon_path = get_icon(headers, face, prefix)
+    icon_path = get_icon(headers, face, prefix, "afdian", uname, "face")
     chk_diff = partial(
         check_diff,
         uid=uid,
@@ -182,7 +182,7 @@ def query_afddynamic(uid, cookie, msg, intervals_second):
         created_at = datetime.fromtimestamp(dynamic_time)
         display_time = created_at.strftime("%Y-%m-%d %H:%M:%S")
 
-        image = get_image(pic_url, headers, prefix)
+        image = get_image(pic_url, headers, prefix, "afdian", uname, "dynamic")
 
         logger.info(
             f"【{uname}】{action} {display_time}：{content}, url: {home_url}",
@@ -209,7 +209,7 @@ def query_afddynamic(uid, cookie, msg, intervals_second):
             del_list.append(_id)
             content, pic_url, dynamic_time = DYNAMIC_DICT[uid][_id]
 
-            image = get_image(pic_url, headers, prefix)
+            image = get_image(pic_url, headers, prefix, "afdian", uname, "dynamic")
 
             logger.info(
                 f"【{uname}】删除动态: {content}，url: {home_url}",
@@ -310,7 +310,7 @@ def query_afdplan(sleep, headers, cookie, uid, uname, real_uid, home_url, icon_p
         created_at = datetime.fromtimestamp(dynamic_time)
         display_time = created_at.strftime("%Y-%m-%d %H:%M:%S")
 
-        image = get_image(pic_url, headers, prefix)
+        image = get_image(pic_url, headers, prefix, "afdian", uname, "plan")
 
         logger.info(
             f"【{uname}】{action} {display_time}：{content}, url: {home_url}",
@@ -336,7 +336,7 @@ def query_afdplan(sleep, headers, cookie, uid, uname, real_uid, home_url, icon_p
             del_list.append(_id)
             content, pic_url = PLAN_DICT[uid][_id]
 
-            image = get_image(pic_url, headers, prefix)
+            image = get_image(pic_url, headers, prefix, "afdian", uname, "plan")
 
             logger.info(
                 f"【{uname}】删除计划: {content}，url: {home_url}",

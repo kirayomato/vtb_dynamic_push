@@ -223,7 +223,7 @@ def query_bilidynamic(uid, cookie, msg):
             f"【{uname}】动态初始化 {DYNAMIC_DICT[uid]}", prefix, Fore.LIGHTBLUE_EX
         )
         return
-    icon_path = get_icon(headers, face, prefix)
+    icon_path = get_icon(headers, face, prefix, "bili", uname, "face")
 
     chk_diff = partial(
         check_diff,
@@ -251,7 +251,7 @@ def query_bilidynamic(uid, cookie, msg):
 
         url = f"https://www.bilibili.com/opus/{dynamic_id}"
 
-        image = get_image(pic_url, headers, prefix)
+        image = get_image(pic_url, headers, prefix, "bili", uname, "dynamic")
 
         logger.info(
             f"【{uname}】{action} {dynamic_time}：\n{content}, url: {url}",
@@ -279,7 +279,7 @@ def query_bilidynamic(uid, cookie, msg):
             content, pic_url = DYNAMIC_DICT[uid][_id]
             url = f"https://www.bilibili.com/opus/{_id}"
 
-            image = get_image(pic_url, headers, prefix)
+            image = get_image(pic_url, headers, prefix, "bili", uname, "dynamic")
 
             logger.info(
                 f"【{uname}】删除动态: \n{content}，url: {url}",
@@ -438,9 +438,9 @@ def query_live_status_batch(uid_list, cookie, msg, special):
                     )
                 continue
 
-            icon_path = get_icon(headers, face, prefix)
+            icon_path = get_icon(headers, face, prefix, "bili", uname, "face")
 
-            image = get_image(room_cover_url, headers, prefix)
+            image = get_image(room_cover_url, headers, prefix, "bili", uname, "cover")
 
             chk_diff = partial(
                 check_diff,
