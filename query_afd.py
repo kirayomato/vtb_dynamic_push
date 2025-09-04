@@ -74,7 +74,8 @@ def query_afddynamic(uid, cookie, msg, intervals_second):
         return content, pic_url, action, dynamic_time
 
     real_uid = get_realid(uid)
-    if uid is None:
+    if real_uid is None:
+        sleep(60)
         return
 
     query_url = f"https://afdian.com/api/post/get-list?user_id={real_uid}&type=old&publish_sn=&per_page=10&group_id=&all=1&is_public=&plan_id=&title=&name="
@@ -84,8 +85,8 @@ def query_afddynamic(uid, cookie, msg, intervals_second):
             query_url, headers=headers, cookies=cookie, proxies=proxies, timeout=10
         )
     except RequestException as e:
-        logger.warning(f"网络错误 error:{e}, url: {query_url} ,休眠一分钟", prefix)
-        sleep(60)
+        logger.warning(f"网络错误 error:{e}, url: {query_url} ,休眠三分钟", prefix)
+        sleep(180)
         return
     if response.status_code != 200:
         logger.warning(
@@ -244,8 +245,8 @@ def query_afdplan(sleep, headers, cookie, uid, uname, real_uid, home_url, icon_p
             query_url, headers=headers, cookies=cookie, proxies=proxies, timeout=10
         )
     except RequestException as e:
-        logger.warning(f"网络错误 error:{e}, url: {query_url} ,休眠一分钟", prefix)
-        sleep(60)
+        logger.warning(f"网络错误 error:{e}, url: {query_url} ,休眠三分钟", prefix)
+        sleep(180)
         return
     if response.status_code != 200:
         logger.warning(
