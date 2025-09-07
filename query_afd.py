@@ -226,7 +226,7 @@ def query_afddynamic(uid, cookie, msg, intervals_second):
             )
     for _id in del_list:
         del DYNAMIC_DICT[uid][_id]
-    sleep(max(1, intervals_second) * (1 + random() / 10))
+    time.sleep(max(1, intervals_second) * (1 + random() / 10))
     query_afdplan(sleep, headers, cookie, uid, uname, real_uid, home_url, icon_path)
 
 
