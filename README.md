@@ -39,6 +39,9 @@
 
 #### 1. 填写config.ini配置信息
 首先将文件`config.ini.example`重命名为`config.ini`，并依照如下格式填写参数
+`scheduler`下的参数
+- `enable` 是否根据活跃度调整轮询间隔，启用时，轮询间隔会根据动态的活跃度动态调整，活跃度标准为七日内动态数
+- `max_weight` 单个ID最大权重，轮询间隔为 `sum(weights)/weight*intervals_second`
 
 `weibo`下的参数
 - `enable_dynamic_push`是否启用微博推送
