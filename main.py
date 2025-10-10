@@ -68,9 +68,7 @@ def weibo():
                     logger.error(
                         f"【{uid}】出错【{e}】：{traceback.format_exc()}", prefix
                     )
-                intervals_second = float(
-                    config.get("weibo", "intervals_second", intervals_second)
-                )
+                intervals_second = float(config.get("weibo", "intervals_second"))
                 sleep(max(1, intervals_second) * (1 + random() / 10))
         else:
             logger.warning("未填写UID", prefix)
@@ -113,9 +111,7 @@ def bili_dy():
                     logger.error(
                         f"【{uid}】出错【{e}】：{traceback.format_exc()}", prefix
                     )
-                intervals_second = float(
-                    config.get("bili", "dynamic_intervals_second", intervals_second)
-                )
+                intervals_second = float(config.get("bili", "dynamic_intervals_second"))
                 sleep(max(1, intervals_second) * (1 + random() / 10))
         else:
             logger.warning("未填写UID", prefix)
@@ -144,9 +140,7 @@ def afd_dy():
         if uid_list:
             uid_list = set(uid_list.split(","))
             for uid in uid_list:
-                intervals_second = (
-                    float(config.get("afd", "intervals_second", intervals_second)) / 2
-                )
+                intervals_second = float(config.get("afd", "intervals_second")) / 2
                 try:
                     query_afddynamic(uid, None, msg, intervals_second)
                 except BaseException as e:
@@ -177,9 +171,7 @@ def bili_live():
     logger.info("开始检测直播", prefix, Fore.GREEN)
     intervals_second = 30
     while True:
-        intervals_second = int(
-            config.get("bili", "live_intervals_second", intervals_second)
-        )
+        intervals_second = int(config.get("bili", "live_intervals_second"))
         uid_list = config.get("bili", "live_uid_list")
         special = config.get("bili", "special_list")
         if special:

@@ -36,29 +36,37 @@ def load_cookie(path, ck, name, prefix):
 class Config(object):
     def __init__(self, config_file="config.ini"):
         self._path = os.path.join(os.getcwd(), config_file)
-        self._config = configparser.ConfigParser()
+        self._config = configparser.ConfigParser(interpolation=None)
         self.WeiboCookies = {}
         self.BiliCookies = {}
         if not os.path.exists(self._path):
             logger.error("配置文件不存在: config.ini", "【Config】")
             return
+        self._lock = threading.Lock()
         self.update()
         thread = threading.Thread(target=update_config, args=[self], daemon=True)
         thread.start()
 
-    def get(self, section, name, origin=None):
+    def get(self, section, name):
         logger.debug(
             Fore.GREEN + f"【Config】加载配置{section}下的{name}" + Style.RESET_ALL
         )
         try:
-            return self._config.get(section, name)
+            with self._lock:
+                return self._config.get(section, name)
+        except (configparser.NoSectionError, configparser.NoOptionError):
+            logger.error(f"【Config】配置文件缺少: [{section}]:{name}")
+            return None
         except BaseException as e:
-            logger.error(f"【Config】出错【{e}】：{traceback.format_exc()}")
-            return origin
+            logger.error(
+                f"【Config】加载配置{section}下的{name}时出错【{e}】：{traceback.format_exc()}"
+            )
+            return None
 
     def update(self):
         logger.debug("更新Config", "【Config】", Fore.GREEN)
-        self._config.read(self._path, encoding="utf-8-sig")
+        with self._lock:
+            self._config.read(self._path, encoding="utf-8-sig")
         self.WeiboCookies = load_cookie(
             "WeiboCookies.json", self.WeiboCookies, "微博", "【查询微博状态】"
         )
