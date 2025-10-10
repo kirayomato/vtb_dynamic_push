@@ -29,6 +29,11 @@ prefix = "【查询微博状态】"
 cookies_valid = False
 
 
+def get_active(uid):
+    time_threshold = time.time() - 7 * 24 * 3600
+    return 1 + sum(1 for i in DYNAMIC_DICT[uid].values() if i[2] > time_threshold)
+
+
 def format_re(text):
     # 匹配两个及以上连续换行符的位置
     # 用两个换行符加 '> ' 来替换
@@ -55,7 +60,7 @@ def query_valid(uid, cookie):
         return True
 
 
-def query_weibodynamic(uid, cookie, msg):
+def query_weibodynamic(uid, cookie, msg) -> bool:
     def sleep(t):
         msg[1] = (
             datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -103,7 +108,7 @@ def query_weibodynamic(uid, cookie, msg):
         return content, pic_url, action
 
     if uid is None:
-        return
+        return False
     query_url = f"https://m.weibo.cn/api/container/getIndex?type=uid&value={uid}&containerid=107603{uid}&count=25"
     headers = get_headers(uid)
     try:
@@ -113,7 +118,7 @@ def query_weibodynamic(uid, cookie, msg):
     except RequestException as e:
         logger.warning(f"网络错误 error:{e}, url: {query_url} ,休眠一分钟", prefix)
         sleep(60)
-        return
+        return False
     if response.status_code != 200:
         error_text = (
             f"status:{response.status_code}, {response.reason} url: {query_url}"
@@ -124,7 +129,7 @@ def query_weibodynamic(uid, cookie, msg):
         else:
             logger.warning(f"请求错误, {error_text} ,休眠一分钟", prefix)
             sleep(60)
-        return
+        return False
     try:
         result = json.loads(str(response.content, "utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as e:
@@ -133,7 +138,7 @@ def query_weibodynamic(uid, cookie, msg):
             prefix,
         )
         sleep(60)
-        return
+        return False
     if result["ok"] not in (0, 1):
         if result["ok"] == -100:
             logger.error(
@@ -147,13 +152,13 @@ def query_weibodynamic(uid, cookie, msg):
                 prefix,
             )
         sleep(300)
-        return
+        return False
     try:
         cards = [i for i in result["data"]["cards"] if i["card_type"] == 9]
         if len(cards) == 0:
             if DYNAMIC_DICT.get(uid) is None:
                 logger.debug(f"【{uid}】微博列表为空", prefix)
-            return
+            return 1
         card = cards[0]
         mblog = card["mblog"]
         user = mblog["user"]
@@ -169,7 +174,7 @@ def query_weibodynamic(uid, cookie, msg):
             prefix,
         )
         sleep(60)
-        return
+        return False
     msg[1] = (
         datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         + " - "
@@ -189,8 +194,11 @@ def query_weibodynamic(uid, cookie, msg):
             mblog_id = mblog["id"]
             url = card["scheme"]
             if mblog_id >= LAST_ID:
+                created_at = datetime.strptime(
+                    mblog["created_at"], "%a %b %d %H:%M:%S %z %Y"
+                ).timestamp()
                 content, pic_url, action = get_content(mblog)
-                DYNAMIC_DICT[uid][mblog_id] = content, pic_url
+                DYNAMIC_DICT[uid][mblog_id] = content, pic_url, created_at
 
         created_at = datetime.strptime(
             cards[-1]["mblog"]["created_at"], "%a %b %d %H:%M:%S %z %Y"
@@ -204,7 +212,7 @@ def query_weibodynamic(uid, cookie, msg):
         logger.debug(
             f"【{uname}】微博初始化 {DYNAMIC_DICT[uid]}", prefix, Fore.LIGHTYELLOW_EX
         )
-        return
+        return get_active(uid)
 
     icon_path = None
 
@@ -238,16 +246,15 @@ def query_weibodynamic(uid, cookie, msg):
         url = card["scheme"]
 
         if mblog_id < max(DYNAMIC_DICT[uid]) or created_at < today:
-            DYNAMIC_DICT[uid][mblog_id] = content, pic_url
+            DYNAMIC_DICT[uid][mblog_id] = content, pic_url, created_at.timestamp()
             logger.debug(
                 f"【{uname}】历史微博，不进行推送 {display_time}: \n{content}，url: {url}",
                 prefix,
                 Fore.LIGHTYELLOW_EX,
             )
-            return
+            continue
         if action in ["微博更新", "转发微博"]:
             cnt += 1
-
         image = None
 
         logger.info(
@@ -258,13 +265,13 @@ def query_weibodynamic(uid, cookie, msg):
         notify(
             f"【{uname}】{action}", content, on_click=url, image=image, icon=icon_path
         )
-        DYNAMIC_DICT[uid][mblog_id] = content, pic_url
+        DYNAMIC_DICT[uid][mblog_id] = content, pic_url, created_at.timestamp()
         logger.debug(str(DYNAMIC_DICT[uid]), prefix, Fore.LIGHTYELLOW_EX)
 
     _total = USER_COUNT_DICT[uid]
     USER_COUNT_DICT[uid] = total
     if total == _total + cnt:
-        return
+        return get_active(uid)
 
     if total < _total + cnt:
         action = "删除了微博，但未能找到"
@@ -279,7 +286,7 @@ def query_weibodynamic(uid, cookie, msg):
                 if _id >= last_id and _id not in st:
                     cnt -= 1
                     del_list.append(_id)
-                    content, pic_url = DYNAMIC_DICT[uid][_id]
+                    content, pic_url, timestamp = DYNAMIC_DICT[uid][_id]
                     url = f"https://m.weibo.cn/detail/{_id}"
 
                     image = None
@@ -299,7 +306,7 @@ def query_weibodynamic(uid, cookie, msg):
             for _id in del_list:
                 del DYNAMIC_DICT[uid][_id]
         if total == _total + cnt:
-            return
+            return get_active(uid)
         elif total > _total + cnt:
             action = "检测到微博被隐藏"
     else:
@@ -313,6 +320,7 @@ def query_weibodynamic(uid, cookie, msg):
         icon=icon_path,
         on_click=f"https://m.weibo.cn/profile/{uid}",
     )
+    return get_active(uid)
 
 
 def get_headers(uid):

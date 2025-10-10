@@ -18,6 +18,7 @@ from push import notify
 from push import global_config as config
 import uvicorn
 from random import random
+from scheduler import Scheduler
 
 
 def crash_handler(args):
@@ -50,6 +51,7 @@ def weibo():
     logger.info("开始检测微博", prefix, Fore.GREEN)
     test = 0
     intervals_second = 5
+    sched = Scheduler()
     while True:
         if cookies_check == "true" and not query_valid(check_uid, config.WeiboCookies):
             test += 1
@@ -60,14 +62,20 @@ def weibo():
             test = 0
         uid_list = config.get("weibo", "uid_list")
         if uid_list:
-            uid_list = set(uid_list.split(","))
-            for uid in uid_list:
-                try:
-                    query_weibodynamic(uid, config.WeiboCookies, msg)
-                except BaseException as e:
-                    logger.error(
-                        f"【{uid}】出错【{e}】：{traceback.format_exc()}", prefix
-                    )
+            uid_list = uid_list.split(",")
+            sched.update_targets(uid_list)
+            for _ in range(len(uid_list)):
+                uid = sched.next_target()
+                if uid:
+                    try:
+                        weight = query_weibodynamic(uid, config.WeiboCookies, msg)
+                        if weight is not False:
+                            assert type(weight) is int
+                            sched.update(uid, weight)
+                    except BaseException as e:
+                        logger.error(
+                            f"【{uid}】出错【{e}】：{traceback.format_exc()}", prefix
+                        )
                 intervals_second = float(config.get("weibo", "intervals_second"))
                 sleep(max(1, intervals_second) * (1 + random() / 10))
         else:
@@ -91,6 +99,7 @@ def bili_dy():
     logger.info("开始检测动态", prefix, Fore.GREEN)
     test = 0
     intervals_second = 5
+    sched = Scheduler()
     while True:
         if not try_cookies(config.BiliCookies):
             test += 1
@@ -101,14 +110,20 @@ def bili_dy():
             test = 0
         uid_list = config.get("bili", "dynamic_uid_list")
         if uid_list:
-            uid_list = set(uid_list.split(","))
-            for uid in uid_list:
-                try:
-                    query_bilidynamic(uid, config.BiliCookies, msg)
-                except BaseException as e:
-                    logger.error(
-                        f"【{uid}】出错【{e}】：{traceback.format_exc()}", prefix
-                    )
+            uid_list = uid_list.split(",")
+            sched.update_targets(uid_list)
+            for _ in range(len(uid_list)):
+                uid = sched.next_target()
+                if uid:
+                    try:
+                        weight = query_bilidynamic(uid, config.BiliCookies, msg)
+                        if weight is not False:
+                            assert type(weight) is int
+                            sched.update(uid, weight)
+                    except BaseException as e:
+                        logger.error(
+                            f"【{uid}】出错【{e}】：{traceback.format_exc()}", prefix
+                        )
                 intervals_second = float(config.get("bili", "dynamic_intervals_second"))
                 sleep(max(1, intervals_second) * (1 + random() / 10))
         else:
