@@ -1,3 +1,9 @@
+[scheduler]
+# 是否根据活跃度调整轮询间隔 true/false
+enable = true
+# 单个ID最大权重
+max_weight = 5
+
 [weibo]
 # 是否启用动态推送 true/false
 enable_dynamic_push = true
