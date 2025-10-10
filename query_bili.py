@@ -37,6 +37,11 @@ def format_re(text):
     return result
 
 
+def get_active(uid):
+    time_threshold = time.time() - 7 * 24 * 3600
+    return 1 + sum(1 for i in DYNAMIC_DICT[uid].values() if i[2] > time_threshold)
+
+
 def try_cookies(cookies=None):
     uid = "1932862336"
     query_url = f"http://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/space_history?host_uid={uid}&offset_dynamic_id=0&need_top=0&platform=web&my_ts={int(time.time())}"
@@ -54,7 +59,7 @@ def try_cookies(cookies=None):
         return True
 
 
-def query_bilidynamic(uid, cookie, msg):
+def query_bilidynamic(uid, cookie, msg) -> bool:
     def sleep(t):
         msg[0] = (
             datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -135,7 +140,7 @@ def query_bilidynamic(uid, cookie, msg):
 
     prefix = "【查询动态状态】"
     if uid is None:
-        return
+        return False
     uid = str(uid)
     query_url = f"http://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/space_history?host_uid={uid}&offset_dynamic_id=0&need_top=0&platform=web"
     headers = get_headers(uid)
@@ -146,7 +151,7 @@ def query_bilidynamic(uid, cookie, msg):
     except RequestException as e:
         logger.warning(f"网络错误, error:{e}, url: {query_url} ,休眠一分钟", prefix)
         sleep(60)
-        return
+        return False
     if response.status_code != 200:
         error_text = (
             f"status:{response.status_code}, {response.reason} url: {query_url}"
@@ -154,14 +159,13 @@ def query_bilidynamic(uid, cookie, msg):
         if response.status_code == 429:
             logger.warning(f"触发风控, {error_text} ,休眠一分钟", prefix)
             sleep(60)
-            return
-        if response.status_code == 412:
+        elif response.status_code == 412:
             logger.error(f"触发风控, {error_text} ,休眠十分钟", prefix)
             sleep(600)
         else:
             logger.warning(f"请求错误, {error_text} ,休眠一分钟", prefix)
             sleep(60)
-        return
+        return False
     try:
         result = json.loads(str(response.content, "utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as e:
@@ -170,20 +174,20 @@ def query_bilidynamic(uid, cookie, msg):
             prefix,
         )
         sleep(180)
-        return
+        return False
     if result["code"] != 0:
         logger.error(
             f'【{uid}】请求返回数据code错误:{result["code"]}, msg:{result["message"]}, url: {query_url} ,休眠五分钟\ndata:{result}',
             prefix,
         )
         sleep(300)
-        return
+        return False
     try:
         cards = result["data"]["cards"]
         if len(cards) == 0:
             if DYNAMIC_DICT.get(uid) is not None:
                 logger.warning(f"{uid}】动态列表为空, url: {query_url}", prefix)
-            return
+            return 1
         item = cards[0]
         user = item["desc"]["user_profile"]
         uname = user["info"]["uname"]
@@ -196,7 +200,7 @@ def query_bilidynamic(uid, cookie, msg):
             prefix,
         )
         sleep(180)
-        return
+        return False
     msg[0] = (
         datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         + " - "
@@ -211,9 +215,10 @@ def query_bilidynamic(uid, cookie, msg):
         USER_SIGN_DICT[uid] = sign
         for card in cards:
             dynamic_id = card["desc"]["dynamic_id"]
+            timestamp = item["desc"]["timestamp"]
             url = f"https://www.bilibili.com/opus/{dynamic_id}"
             content, pic_url, action = get_content(card)
-            DYNAMIC_DICT[uid][dynamic_id] = content, pic_url
+            DYNAMIC_DICT[uid][dynamic_id] = content, pic_url, timestamp
         logger.info(
             f"【{uname}】动态初始化,len={len(DYNAMIC_DICT[uid])}",
             prefix,
@@ -222,7 +227,7 @@ def query_bilidynamic(uid, cookie, msg):
         logger.debug(
             f"【{uname}】动态初始化 {DYNAMIC_DICT[uid]}", prefix, Fore.LIGHTBLUE_EX
         )
-        return
+        return get_active(uid)
     icon_path = get_icon(headers, face, prefix, "bili", uname, "face")
 
     chk_diff = partial(
@@ -266,7 +271,7 @@ def query_bilidynamic(uid, cookie, msg):
             icon=icon_path,
             pic_url=pic_url,
         )
-        DYNAMIC_DICT[uid][dynamic_id] = content, pic_url
+        DYNAMIC_DICT[uid][dynamic_id] = content, pic_url, timestamp
         logger.debug(str(DYNAMIC_DICT[uid]), prefix, Fore.LIGHTBLUE_EX)
 
     # 检测删除动态
@@ -276,7 +281,7 @@ def query_bilidynamic(uid, cookie, msg):
     for _id in DYNAMIC_DICT[uid]:
         if _id >= last_id and _id not in st:
             del_list.append(_id)
-            content, pic_url = DYNAMIC_DICT[uid][_id]
+            content, pic_url, timestamp = DYNAMIC_DICT[uid][_id]
             url = f"https://www.bilibili.com/opus/{_id}"
 
             image = get_image(pic_url, headers, prefix, "bili", uname, "dynamic")
@@ -296,6 +301,7 @@ def query_bilidynamic(uid, cookie, msg):
             )
     for _id in del_list:
         del DYNAMIC_DICT[uid][_id]
+    return get_active(uid)
 
 
 # 此方法已废弃
