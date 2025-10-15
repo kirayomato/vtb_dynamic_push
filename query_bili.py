@@ -111,7 +111,7 @@ def query_bilidynamic(uid, cookie, msg) -> bool:
                 origin = card["origin"]
                 content += origin
                 dynamic_id = item["desc"]["dynamic_id"]
-                url = f"https://www.bilibili.com/opus/{dynamic_id}"
+                url = f"https://t.bilibili.com/{dynamic_id}"
                 logger.warning(
                     f"【{uid}】源动态解析出错:{e}, url: {url} \ncontent:{origin}",
                     prefix,
@@ -216,7 +216,7 @@ def query_bilidynamic(uid, cookie, msg) -> bool:
         for card in cards:
             dynamic_id = card["desc"]["dynamic_id"]
             timestamp = item["desc"]["timestamp"]
-            url = f"https://www.bilibili.com/opus/{dynamic_id}"
+            url = f"https://t.bilibili.com/{dynamic_id}"
             content, pic_url, action = get_content(card)
             DYNAMIC_DICT[uid][dynamic_id] = content, pic_url, timestamp
         logger.info(
@@ -254,7 +254,7 @@ def query_bilidynamic(uid, cookie, msg) -> bool:
 
         content, pic_url, action = get_content(item)
 
-        url = f"https://www.bilibili.com/opus/{dynamic_id}"
+        url = f"https://t.bilibili.com/{dynamic_id}"
 
         image = get_image(pic_url, headers, prefix, "bili", uname, "dynamic")
 
@@ -282,7 +282,7 @@ def query_bilidynamic(uid, cookie, msg) -> bool:
         if _id >= last_id and _id not in st:
             del_list.append(_id)
             content, pic_url, timestamp = DYNAMIC_DICT[uid][_id]
-            url = f"https://www.bilibili.com/opus/{_id}"
+            url = f"https://t.bilibili.com/{_id}"
 
             image = get_image(pic_url, headers, prefix, "bili", uname, "dynamic")
 
