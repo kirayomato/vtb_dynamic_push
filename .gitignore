@@ -1,5 +1,5 @@
 log/*
-icon/*
+image/*
 __pycache__/*
 *.zip
 .vscode/*
