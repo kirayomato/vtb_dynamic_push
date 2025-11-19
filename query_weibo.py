@@ -1,4 +1,4 @@
-from datetime import datetime, date
+from datetime import datetime
 from functools import partial
 import json
 import re
@@ -241,14 +241,13 @@ def query_weibodynamic(uid, cookie, msg) -> bool:
             mblog["created_at"], "%a %b %d %H:%M:%S +0800 %Y"
         )
         display_time = created_at.strftime("%Y-%m-%d %H:%M:%S")
-        today = datetime.combine(date.today(), datetime.min.time())
         content, pic_url, action = get_content(mblog)
         url = card["scheme"]
 
-        if mblog_id < max(DYNAMIC_DICT[uid]) or created_at < today:
+        if mblog_id < max(DYNAMIC_DICT[uid]):
             DYNAMIC_DICT[uid][mblog_id] = content, pic_url, created_at.timestamp()
-            logger.debug(
-                f"【{uname}】历史微博，不进行推送 {display_time}: \n{content}，url: {url}",
+            logger.info(
+                f"【{uname}】历史微博，不进行推送({total}) {display_time}: \n{content}，url: {url}",
                 prefix,
                 Fore.LIGHTYELLOW_EX,
             )
