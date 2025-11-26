@@ -28,6 +28,7 @@ proxies = {
     "http": "",
     "https": "",
 }
+cookies_failed_count = 0
 
 
 def format_re(text):
@@ -40,23 +41,6 @@ def format_re(text):
 def get_active(uid):
     time_threshold = time.time() - 7 * 24 * 3600
     return 1 + sum(1 for i in DYNAMIC_DICT[uid].values() if i[2] > time_threshold)
-
-
-def try_cookies(cookies=None):
-    uid = "1932862336"
-    query_url = f"http://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/space_history?host_uid={uid}&offset_dynamic_id=0&need_top=0&platform=web&my_ts={int(time.time())}"
-    headers = get_headers(uid)
-    try:
-        response = requests.get(
-            query_url, cookies=cookies, headers=headers, proxies=proxies, timeout=10
-        )
-        result = json.loads(str(response.content, "utf-8"))
-        if response.status_code == 200:
-            return result["data"]["cards"] is not None
-        else:
-            return True
-    except:
-        return True
 
 
 def query_bilidynamic(uid, cookie, msg) -> bool:
@@ -182,6 +166,13 @@ def query_bilidynamic(uid, cookie, msg) -> bool:
         )
         sleep(300)
         return False
+    if result["data"]["cards"] is None:
+        cookies_failed_count += 1
+        if cookies_failed_count % 3 == 0:
+            logger.warning("B站Cookies无效", prefix)
+            notify("B站Cookies无效", "", on_click="https://www.bilibili.com/")
+    else:
+        cookies_failed_count = 0
     try:
         cards = result["data"]["cards"]
         if len(cards) == 0:
