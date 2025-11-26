@@ -9,7 +9,6 @@ from query_bili import (
     query_live_status_batch,
     DYNAMIC_NAME_DICT,
     LIVE_NAME_DICT,
-    try_cookies,
 )
 from query_afd import query_afddynamic, AFD_NAME_DICT
 from colorama import Fore, init
@@ -55,7 +54,7 @@ def weibo():
     while True:
         if cookies_check == "true" and not query_valid(check_uid, config.WeiboCookies):
             test += 1
-            if test == 3:
+            if test % 3 == 0:
                 logger.warning("微博Cookies无效", prefix)
                 notify("微博Cookies无效", "", on_click="https://m.weibo.cn/")
         else:
@@ -103,13 +102,6 @@ def bili_dy():
     intervals_second = 5
     sched = Scheduler()
     while True:
-        if not try_cookies(config.BiliCookies):
-            test += 1
-            if test == 5:
-                logger.warning("B站Cookies无效", prefix)
-                notify("B站Cookies无效", "", on_click="https://www.bilibili.com/")
-        else:
-            test = 0
         uid_list = config.get("bili", "dynamic_uid_list")
         if uid_list:
             uid_list = uid_list.split(",")
