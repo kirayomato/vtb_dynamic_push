@@ -1,3 +1,4 @@
+import json
 import re
 import io
 from fastapi import FastAPI, Request, Depends, Body
@@ -37,6 +38,11 @@ async def get_logs():
 
 @app.post("/write-weibo", response_class=JSONResponse)
 async def write_weibo(content: str = Body(..., media_type="text/plain")):
+    # 验证json合法
+    try:
+        json.loads(content)
+    except:
+        return {"error": "Invalid cookies format"}
     with open("WeiboCookies.json", "w") as file:
         file.write(content + "\n")
     return {"message": "Content written successfully"}
@@ -44,6 +50,11 @@ async def write_weibo(content: str = Body(..., media_type="text/plain")):
 
 @app.post("/write-bili", response_class=JSONResponse)
 async def write_bili(content: str = Body(..., media_type="text/plain")):
+    # 验证json合法
+    try:
+        json.loads(content)
+    except:
+        return {"error": "Invalid cookies format"}
     with open("BiliCookies.json", "w") as file:
         file.write(content + "\n")
     return {"message": "Content written successfully"}

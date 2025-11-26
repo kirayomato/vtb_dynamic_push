@@ -91,13 +91,14 @@
                 },
                 body: content
             })
-                .then(response => {
-                    console.info(response)
-                    console.info(JSON.stringify(content))
-                    if (response.ok) {
-                        alert("Content written successfully");
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        alert("Error: " + data.error);
+                    } else if (data.message) {
+                        alert(data.message);
                     } else {
-                        alert("Error writing content");
+                        alert("Content written successfully");
                     }
                 })
                 .catch(error => {
