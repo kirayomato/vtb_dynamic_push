@@ -5,7 +5,7 @@ import os
 from colorama import Fore, Style
 from time import time
 from collections import deque
-from web import OutputList
+from web import output_stream
 import shutil
 from datetime import datetime, timedelta
 
@@ -50,7 +50,7 @@ class mylogger:
             "%(asctime)s - %(filename)s[line:%(lineno)d] - %(levelname)s: %(message)s"
         )
         console_handler = logging.StreamHandler(stream=sys.stdout)
-        web_handler = logging.StreamHandler(stream=OutputList())
+        web_handler = logging.StreamHandler(stream=output_stream)
         console_handler.setFormatter(formatter)
         web_handler.setFormatter(formatter)
         self.logger.addHandler(console_handler)

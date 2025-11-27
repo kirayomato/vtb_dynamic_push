@@ -1,118 +1,186 @@
 import json
 import re
 import io
-from fastapi import FastAPI, Request, Depends, Body
-from fastapi.responses import HTMLResponse, JSONResponse
+from collections import deque
+from datetime import datetime
+from dataclasses import dataclass, asdict
+from fastapi import FastAPI, Request, Body
+from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-from sys import exit
 
 app = FastAPI()
-
-# 设置模板路径
 templates = Jinja2Templates(directory="templates")
 app.mount("/static", StaticFiles(directory="static"), name="static")
-# 存储日志数据的列表
-log_data = []
-updated = True
+
+# 配置
+LEVEL_COLORS = {
+    "ERROR": "#FF0000",
+    "WARNING": "#FFFF00",
+    "DEBUG": "#80FFFF",
+    "INFO": "#FFFFFF",
+}
+ANSI_COLORS = {
+    30: "#000000",
+    31: "#FF0000",
+    32: "#00FF00",
+    33: "#FFFF00",
+    34: "#0000FF",
+    35: "#FF00FF",
+    36: "#00FFFF",
+    37: "#FFFFFF",
+    90: "#808080",
+    91: "#FF8080",
+    92: "#80FF80",
+    93: "#FFFF80",
+    94: "#8080FF",
+    95: "#FF80FF",
+    96: "#80FFFF",
+    97: "#FFFFFF",
+}
+ANSI_RE = re.compile(r"\x1b\[([0-9;]+)m")
+URL_RE = re.compile(r"url: (https?://\S+)")
 
 
+@dataclass
+class LogEntry:
+    id: int
+    timestamp: str
+    message: str
+    color: str
+    level: str
+    url: str | None
+    raw: str
+
+
+class LogStore:
+    def __init__(self, max_size=1000):
+        self.logs = deque(maxlen=max_size)
+        self.id = 0
+        self.last_hash = None
+
+    def add(self, text: str):
+        text = text.strip()
+        if not text or hash(text) == self.last_hash:
+            return
+        self.last_hash = hash(text)
+
+        # 解析级别和颜色
+        level, color = "INFO", LEVEL_COLORS["INFO"]
+        for lvl, clr in LEVEL_COLORS.items():
+            if lvl in text:
+                level, color = lvl, clr
+                break
+
+        # 处理ANSI转义
+        def replace_ansi(m):
+            nonlocal color
+            code = int(m.group(1).split(";")[0])
+            color = ANSI_COLORS.get(code, color)
+            return ""
+
+        message = ANSI_RE.sub(replace_ansi, text)
+
+        # 提取URL
+        url_match = URL_RE.search(text)
+
+        self.logs.append(
+            asdict(
+                LogEntry(
+                    id=self.id,
+                    timestamp=datetime.now().isoformat(),
+                    message=message,
+                    color=color,
+                    level=level,
+                    url=url_match.group(1) if url_match else None,
+                    raw=text,
+                )
+            )
+        )
+        self.id += 1
+
+    def get_since(self, since_id: int, limit: int = 25) -> list:
+        """获取指定ID之后的新日志"""
+        return [log for log in reversed(self.logs) if log["id"] > since_id][:limit][
+            ::-1
+        ]
+
+    def get_latest(self, limit: int = 25) -> list:
+        """获取最新日志"""
+        return list(self.logs)[-limit:][::-1]
+
+    def get_history(
+        self, before_id: int | None, limit: int = 25
+    ) -> tuple[list, int | None, bool]:
+        """获取历史日志，返回 (日志列表, 最旧ID, 是否还有更多)"""
+        logs_list = list(self.logs)
+
+        if before_id is None:
+            result = logs_list[-limit:][::-1]
+        else:
+            idx = next(
+                (i for i, log in enumerate(logs_list) if log["id"] == before_id), None
+            )
+            result = logs_list[max(0, idx - limit) : idx][::-1] if idx else []
+
+        oldest_id = result[-1]["id"] if result else None
+        has_more = len(result) == limit and oldest_id and oldest_id > 0
+        return result, oldest_id, has_more
+
+
+log_store = LogStore()
+
+
+class LogCapture(io.StringIO):
+    def write(self, s):
+        log_store.add(s)
+        return super().write(s)
+
+
+output_stream = LogCapture()
+
+
+# 路由
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
-    global updated
-    updated = True
     return templates.TemplateResponse("index.html", {"request": request})
 
 
-@app.get("/logs", response_class=JSONResponse)
-async def get_logs():
-    # 返回所有日志数据
-    global updated
-    if updated:
-        update = True
-    else:
-        update = False
-    updated = False
-    return update, log_data
+@app.get("/logs")
+async def get_logs(since_id: int = 0, limit: int = 100):
+    logs = log_store.get_since(since_id, limit)
+    return {"logs": logs, "latest_id": log_store.id - 1, "has_more": len(logs) == limit}
 
 
-@app.post("/write-weibo", response_class=JSONResponse)
-async def write_weibo(content: str = Body(..., media_type="text/plain")):
-    # 验证json合法
+@app.get("/logs/latest")
+async def get_latest(limit: int = 100):
+    return {"logs": log_store.get_latest(limit), "total": len(log_store.logs)}
+
+
+@app.get("/logs/history")
+async def get_history(before_id: int = None, limit: int = 50):
+    logs, oldest_id, has_more = log_store.get_history(before_id, limit)
+    return {
+        "logs": logs,
+        "oldest_id": oldest_id,
+        "has_more": has_more,
+        "total_loaded": len(logs),
+    }
+
+
+@app.post("/write-{file_type}")
+async def write_cookies(
+    file_type: str, content: str = Body(..., media_type="text/plain")
+):
+    filename = {"weibo": "WeiboCookies.json", "bili": "BiliCookies.json"}.get(file_type)
+    if not filename:
+        return {"error": "无效的类型"}
     try:
         json.loads(content)
-    except:
-        return {"error": "Invalid cookies format"}
-    with open("WeiboCookies.json", "w") as file:
-        file.write(content + "\n")
-    return {"message": "Content written successfully"}
-
-
-@app.post("/write-bili", response_class=JSONResponse)
-async def write_bili(content: str = Body(..., media_type="text/plain")):
-    # 验证json合法
-    try:
-        json.loads(content)
-    except:
-        return {"error": "Invalid cookies format"}
-    with open("BiliCookies.json", "w") as file:
-        file.write(content + "\n")
-    return {"message": "Content written successfully"}
-
-
-# ANSI 转义码和 HTML 颜色对照
-ansi_to_html_colors = {
-    30: "#000000",  # 黑色
-    31: "#FF0000",  # 红色
-    32: "#00FF00",  # 绿色
-    33: "#FFFF00",  # 黄色
-    34: "#0000FF",  # 蓝色
-    35: "#FF00FF",  # 洋红
-    36: "#00FFFF",  # 青色
-    37: "#FFFFFF",  # 白色
-    90: "#808080",  # 亮黑色（灰色）
-    91: "#FF8080",  # 亮红色
-    92: "#80FF80",  # 亮绿色
-    93: "#FFFF80",  # 亮黄色
-    94: "#8080FF",  # 亮蓝色
-    95: "#FF80FF",  # 亮洋红
-    96: "#80FFFF",  # 亮青色
-    97: "#FFFFFF",  # 亮白色
-}
-
-# 解析 ANSI 转义序列的正则表达式
-ansi_escape = re.compile(r"\x1b\[(?P<code>[0-9;]+)m")
-
-# 将 ANSI 转义码转换为 HTML span 标签
-
-
-def ansi_code_to_html(text):
-    match = ansi_escape.match(text)
-    if match is not None:
-        codes = match.group("code").split(";")
-        code = int(codes[0])
-        return ansi_to_html_colors[code]
-    else:
-        return None
-
-
-class OutputList(io.StringIO):
-    def __init__(self):
-        super().__init__()
-        self.output_list = log_data
-
-    def write(self, s):
-        log = {}
-        t = s.split()
-        color = ansi_code_to_html(t[6][:5])
-        if color:
-            log["color"] = color
-            t[6] = t[6][5:]
-            log["msg"] = " ".join(t)[:-4]
-        else:
-            log["color"] = "#FFFFFF"
-            log["msg"] = " ".join(t)
-        self.output_list.append(log)
-        super().write(s)
-        global updated
-        updated = True
+        with open(filename, "w", encoding="utf-8") as f:
+            f.write(content)
+        return {"message": "保存成功"}
+    except json.JSONDecodeError:
+        return {"error": "无效JSON格式"}
+    except Exception as e:
+        return {"error": f"保存失败: {e}"}
