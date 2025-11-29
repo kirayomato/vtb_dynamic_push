@@ -49,7 +49,7 @@ class LogEntry:
     message: str
     color: str
     level: str
-    url: str | None
+    urls: list[str] | None
     raw: str
 
 
@@ -82,7 +82,7 @@ class LogStore:
         message = ANSI_RE.sub(replace_ansi, text)
 
         # 提取URL
-        url_match = URL_RE.search(text)
+        urls = [match.group(1) for match in URL_RE.finditer(message)]
 
         self.logs.append(
             asdict(
@@ -92,7 +92,7 @@ class LogStore:
                     message=message,
                     color=color,
                     level=level,
-                    url=url_match.group(1) if url_match else None,
+                    urls=urls if urls else None,
                     raw=text,
                 )
             )

@@ -270,9 +270,13 @@
             div.style.cssText = `color: ${log.color}; font-size: ${$('fontSize').value}`;
 
             const time = new Date(log.timestamp).toLocaleTimeString();
-            const msg = log.url
-                ? log.message.replace(`url: ${log.url}`, `url: <a href="${log.url}" target="_blank" class="log-url">${log.url}</a>`)
-                : log.message;
+            let msg = log.message;
+            if (log.urls && log.urls.length > 0) {
+                // 替换所有的URL为链接
+                log.urls.forEach(url => {
+                    msg = msg.replace(`url: ${url}`, `url: <a href="${url}" target="_blank" class="log-url">${url}</a>`);
+                });
+            }
 
             div.innerHTML = `
                 <span class="log-time">${time}</span>
