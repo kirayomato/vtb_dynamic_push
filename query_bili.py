@@ -167,6 +167,7 @@ def query_bilidynamic(uid, cookie, msg) -> bool:
         sleep(300)
         return False
     if result["data"]["cards"] is None:
+        global cookies_failed_count
         cookies_failed_count += 1
         if cookies_failed_count % 3 == 0:
             logger.warning("B站Cookies无效", prefix)
