@@ -141,9 +141,9 @@ def query_weibodynamic(uid, cookie, msg) -> bool:
         return False
     if result["ok"] not in (0, 1):
         if result["ok"] == -100:
-            if 'passport.weibo.com' in url:
+            if "passport.weibo.com" in result["url"]:
                 logger.warning("微博Cookies无效", prefix)
-                notify("微博Cookies无效", "", on_click=result["url"])
+                notify("微博Cookies无效", "", on_click="https://m.weibo.cn/")
             else:
                 logger.error(
                     f'触发风控，请完成验证码校验: {result["url"]} , url: {query_url} ,休眠五分钟\ndata:{result}',
