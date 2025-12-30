@@ -166,6 +166,7 @@ def query_weibodynamic(uid, cookie, msg) -> bool:
         if len(cards) == 0:
             if DYNAMIC_DICT.get(uid) is None:
                 logger.debug(f"【{uid}】微博列表为空", prefix)
+                DYNAMIC_DICT[uid] = {}
             return 1
         card = cards[0]
         mblog = card["mblog"]
