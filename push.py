@@ -1,4 +1,6 @@
 import json
+
+import urllib
 from logger import logger
 import requests
 from config import Config, general_headers
@@ -312,4 +314,13 @@ def notify(title, body, on_click=None, pic_url=None, **kwargs):
         priority = 10
     if isinstance(pic_url, list):
         pic_url = pic_url[0]
+    # 反代微博图片
+    if pic_url and any(item in pic_url for item in ("sina", "weibo")):
+        if global_config.get("image_proxy", "enable") == "true":
+            host = global_config.get("image_proxy", "proxy_host", "127.0.0.1")
+            pic_url = pic_url.replace("/large/", "/bmiddle/")
+            pic_url = f"http://{host}:5001/proxy?url={urllib.parse.quote(pic_url)}"
+        else:
+            pic_url = None
+
     push.common_push(title, body, on_click, pic_url, priority)

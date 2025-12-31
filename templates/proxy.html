@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>图片反代服务 - 请求记录</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px; }
+        .stats { background: #e8f4ff; padding: 15px; border-radius: 5px; margin: 15px 0; }
+        .log-entry { border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 5px; background: #fafafa; }
+        .log-entry.success { border-left: 4px solid #28a745; }
+        .log-entry.error { border-left: 4px solid #dc3545; }
+        .timestamp { color: #666; font-size: 0.9em; }
+        .url { color: #007bff; word-break: break-all; margin: 5px 0; }
+        .status { font-weight: bold; }
+        .status.success { color: #28a745; }
+        .status.error { color: #dc3545; }
+        .error-msg { color: #dc3545; font-size: 0.9em; margin-top: 5px; }
+        .thumbnail { max-width: 200px; max-height: 150px; border: 1px solid #ddd; border-radius: 3px; margin-top: 10px; }
+        .no-records { text-align: center; color: #666; padding: 40px; }
+        .refresh-btn { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; text-decoration: none; display: inline-block; margin: 10px 0; }
+        .refresh-btn:hover { background: #0056b3; }
+        .clear-btn { background: #dc3545; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin-left: 10px; }
+        .clear-btn:hover { background: #c82333; }
+        .actions { margin: 15px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🖼️ 图片反代服务 - 请求记录</h1>
+        <div class="stats">
+            <strong>统计信息：</strong> 总记录数: {{ total }} | 成功: {{ success }} | 失败: {{ failed }}
+        </div>
+        <div class="actions">
+            <a href="/" class="refresh-btn">🔄 刷新页面</a>
+            <button onclick="clearLogs()" class="clear-btn">🗑️ 清空记录</button>
+        </div>
+        {% if logs %}
+            {% for log in logs %}
+            <div class="log-entry {{ 'success' if log.status == 'success' else 'error' }}">
+                <div class="timestamp">🕐 {{ log.timestamp }}</div>
+                <div class="url">🔗 {{ log.url }}</div>
+                <div class="status {{ 'success' if log.status == 'success' else 'error' }}">
+                    {{ '✅ 成功' if log.status == 'success' else '❌ 失败' }}
+                </div>
+                {% if log.error %}
+                <div class="error-msg">❌ {{ log.error }}</div>
+                {% endif %}
+                {% if log.thumbnail %}
+                <img src="/proxy?url={{ log.thumbnail | urlencode }}" class="thumbnail" alt="缩略图" onerror="this.style.display='none'" />
+                {% endif %}
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="no-records">
+                暂无请求记录，等待代理请求...
+            </div>
+        {% endif %}
+    </div>
+    <script>
+        function clearLogs() {
+            if (confirm('确定要清空所有记录吗？')) {
+                fetch('/clear', { method: 'POST' })
+                    .then(() => location.reload());
+            }
+        }
+        // 自动刷新（每30秒）
+        setTimeout(() => location.reload(), 30000);
+    </script>
+</body>
+</html>

@@ -2,3 +2,4 @@ requests
 colorama
 fastapi
 uvicorn
+jinja2
