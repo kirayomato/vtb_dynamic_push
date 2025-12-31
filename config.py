@@ -47,7 +47,7 @@ class Config(object):
         thread = threading.Thread(target=update_config, args=[self], daemon=True)
         thread.start()
 
-    def get(self, section, name):
+    def get(self, section, name, default=None):
         logger.debug(
             Fore.GREEN + f"【Config】加载配置{section}下的{name}" + Style.RESET_ALL
         )
@@ -56,12 +56,12 @@ class Config(object):
                 return self._config.get(section, name)
         except (configparser.NoSectionError, configparser.NoOptionError):
             logger.error(f"【Config】配置文件缺少: [{section}]:{name}")
-            return None
+            return default
         except BaseException as e:
             logger.error(
                 f"【Config】加载配置{section}下的{name}时出错【{e}】：{traceback.format_exc()}"
             )
-            return None
+            return default
 
     def update(self):
         logger.debug("更新Config", "【Config】", Fore.GREEN)
