@@ -94,6 +94,14 @@
 - `enable`是否启用钉钉bot推送
 - `access_token`机器人access_token
 
+`scheduler`下的参数
+- `enable` 是否根据活跃度调整轮询间隔，开启后会根据账号七日内的动态数量分配轮询权重，越活跃的账号将检测更频繁
+- `max_weight` 每个账号的最大权重，范围为 [1, 20]
+
+`image_proxy`下的参数
+- `enable` 是否启用图片反代服务。由于微博图片限制headers，在推送中直接使用图片链接将会无法显示图片，需要使用反代服务
+- `proxy_host` 反代主机的域名，如`127.0.0.1`
+
 #### 2.填写cookies
 
 在`BiliCookies.json`文件中填写b站cookies，在`WeiboCookies.json`文件中填写微博cookies
