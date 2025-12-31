@@ -173,7 +173,7 @@ def query_weibodynamic(uid, cookie, msg) -> bool:
         user = mblog["user"]
         uname = user["screen_name"]
         face = user["profile_image_url"]
-        face = face[: face.find("?")]
+        face = face.split("?", 1)[0]
         sign = user["description"]
         total = result["data"]["cardlistInfo"]["total"]
         home_url = f"https://m.weibo.cn/profile/{uid}"
