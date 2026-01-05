@@ -42,7 +42,7 @@ def format_re(text):
 
 
 def query_valid(uid, cookie):
-    query_url = f"https://m.weibo.cn/api/container/getIndex?type=uid&value={uid}&containerid=107603{uid}&count=25"
+    query_url = f"https://m.weibo.cn/api/container/getIndex?containerid=230413{uid}_-_WEIBO_SECOND_PROFILE_WEIBO&count=25"
     headers = get_headers(uid)
     try:
         response = requests.get(
@@ -109,7 +109,7 @@ def query_weibodynamic(uid, cookie, msg) -> bool:
 
     if uid is None:
         return False
-    query_url = f"https://m.weibo.cn/api/container/getIndex?type=uid&value={uid}&containerid=107603{uid}&count=25"
+    query_url = f"https://m.weibo.cn/api/container/getIndex?containerid=230413{uid}_-_WEIBO_SECOND_PROFILE_WEIBO&count=25"
     headers = get_headers(uid)
     try:
         response = requests.get(
@@ -175,7 +175,7 @@ def query_weibodynamic(uid, cookie, msg) -> bool:
         face = user["profile_image_url"]
         face = face.split("?", 1)[0]
         sign = user["description"]
-        total = result["data"]["cardlistInfo"]["total"]
+        total = user["statuses_count"]
         home_url = f"https://m.weibo.cn/profile/{uid}"
     except KeyError:
         logger.error(
