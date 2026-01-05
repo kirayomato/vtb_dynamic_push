@@ -39,7 +39,6 @@ def check_diff(
     ori,
     _dict,
     info_name,
-    img,
     uid,
     uname,
     prefix,
@@ -51,7 +50,7 @@ def check_diff(
 ):
     if ori != _dict[uid]:
         msg = f"【{uname}】更改了{info_name}"
-        if img:
+        if pic:
             content = ""
         else:
             content = f"【{_dict[uid]}】 -> 【{ori}】"

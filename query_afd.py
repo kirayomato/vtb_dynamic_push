@@ -170,9 +170,9 @@ def query_afddynamic(uid, cookie, msg, intervals_second):
         on_click=home_url,
         icon_path=icon_path,
     )
-    chk_diff(face, USER_FACE_DICT, "爱发电头像", True, pic=face)
-    chk_diff(sign, USER_SIGN_DICT, "爱发电签名", False)
-    chk_diff(uname, AFD_NAME_DICT, "爱发电昵称", False)
+    chk_diff(face, USER_FACE_DICT, "爱发电头像", pic=face)
+    chk_diff(sign, USER_SIGN_DICT, "爱发电签名")
+    chk_diff(uname, AFD_NAME_DICT, "爱发电昵称")
 
     for card in reversed(cards):
         dynamic_id = card["post_id"]

@@ -234,9 +234,9 @@ def query_weibodynamic(uid, cookie, msg) -> bool:
         on_click=home_url,
         icon_path=icon_path,
     )
-    chk_diff(face, USER_FACE_DICT, "微博头像", True, pic=face)
-    chk_diff(sign, USER_SIGN_DICT, "微博签名", False)
-    chk_diff(uname, USER_NAME_DICT, "微博昵称", False)
+    chk_diff(face, USER_FACE_DICT, "微博头像", pic=face)
+    chk_diff(sign, USER_SIGN_DICT, "微博签名")
+    chk_diff(uname, USER_NAME_DICT, "微博昵称")
 
     cnt = 0
     for card in reversed(cards):
