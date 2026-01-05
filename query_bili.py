@@ -231,9 +231,9 @@ def query_bilidynamic(uid, cookie, msg) -> bool:
         on_click=home_url,
         icon_path=icon_path,
     )
-    chk_diff(face, USER_FACE_DICT, "B站头像", True)
-    chk_diff(sign, USER_SIGN_DICT, "B站签名", False)
-    chk_diff(uname, DYNAMIC_NAME_DICT, "B站昵称", False)
+    chk_diff(face, USER_FACE_DICT, "B站头像", pic=face)
+    chk_diff(sign, USER_SIGN_DICT, "B站签名")
+    chk_diff(uname, DYNAMIC_NAME_DICT, "B站昵称")
 
     last_id = min(DYNAMIC_DICT[uid])
     for item in reversed(cards):
@@ -449,14 +449,13 @@ def query_live_status_batch(uid_list, cookie, msg, special):
                 on_click=live_url,
                 icon_path=icon_path,
             )
-            chk_diff(room_title, ROOM_TITLE_DICT, "直播间标题", img=False)
+            chk_diff(room_title, ROOM_TITLE_DICT, "直播间标题")
 
             if room_cover_url:
                 chk_diff(
                     room_cover_url,
                     ROOM_COVER_DICT,
                     "直播间封面",
-                    img=True,
                     pic=room_cover_url,
                     image=image,
                 )
