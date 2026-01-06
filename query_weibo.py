@@ -283,57 +283,39 @@ def query_weibodynamic(uid, cookie, msg) -> bool:
 
     _total = USER_COUNT_DICT[uid]
     USER_COUNT_DICT[uid] = total
-    if total == _total + cnt:
-        return get_active(uid)
 
-    if total < _total + cnt:
-        action = "删除了微博，但未能找到"
-        # 尝试检测被删除的微博
-        st = [card["mblog"]["id"] for card in cards]
-        last_id = st[-1]
-        st = set(st)
-        del_list = []
-        # cookies失效时不进行检测
-        if cookies_valid:
-            for _id in DYNAMIC_DICT[uid]:
-                if _id >= last_id and _id not in st:
-                    cnt -= 1
-                    del_list.append(_id)
-                    content, pic_url, timestamp = DYNAMIC_DICT[uid][_id]
-                    url = f"https://m.weibo.cn/detail/{_id}"
+    # 尝试检测被删除的微博
+    st = [card["mblog"]["id"] for card in cards]
+    last_id = st[-1]
+    st = set(st)
+    del_list = []
+    # cookies失效时不进行检测
+    if cookies_valid:
+        for _id in DYNAMIC_DICT[uid]:
+            if _id >= last_id and _id not in st:
+                cnt -= 1
+                del_list.append(_id)
+                content, pic_url, timestamp = DYNAMIC_DICT[uid][_id]
+                url = f"https://m.weibo.cn/detail/{_id}"
 
-                    image = None
+                image = None
 
-                    logger.info(
-                        f"【{uname}】删除微博：\n{content}，url: {url}",
-                        prefix,
-                        Fore.LIGHTYELLOW_EX,
-                    )
-                    notify(
-                        f"【{uname}】删除微博",
-                        content,
-                        on_click=url,
-                        image=image,
-                        icon=icon_path,
-                        pic_url=pic_url,
-                    )
-            for _id in del_list:
-                del DYNAMIC_DICT[uid][_id]
-        if total == _total + cnt:
-            return get_active(uid)
-        elif total > _total + cnt:
-            action = "检测到微博被隐藏"
-    else:
-        action = "发布了微博，但未能抓取"
-    logger.info(
-        f"【{uname}】{action}：{_total} -> {total}", prefix, Fore.LIGHTYELLOW_EX
-    )
-    notify(
-        f"【{uname}】{action}",
-        f"{_total} -> {total}",
-        icon=icon_path,
-        on_click=f"https://m.weibo.cn/profile/{uid}",
-    )
+                logger.info(
+                    f"【{uname}】删除微博：\n{content}，url: {url}",
+                    prefix,
+                    Fore.LIGHTYELLOW_EX,
+                )
+                notify(
+                    f"【{uname}】删除微博",
+                    content,
+                    on_click=url,
+                    image=image,
+                    icon=icon_path,
+                    pic_url=pic_url,
+                )
+        for _id in del_list:
+            del DYNAMIC_DICT[uid][_id]
+
     return get_active(uid)
 
 
