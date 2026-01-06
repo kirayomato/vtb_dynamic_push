@@ -306,6 +306,7 @@ def query_weibodynamic(uid, cookie, msg) -> bool:
                     on_click=url,
                     image=image,
                     icon=icon_path,
+                    pic_url=pic_url,
                 )
         for _id in del_list:
             del DYNAMIC_DICT[uid][_id]
