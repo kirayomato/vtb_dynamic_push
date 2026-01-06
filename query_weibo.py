@@ -310,6 +310,17 @@ def query_weibodynamic(uid, cookie, msg) -> bool:
                 )
         for _id in del_list:
             del DYNAMIC_DICT[uid][_id]
+    if total > _total + cnt:
+        logger.info(
+            f"【{uname}】{action}：{_total} -> {total}", prefix, Fore.LIGHTYELLOW_EX
+        )
+        notify(
+            f"【{uname}】{action}",
+            f"{_total} -> {total}",
+            icon=icon_path,
+            on_click=f"https://m.weibo.cn/profile/{uid}",
+        )
+
     return get_active(uid)
 
 
