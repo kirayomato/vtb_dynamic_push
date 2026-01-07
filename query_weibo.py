@@ -42,17 +42,19 @@ def format_re(text):
 
 
 def query_valid(uid, cookie):
-    query_url = f"https://m.weibo.cn/api/container/getIndex?type=uid&value={uid}&containerid=107603{uid}&count=25"
+    query_url = (
+        f"https://www.weibo.com/ajax/statuses/mymblog?uid={uid}&page=1&feature=0"
+    )
     headers = get_headers(uid)
     try:
         response = requests.get(
             query_url, headers=headers, cookies=cookie, proxies=proxies, timeout=10
         )
         result = json.loads(str(response.content, "utf-8"))
-        cards = result["data"]["cards"]
+        cards = result["data"]["list"]
         global cookies_valid
         for card in cards:
-            if card["mblog"]["visible"]["type"] == 10:
+            if card["visible"]["type"] == 10:
                 cookies_valid = True
                 break
         return cookies_valid
@@ -72,18 +74,18 @@ def query_weibodynamic(uid, cookie, msg) -> bool:
         time.sleep(t)
 
     def get_pic(card):
-        pic_url = card.get("pics")
+        pic_url = card.get("pic_infos")
         if pic_url:
-            return [i["large"]["url"] for i in pic_url]
+            return [i["largest"]["url"] for i in pic_url.values()]
         elif "page_info" in card:
-            return card["page_info"]["page_pic"]["url"]
+            return card["page_info"]["page_pic"]
         return None
 
     def get_content(mblog):
         action = "微博更新"
         pic_url = get_pic(mblog)
-        if mblog.get("raw_text"):
-            content = mblog["raw_text"]
+        if mblog.get("text_raw"):
+            content = mblog["text_raw"]
         else:
             content = re.sub(r"<[^>]+>", "", mblog["text"])
 
@@ -102,14 +104,20 @@ def query_weibodynamic(uid, cookie, msg) -> bool:
                 content += "\n\n转发微博：\n> "
             if not pic_url:
                 pic_url = get_pic(mblog["retweeted_status"])
-            content += format_re(
-                re.sub(r"<[^>]+>", "", mblog["retweeted_status"]["text"])
-            )
+            if mblog.get("text_raw"):
+                retweeted_content = mblog["retweeted_status"]["text_raw"]
+            else:
+                retweeted_content = re.sub(
+                    r"<[^>]+>", "", mblog["retweeted_status"]["text"]
+                )
+            content += format_re(retweeted_content)
         return content, pic_url, action
 
     if uid is None:
         return False
-    query_url = f"https://m.weibo.cn/api/container/getIndex?type=uid&value={uid}&containerid=107603{uid}&count=25"
+    query_url = (
+        f"https://www.weibo.com/ajax/statuses/mymblog?uid={uid}&page=1&feature=0"
+    )
     headers = get_headers(uid)
     try:
         response = requests.get(
@@ -162,20 +170,20 @@ def query_weibodynamic(uid, cookie, msg) -> bool:
         sleep(300)
         return False
     try:
-        cards = [i for i in result["data"]["cards"] if i["card_type"] == 9]
+        cards = [i for i in result["data"]["list"] if i["mblogtype"] == 0]
         if len(cards) == 0:
             if DYNAMIC_DICT.get(uid) is None:
                 logger.debug(f"【{uid}】微博列表为空", prefix)
                 DYNAMIC_DICT[uid] = {}
             return 1
-        card = cards[0]
-        mblog = card["mblog"]
+        mblog = cards[0]
         user = mblog["user"]
         uname = user["screen_name"]
         face = user["profile_image_url"]
         face = face.split("?", 1)[0]
-        sign = user["description"]
-        total = result["data"]["cardlistInfo"]["total"]
+        # sign = user["description"]
+        sign = ""
+        total = result["data"]["total"]
         home_url = f"https://m.weibo.cn/profile/{uid}"
     except KeyError:
         logger.error(
@@ -197,11 +205,10 @@ def query_weibodynamic(uid, cookie, msg) -> bool:
         USER_SIGN_DICT[uid] = sign
         USER_NAME_DICT[uid] = uname
         USER_COUNT_DICT[uid] = total
-        LAST_ID = cards[-1]["mblog"]["id"]
-        for card in cards:
-            mblog = card["mblog"]
+        LAST_ID = cards[-1]["id"]
+        for mblog in cards:
             mblog_id = mblog["id"]
-            url = card["scheme"]
+            url = f"https://m.weibo.cn/detail/{mblog_id}"
             if mblog_id >= LAST_ID:
                 created_at = datetime.strptime(
                     mblog["created_at"], "%a %b %d %H:%M:%S %z %Y"
@@ -210,7 +217,7 @@ def query_weibodynamic(uid, cookie, msg) -> bool:
                 DYNAMIC_DICT[uid][mblog_id] = content, pic_url, created_at
 
         created_at = datetime.strptime(
-            cards[-1]["mblog"]["created_at"], "%a %b %d %H:%M:%S %z %Y"
+            cards[-1]["created_at"], "%a %b %d %H:%M:%S %z %Y"
         )
         display_time = created_at.strftime("%Y-%m-%d %H:%M:%S")
         logger.info(
@@ -239,8 +246,7 @@ def query_weibodynamic(uid, cookie, msg) -> bool:
     chk_diff(uname, USER_NAME_DICT, "微博昵称")
 
     cnt = 0
-    for card in reversed(cards):
-        mblog = card["mblog"]
+    for mblog in reversed(cards):
         mblog_id = mblog["id"]
 
         if mblog_id in DYNAMIC_DICT[uid] or mblog_id < min(DYNAMIC_DICT[uid]):
@@ -251,7 +257,7 @@ def query_weibodynamic(uid, cookie, msg) -> bool:
         )
         display_time = created_at.strftime("%Y-%m-%d %H:%M:%S")
         content, pic_url, action = get_content(mblog)
-        url = card["scheme"]
+        url = f"https://m.weibo.cn/detail/{mblog_id}"
 
         if mblog_id < max(DYNAMIC_DICT[uid]):
             DYNAMIC_DICT[uid][mblog_id] = content, pic_url, created_at.timestamp()
@@ -336,13 +342,13 @@ def query_weibodynamic(uid, cookie, msg) -> bool:
 
 def get_headers(uid):
     headers = general_headers.copy()
-    headers["origin"] = "https://m.weibo.cn/"
-    headers["referer"] = f"https://m.weibo.cn/u/{uid}"
-    headers["mweibo-pwa"] = "1"
+    # headers["origin"] = "https://m.weibo.cn/"
+    headers["referer"] = f"https://www.weibo.com/u/{uid}"
     headers["x-requested-with"] = "XMLHttpRequest"
-    headers["Sec-Ch-Ua-Mobile"] = "?1"
-    headers["Sec-Ch-Ua-Platform"] = "Android"
-    headers["User-Agent"] = (
-        "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Mobile Safari/537.36 Edg/143.0.0.0"
-    )
+    # headers["mweibo-pwa"] = "1"
+    # headers["Sec-Ch-Ua-Mobile"] = "?1"
+    # headers["Sec-Ch-Ua-Platform"] = "Android"
+    # headers["User-Agent"] = (
+    #     "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Mobile Safari/537.36 Edg/143.0.0.0"
+    # )
     return headers
