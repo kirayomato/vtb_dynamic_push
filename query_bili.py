@@ -272,25 +272,37 @@ def query_bilidynamic(uid, cookie, msg) -> bool:
     del_list = []
     for _id in DYNAMIC_DICT[uid]:
         if _id >= last_id and _id not in st:
-            del_list.append(_id)
-            content, pic_url, timestamp = DYNAMIC_DICT[uid][_id]
-            url = f"https://t.bilibili.com/{_id}"
+            try:
+                content, pic_url, timestamp = DYNAMIC_DICT[uid][_id]
+                res = requests.post(
+                    url="https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/get_dynamic_detail",
+                    data={"dynamic_id": _id},
+                    headers=get_headers(uid),
+                    cookies=cookie,
+                )
+                result = json.loads(res.text)
+                assert result["data"]["card"]["desc"] is None
 
-            image = None
+                image = None
 
-            logger.info(
-                f"【{uname}】删除动态: \n{content}，url: {url}",
-                prefix,
-                Fore.LIGHTBLUE_EX,
-            )
-            notify(
-                f"【{uname}】删除动态",
-                content,
-                on_click=url,
-                image=image,
-                icon=icon_path,
-                pic_url=pic_url,
-            )
+                url = f"https://t.bilibili.com/{_id}"
+                logger.info(
+                    f"【{uname}】删除动态: \n{content}，url: {url}",
+                    prefix,
+                    Fore.LIGHTBLUE_EX,
+                )
+                notify(
+                    f"【{uname}】删除动态",
+                    content,
+                    on_click=url,
+                    image=image,
+                    icon=icon_path,
+                    pic_url=pic_url,
+                )
+                del_list.append(_id)
+            except:
+                continue
+
     for _id in del_list:
         del DYNAMIC_DICT[uid][_id]
     return get_active(uid)
