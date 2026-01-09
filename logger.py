@@ -14,7 +14,7 @@ def clear_output(fn):
     def wrapper(*args, **kwargs):
         global cnt, output_list
         cnt0, cnt = cnt, 0
-        for i in range(3):
+        for i in range(len(output_list)):
             output_list[i] = ""
         fn(*args, **kwargs)
         cnt = cnt0
