@@ -170,7 +170,11 @@ def query_weibodynamic(uid, cookie, msg) -> bool:
         sleep(300)
         return False
     try:
-        cards = [i for i in result["data"]["list"] if i["mblogtype"] == 0]
+        cards = [
+            i
+            for i in result["data"]["list"]
+            if i["mblogtype"] == 0 and str(i["user"]["id"]) == uid
+        ]
         if len(cards) == 0:
             if DYNAMIC_DICT.get(uid) is None:
                 logger.debug(f"【{uid}】微博列表为空", prefix)
