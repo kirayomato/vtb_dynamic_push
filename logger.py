@@ -58,7 +58,7 @@ class mylogger:
         self.logger.setLevel(logging.INFO)
         logging.getLogger("urllib3").setLevel(logging.INFO)
         formatter = logging.Formatter(
-            "%(asctime)s - %(filename)s[line:%(lineno)d] - %(levelname)s: %(message)s"
+            "%(asctime)s - %(filename)s[line:%(lineno)d] - [%(levelname)s]: %(message)s"
         )
         console_handler = logging.StreamHandler(stream=sys.stdout)
         console_handler.setFormatter(formatter)
