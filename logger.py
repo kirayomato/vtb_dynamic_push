@@ -47,7 +47,7 @@ class mylogger:
         logging.getLogger("urllib3").setLevel(logging.INFO)
         logging.getLogger("werkzeug").setLevel(logging.WARNING)
         formatter = logging.Formatter(
-            "%(asctime)s - %(filename)s[line:%(lineno)d] - %(levelname)s: %(message)s"
+            "%(asctime)s - %(filename)s[line:%(lineno)d] - [%(levelname)s]: %(message)s"
         )
         console_handler = logging.StreamHandler(stream=sys.stdout)
         web_handler = logging.StreamHandler(stream=output_stream)
