@@ -78,7 +78,7 @@ def query_weibodynamic(uid, cookie, msg) -> bool:
         if pic_url:
             return [i["largest"]["url"] for i in pic_url.values()]
         elif "page_info" in card:
-            return card["page_info"]["page_pic"]
+            return card["page_info"].get("page_pic")
         return None
 
     def get_content(mblog):
@@ -294,7 +294,7 @@ def query_weibodynamic(uid, cookie, msg) -> bool:
     if total < _total + cnt:
         action = "删除了微博，但未能找到"
         # 尝试检测被删除的微博
-        st = [card["mblog"]["id"] for card in cards]
+        st = [card["id"] for card in cards]
         last_id = st[-1]
         st = set(st)
         del_list = []
