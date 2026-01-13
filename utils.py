@@ -23,7 +23,7 @@ def get_icon(headers, image_url, prefix, platform, uname, _type):
     try:
         r = requests.get(image_url, headers=headers, proxies=proxies, timeout=10)
     except RequestException as e:
-        logger.warning(f"网络错误, error:{e}, url: {image_url}", prefix)
+        logger.warning(f"网络错误 error:{e}, url: {image_url} ", prefix)
         return None
     if r.status_code != 200:
         return None

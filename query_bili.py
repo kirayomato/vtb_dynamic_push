@@ -133,35 +133,34 @@ def query_bilidynamic(uid, cookie, msg) -> bool:
             query_url, headers=headers, cookies=cookie, proxies=proxies, timeout=10
         )
     except RequestException as e:
-        logger.warning(f"网络错误, error:{e}, url: {query_url} ,休眠一分钟", prefix)
+        logger.warning(f"网络错误, error:{e}, 休眠一分钟, url: {query_url} ", prefix)
         sleep(60)
         return False
+    content = response.content.decode("utf-8", errors="replace")
     if response.status_code != 200:
-        error_text = (
-            f"status:{response.status_code}, {response.reason} url: {query_url}"
-        )
+        error_text = f"status:{response.status_code}, {response.reason} url: {query_url} \ncontent:{content}"
         if response.status_code == 429:
-            logger.warning(f"触发风控, {error_text} ,休眠一分钟", prefix)
+            logger.warning(f"触发风控, 休眠一分钟, {error_text}", prefix)
             sleep(60)
         elif response.status_code == 412:
-            logger.error(f"触发风控, {error_text} ,休眠十分钟", prefix)
+            logger.error(f"触发风控, 休眠十分钟, {error_text}", prefix)
             sleep(600)
         else:
-            logger.warning(f"请求错误, {error_text} ,休眠一分钟", prefix)
+            logger.warning(f"请求错误, 休眠一分钟, {error_text}", prefix)
             sleep(60)
         return False
     try:
-        result = json.loads(str(response.content, "utf-8"))
+        result = json.loads(response.text)
     except (UnicodeDecodeError, json.JSONDecodeError) as e:
         logger.error(
-            f'【{uid}】解析content出错:{e}, url: {query_url} ,休眠三分钟\ncontent:{str(response.content, "utf-8")}',
+            f"【{uid}】解析content出错:{e}, 休眠三分钟, url: {query_url} \ncontent:{content}",
             prefix,
         )
         sleep(180)
         return False
     if result["code"] != 0:
         logger.error(
-            f'【{uid}】请求返回数据code错误:{result["code"]}, msg:{result["message"]}, url: {query_url} ,休眠五分钟\ndata:{result}',
+            f'【{uid}】请求返回数据code错误:{result["code"]}, 休眠五分钟, msg:{result["message"]}, url: {query_url} \ndata:{result}',
             prefix,
         )
         sleep(300)
@@ -188,7 +187,7 @@ def query_bilidynamic(uid, cookie, msg) -> bool:
         home_url = f"https://space.bilibili.com/{uid}"
     except (KeyError, TypeError):
         logger.error(
-            f"【{uid}】返回数据不完整, url: {query_url} ,休眠三分钟\ndata:{result}",
+            f"【{uid}】返回数据不完整, 休眠三分钟, url: {query_url} \ndata:{result}",
             prefix,
         )
         sleep(180)
@@ -319,7 +318,7 @@ def query_bilidynamic(uid, cookie, msg) -> bool:
 #     response = requests.get(
 #         query_url, '查询直播状态', headers=headers, timeout=10)
 #     if util.check_response_is_ok(response):
-#         result = json.loads(str(response.content, "utf-8"))
+#         result = json.loads(response.text)
 #         if result['code'] != 0:
 #             logger.error('请求返回数据code错误：{code}'.format(
 #                 code=result['code']), prefix)
@@ -373,28 +372,29 @@ def query_live_status_batch(uid_list, cookie, msg, special):
             query_url, headers=headers, data=data, cookies=cookie, timeout=10
         )
     except RequestException as e:
-        logger.warning(f"网络错误, error:{e}, url: {query_url} ,休眠一分钟", prefix)
+        logger.warning(f"网络错误, error:{e}, 休眠一分钟, url: {query_url} ", prefix)
         sleep(60)
         return
+    content = response.content.decode("utf-8", errors="replace")
     if response.status_code != 200:
         logger.warning(
-            f'请求错误 status:{response.status_code}, url: {query_url} ,休眠一分钟\ncontent:{str(response.content, "utf-8")}',
+            f"请求错误 status:{response.status_code}, 休眠一分钟, url: {query_url} \ncontent:{content}",
             prefix,
         )
         sleep(60)
         return
     try:
-        result = json.loads(str(response.content, "utf-8"))
+        result = json.loads(response.text)
     except (UnicodeDecodeError, json.JSONDecodeError) as e:
         logger.error(
-            f'解析content出错:{e}, url: {query_url} ,休眠一分钟\ncontent:{str(response.content, "utf-8")}',
+            f"解析content出错:{e}, 休眠一分钟, url: {query_url} \ncontent:{content}",
             prefix,
         )
         sleep(60)
         return
     if result["code"] != 0:
         logger.error(
-            f'请求返回数据code错误：{result["code"]}, url: {query_url} ,休眠一分钟\ndata:{result}',
+            f'请求返回数据code错误：{result["code"]}, 休眠一分钟, url: {query_url} \ndata:{result}',
             prefix,
         )
         sleep(60)
@@ -402,7 +402,7 @@ def query_live_status_batch(uid_list, cookie, msg, special):
         live_status_list = result["data"]
         if not hasattr(live_status_list, "items"):
             logger.error(
-                f"返回数据不完整, url: {query_url} ,休眠一分钟\ndata:{result}", prefix
+                f"返回数据不完整, 休眠一分钟, url: {query_url} \ndata:{result}", prefix
             )
             sleep(60)
             return
@@ -419,7 +419,7 @@ def query_live_status_batch(uid_list, cookie, msg, special):
                 keyframe = item_info["keyframe"]
             except (KeyError, TypeError):
                 logger.error(
-                    f"【{uid}】返回数据不完整, url: {query_url} ,休眠一分钟\ndata:{item_info}",
+                    f"【{uid}】返回数据不完整, 休眠一分钟, url: {query_url} \ndata:{item_info}",
                     prefix,
                 )
                 sleep(60)
