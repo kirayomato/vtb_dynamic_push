@@ -40,7 +40,7 @@ def get_realid(uid):
         query_url = f"https://afdian.com/api/user/get-profile-by-slug?url_slug={uid}"
         headers = get_headers(uid)
         response = requests.get(query_url, headers=headers, proxies=proxies, timeout=10)
-        result = json.loads(str(response.content, "utf-8"))
+        result = json.loads(response.text)
         REAL_ID_DICR[uid] = result["data"]["user"]["user_id"]
         return REAL_ID_DICR[uid]
     except BaseException as e:
@@ -88,18 +88,20 @@ def query_afddynamic(uid, cookie, msg, intervals_second):
         logger.warning(f"网络错误 error:{e}, url: {query_url} ,休眠三分钟", prefix)
         sleep(180)
         return
+
+    content = response.content.decode("utf-8", errors="replace")
     if response.status_code != 200:
         logger.warning(
-            f'请求错误 status:{response.status_code}, msg:{response.reason}, url: {query_url} ,休眠一分钟\ncontent:{str(response.content, "utf-8")}',
+            f"请求错误 status:{response.status_code}, msg:{response.reason}, url: {query_url} ,休眠一分钟\ncontent:{content}",
             prefix,
         )
         sleep(60)
         return
     try:
-        result = json.loads(str(response.content, "utf-8"))
+        result = json.loads(response.text)
     except (UnicodeDecodeError, json.JSONDecodeError) as e:
         logger.error(
-            f'【{uid}】解析content出错:{e}, url: {query_url} ,休眠一分钟\ncontent:{str(response.content, "utf-8")}',
+            f"【{uid}】解析content出错:{e}, url: {query_url} ,休眠一分钟\ncontent:{content}",
             prefix,
         )
         sleep(60)
@@ -247,18 +249,20 @@ def query_afdplan(sleep, headers, cookie, uid, uname, real_uid, home_url, icon_p
         logger.warning(f"网络错误 error:{e}, url: {query_url} ,休眠三分钟", prefix)
         sleep(180)
         return
+
+    content = response.content.decode("utf-8", errors="replace")
     if response.status_code != 200:
         logger.warning(
-            f'请求错误 status:{response.status_code}, msg:{response.reason}, url: {query_url} ,休眠一分钟\ncontent:{str(response.content, "utf-8")}',
+            f"请求错误 status:{response.status_code}, msg:{response.reason}, 休眠一分钟, url: {query_url} \ncontent:{content}",
             prefix,
         )
         sleep(60)
         return
     try:
-        result = json.loads(str(response.content, "utf-8"))
+        result = json.loads(response.text)
     except (UnicodeDecodeError, json.JSONDecodeError) as e:
         logger.error(
-            f'【{uid}】解析content出错:{e}, url: {query_url} ,休眠一分钟\ncontent:{str(response.content, "utf-8")}',
+            f"【{uid}】解析content出错:{e}, 休眠一分钟, url: {query_url} \ncontent:{content}",
             prefix,
         )
         sleep(60)
