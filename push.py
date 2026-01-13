@@ -177,11 +177,10 @@ class Push(object):
         push_url = "http://www.pushplus.plus/send/"
         response = requests_post(push_url, data=body)
         try:
-            result = json.loads(str(response.content, "utf-8"))
+            result = json.loads(response.text)
         except json.JSONDecodeError as e:
-            logger.error(
-                f'解析content出错{e}\ncontent:{str(response.content, "utf-8")}', prefix
-            )
+            content = response.content.decode("utf-8", errors="replace")
+            logger.error(f"解析content出错{e}\ncontent:{content}", prefix)
             raise PushException
         if result["code"] == 200:
             logger.debug("pushplus推送成功", prefix)
@@ -217,7 +216,7 @@ class Push(object):
         )
         response = requests_get(url, "推送_wechat_获取access_tokon")
         if check_response_is_ok(response):
-            result = json.loads(str(response.content, "utf-8"))
+            result = json.loads(response.text)
             access_token = result["access_token"]
         return access_token
 
