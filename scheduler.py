@@ -20,8 +20,7 @@ class Scheduler:
         else:
             max_weight = int(config.get("scheduler", "max_weight") or 10)
             new_weight = max(1, min(new_weight, max_weight))
-            if new_weight > 1:
-                new_weight = sqrt(max(new_weight, max_weight / 2))
+            new_weight = sqrt(new_weight)
             new_weight = 0.2 * new_weight + 0.8 * old_weight
         self.total_weight += new_weight - old_weight
         self.items[key]["weight"] = new_weight
@@ -64,12 +63,12 @@ class Scheduler:
         """更新目标列表：新增/删除目标"""
         new_set = set(new_ids)
         old_set = set(self.items.keys())
-        
+
         max_weight = int(config.get("scheduler", "max_weight") or 10)
         # 新增
         for key in new_set - old_set:
             self.items[key] = {
-                "weight": max_weight,  
+                "weight": max_weight,
                 "current_weight": 100,
             }
             self.total_weight += max_weight
