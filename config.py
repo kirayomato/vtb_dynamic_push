@@ -76,9 +76,9 @@ class Config(object):
 
 
 general_headers = {
-    "User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Mobile Safari/537.36 Edg/143.0.0.0",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36 Edg/143.0.0.0",
     "accept": "*/*",
-    "accept-encoding": "utf-8, gzip, deflate, zstd",
+    "accept-encoding": "gzip, deflate",
     "accept-language": "zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7",
     "cache-control": "no-cache",
     "connection": "close",
