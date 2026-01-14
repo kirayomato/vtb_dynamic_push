@@ -71,10 +71,13 @@ def check_diff(
 
 def get_image(pic_url, headers, prefix, platform, uname, _type):
     image = None
+    opus_path = None
     if pic_url:
         if isinstance(pic_url, list):
             for url in reversed(pic_url):
-                opus_path = get_icon(headers, url, prefix, platform, uname, _type)
+                _path = get_icon(headers, url, prefix, platform, uname, _type)
+                if _path:
+                    opus_path = _path
         else:
             opus_path = get_icon(headers, pic_url, prefix, platform, uname, _type)
         if opus_path is None:
