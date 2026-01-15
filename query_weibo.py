@@ -270,7 +270,12 @@ def query_weibodynamic(uid, cookie, msg) -> bool:
             Fore.LIGHTYELLOW_EX,
         )
         notify(
-            f"【{uname}】{action}", content, on_click=url, image=image, icon=icon_path
+            f"【{uname}】{action}",
+            content,
+            on_click=url,
+            image=image,
+            icon=icon_path,
+            pic_url=pic_url,
         )
         DYNAMIC_DICT[uid][mblog_id] = content, pic_url, created_at.timestamp()
         logger.debug(str(DYNAMIC_DICT[uid]), prefix, Fore.LIGHTYELLOW_EX)
