@@ -138,7 +138,9 @@ def query_bilidynamic(uid, cookie, msg) -> bool:
         return False
     content = response.content.decode("utf-8", errors="replace")
     if response.status_code != 200:
-        error_text = f"status:{response.status_code}, {response.reason} url: {query_url} \ncontent:{content}"
+        error_text = (
+            f"status:{response.status_code}, {response.reason} url: {query_url}"
+        )
         if response.status_code == 429:
             logger.warning(f"触发风控, 休眠一分钟, {error_text}", prefix)
             sleep(60)
@@ -378,7 +380,7 @@ def query_live_status_batch(uid_list, cookie, msg, special):
     content = response.content.decode("utf-8", errors="replace")
     if response.status_code != 200:
         logger.warning(
-            f"请求错误 status:{response.status_code}, 休眠一分钟, url: {query_url} \ncontent:{content}",
+            f"请求错误 status:{response.status_code}, 休眠一分钟, url: {query_url}",
             prefix,
         )
         sleep(60)
