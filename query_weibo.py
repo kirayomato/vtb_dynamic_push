@@ -121,7 +121,9 @@ def query_weibodynamic(uid, cookie, msg) -> bool:
         return False
     content = response.content.decode("utf-8", errors="replace")
     if response.status_code != 200:
-        error_text = f"status:{response.status_code}, {response.reason} url: {query_url} \ncontent:{content}"
+        error_text = (
+            f"status:{response.status_code}, {response.reason} url: {query_url}"
+        )
         if response.status_code == 403:
             logger.error(f"触发风控, 休眠五分钟, {error_text}", prefix)
             sleep(300)
