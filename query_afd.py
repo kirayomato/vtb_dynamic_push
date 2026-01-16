@@ -92,7 +92,7 @@ def query_afddynamic(uid, cookie, msg, intervals_second):
     content = response.content.decode("utf-8", errors="replace")
     if response.status_code != 200:
         logger.warning(
-            f"请求错误 status:{response.status_code}, msg:{response.reason}, url: {query_url} ,休眠一分钟\ncontent:{content}",
+            f"请求错误 status:{response.status_code}, msg:{response.reason}, url: {query_url} ,休眠一分钟",
             prefix,
         )
         sleep(60)
@@ -254,7 +254,7 @@ def query_afdplan(sleep, headers, cookie, uid, uname, real_uid, home_url, icon_p
     content = response.content.decode("utf-8", errors="replace")
     if response.status_code != 200:
         logger.warning(
-            f"请求错误 status:{response.status_code}, msg:{response.reason}, 休眠一分钟, url: {query_url} \ncontent:{content}",
+            f"请求错误 status:{response.status_code}, msg:{response.reason}, 休眠一分钟, url: {query_url}",
             prefix,
         )
         sleep(60)
