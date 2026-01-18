@@ -96,7 +96,6 @@ def bili_dy():
         logger.warning("未开启动态推送功能", prefix)
         return
     logger.info("开始检测动态", prefix, Fore.GREEN)
-    test = 0
     intervals_second = 5
     sched = Scheduler()
     while True:
