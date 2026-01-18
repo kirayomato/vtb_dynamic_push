@@ -87,12 +87,6 @@ def query_weibodynamic(uid, cookie, msg) -> bool:
         else:
             content = re.sub(r"<[^>]+>", "", mblog["text"])
 
-        if mblog.get("action_info"):
-            for act, val in mblog["action_info"].items():
-                action = act
-                val = mblog["action_info"][act]["list"][0]
-                content = val["text"]
-                break
         if "retweeted_status" in mblog:
             action = "转发微博"
             if mblog["retweeted_status"].get("user"):
@@ -163,7 +157,11 @@ def query_weibodynamic(uid, cookie, msg) -> bool:
         sleep(300)
         return False
     try:
-        cards = [i for i in result["data"]["cards"] if i["card_type"] == 9]
+        cards = [
+            i
+            for i in result["data"]["cards"]
+            if i["card_type"] == 9 and i["mblog"]["user"]["id"] == int(uid)
+        ]
         if len(cards) == 0:
             if DYNAMIC_DICT.get(uid) is None:
                 logger.debug(f"【{uid}】微博列表为空", prefix)
