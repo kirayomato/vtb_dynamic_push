@@ -98,7 +98,6 @@ def bili_dy():
     global cnt
     cnt += 1
     logger.info("开始检测动态", prefix, Fore.GREEN)
-    test = 0
     intervals_second = 5
     sched = Scheduler()
     while True:
