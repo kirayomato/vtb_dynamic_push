@@ -2,7 +2,7 @@ import threading
 import os
 from time import sleep
 import traceback
-from logger import logger, output_list, cnt
+from logger import logger, output_list, lock
 from query_weibo import query_weibodynamic, query_valid, USER_NAME_DICT
 from query_bili import (
     query_bilidynamic,
@@ -206,6 +206,7 @@ def bili_live():
 if __name__ == "__main__":
     msg = [""] * 4
     swi = [0] * 4
+    cnt = 0
     init(autoreset=True)
     thread1 = threading.Thread(target=bili_dy, daemon=True, name="查询B站动态")
     thread2 = threading.Thread(target=bili_live, daemon=True, name="查询B站直播")
@@ -217,7 +218,8 @@ if __name__ == "__main__":
     thread4.start()
     while True:
         if sum(swi) == cnt:
-            for i in range(4):
-                if msg[i]:
-                    output_list[i] = msg[i]
+            with lock:
+                for i in range(4):
+                    if msg[i]:
+                        output_list[i] = msg[i]
             sleep(0.1)
