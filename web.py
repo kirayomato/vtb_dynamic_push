@@ -64,11 +64,11 @@ class LogStore:
         if not text or hash(text) == self.last_hash:
             return
         self.last_hash = hash(text)
-
+        text = text.split("|")
         # 解析级别和颜色
         level, color = "INFO", LEVEL_COLORS["INFO"]
         for lvl, clr in LEVEL_COLORS.items():
-            if lvl in text:
+            if lvl in text[3]:
                 level, color = lvl, clr
                 break
 
@@ -79,10 +79,10 @@ class LogStore:
             color = ANSI_COLORS.get(code, color)
             return ""
 
-        message = ANSI_RE.sub(replace_ansi, text)
-
+        text[4] = ANSI_RE.sub(replace_ansi, text[4])
+        message = "|".join(text[:3] + [text[4]])
         # 提取URL
-        urls = [match.group(1) for match in URL_RE.finditer(message)]
+        urls = [match.group(1) for match in URL_RE.finditer(text[4])]
 
         self.logs.append(
             asdict(
