@@ -122,7 +122,7 @@ def query_bilidynamic(uid, cookie, msg) -> bool:
 
         return content, pic_url, action
 
-    prefix = "【查询动态状态】"
+    prefix = "【查询B站动态】"
     if uid is None:
         return False
     uid = str(uid)
@@ -352,7 +352,7 @@ def query_bilidynamic(uid, cookie, msg) -> bool:
 
 
 def query_live_status_batch(uid_list, cookie, msg, special):
-    prefix = "【查询直播状态】"
+    prefix = "【查询B站直播】"
 
     def sleep(t):
         msg[2] = (
