@@ -8,6 +8,25 @@ from collections import deque
 from web import output_stream
 import shutil
 from datetime import datetime, timedelta
+import unicodedata
+
+prefix_dict = {}
+
+
+def process_prefix(prefix):
+    if prefix in prefix_dict:
+        return prefix_dict[prefix]
+    cnt = 0
+    for char in prefix:
+        """判断字符是否为全角"""
+        width = unicodedata.east_asian_width(char)
+        # 'F' = Fullwidth, 'W' = Wide (如中文、日文)
+        if width in ("F", "W"):
+            cnt += 2
+        else:
+            cnt += 1
+    prefix_dict[prefix] = (16 - cnt) * " " + prefix
+    return prefix_dict[prefix]
 
 
 def move_old_logs(directory):
@@ -91,6 +110,9 @@ class mylogger:
 
     def _log_message(self, level, msg, prefix="", color=""):
         """通用日志记录方法"""
+        prefix = process_prefix(prefix)
+        if not msg.startswith("【"):  # 忽略以【开头的日志
+            msg = " " + msg
         full_msg = prefix + msg
 
         # 记录到文件
