@@ -168,6 +168,39 @@ async def get_history(before_id: int = None, limit: int = 50):
     }
 
 
+@app.post("/add_log")
+async def add_log(content: str = Body(..., media_type="text/plain")):
+    """添加日志用于测试"""
+    try:
+        log_store.add(content)
+        return {"message": "日志添加成功", "id": log_store.id - 1}
+    except Exception as e:
+        return {"error": f"添加日志失败: {e}"}
+
+
+@app.post("/add_log_raw")
+async def add_log_raw(content: str = Body(..., media_type="text/plain")):
+    """添加日志用于测试"""
+    try:
+        log_store.logs.append(
+            asdict(
+                LogEntry(
+                    id=log_store.id,
+                    timestamp=datetime.now().isoformat(),
+                    message=content,
+                    color="#80FFFF",
+                    level="DEBUG",
+                    urls=None,
+                    raw=content,
+                )
+            )
+        )
+        log_store.id += 1
+        return {"message": "日志添加成功", "id": log_store.id - 1}
+    except Exception as e:
+        return {"error": f"添加日志失败: {e}"}
+
+
 @app.post("/write-{file_type}")
 async def write_cookies(
     file_type: str, content: str = Body(..., media_type="text/plain")
@@ -184,3 +217,9 @@ async def write_cookies(
         return {"error": "无效JSON格式"}
     except Exception as e:
         return {"error": f"保存失败: {e}"}
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run(app, host="0.0.0.0", port=8000)
