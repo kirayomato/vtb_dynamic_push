@@ -263,6 +263,18 @@
             showLoading(false);
         }
 
+        // HTML转义函数
+        function escapeHtml(text) {
+            const map = {
+                '&': '&amp',
+                '<': '&lt',
+                '>': '&gt',
+                '"': '&quot',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, m => map[m]);
+        }
+
         // 添加日志条目
         function addLog(log, prepend = true) {
             const div = document.createElement('div');
@@ -272,7 +284,7 @@
             div.style.cssText = `color: ${log.color}; font-size: ${$('fontSize').value}`;
 
             const time = new Date(log.timestamp).toLocaleTimeString();
-            let msg = log.message;
+            let msg = escapeHtml(log.message); // 转义HTML内容
             if (log.urls && log.urls.length > 0) {
                 // 替换所有的URL为链接
                 log.urls.forEach(url => {
