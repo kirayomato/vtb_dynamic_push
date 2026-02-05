@@ -316,7 +316,7 @@ def query_weibodynamic(uid, cookie, msg) -> bool:
                     image = None
 
                     logger.info(
-                        f"【{uname}】删除微博：\n{content}，url: {url}",
+                        f"【{uname}】删除微博：\n{content}，url: {url}\nimage list:{pic_url}",
                         prefix,
                         Fore.LIGHTYELLOW_EX,
                     )
