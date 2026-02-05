@@ -130,9 +130,7 @@ class mylogger:
         # 记录到控制台（带颜色）
         if color:
             full_msg = color + full_msg + Style.RESET_ALL
-        if logging.getLevelNamesMapping()[level.upper()] < self.log_level:
-            getattr(self.console_logger, level)(full_msg, stacklevel=3)
-        else:
+        if logging.getLevelNamesMapping()[level.upper()] >= self.log_level:
             clear_output(getattr(self.console_logger, level))(full_msg, stacklevel=4)
 
     def info(self, msg, prefix="", color=Fore.LIGHTGREEN_EX):
