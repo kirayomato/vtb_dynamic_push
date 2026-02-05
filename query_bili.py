@@ -288,7 +288,7 @@ def query_bilidynamic(uid, cookie, msg) -> bool:
 
                 url = f"https://t.bilibili.com/{_id}"
                 logger.info(
-                    f"【{uname}】删除动态: \n{content}，url: {url}",
+                    f"【{uname}】删除动态: \n{content}，url: {url}\nimage list:{pic_url}",
                     prefix,
                     Fore.LIGHTBLUE_EX,
                 )
