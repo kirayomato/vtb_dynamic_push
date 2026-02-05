@@ -22,50 +22,168 @@
         .refresh-btn:hover { background: #0056b3; }
         .clear-btn { background: #dc3545; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin-left: 10px; }
         .clear-btn:hover { background: #c82333; }
+        .proxy-btn { background: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin-left: 10px; }
+        .proxy-btn:hover { background: #218838; }
         .actions { margin: 15px 0; }
+        .proxy-form { background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 15px 0; }
+        .proxy-input { width: 70%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
+        .proxy-result { margin-top: 10px; padding: 10px; border-radius: 4px; display: none; }
+        .proxy-result.success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .proxy-result.error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>🖼️ 图片反代服务 - 请求记录</h1>
-        <div class="stats">
+        <div class="stats" id="stats">
             <strong>统计信息：</strong> 总记录数: {{ total }} | 成功: {{ success }} | 失败: {{ failed }}
         </div>
+        <div class="proxy-form">
+            <h3>🔗 创建反代请求</h3>
+            <div style="display: flex; align-items: center;">
+                <input type="text" id="proxyUrl" class="proxy-input" placeholder="输入微博图片URL (支持 .jpg, .jpeg, .png, .gif, .webp, .mp4, .mov, .flv)" />
+                <button onclick="createProxyRequest()" class="proxy-btn">🚀 创建反代</button>
+            </div>
+            <div id="proxyResult" class="proxy-result"></div>
+        </div>
         <div class="actions">
-            <a href="/" class="refresh-btn">🔄 刷新页面</a>
+            <button onclick="refreshLogs()" class="refresh-btn">🔄 刷新记录</button>
             <button onclick="clearLogs()" class="clear-btn">🗑️ 清空记录</button>
         </div>
-        {% if logs %}
-            {% for log in logs %}
-            <div class="log-entry {{ 'success' if log.status == 'success' else 'error' }}">
-                <div class="timestamp">🕐 {{ log.timestamp }}</div>
-                <div class="url">🔗 {{ log.url }}</div>
-                <div class="status {{ 'success' if log.status == 'success' else 'error' }}">
-                    {{ '✅ 成功' if log.status == 'success' else '❌ 失败' }}
+        <div id="logsContainer">
+            {% if logs %}
+                {% for log in logs %}
+                <div class="log-entry {{ 'success' if log.status == 'success' else 'error' }}">
+                    <div class="timestamp">🕐 {{ log.timestamp }}</div>
+                    <div class="url">🔗 {{ log.url }}</div>
+                    <div class="status {{ 'success' if log.status == 'success' else 'error' }}">
+                        {{ '✅ 成功' if log.status == 'success' else '❌ 失败' }}
+                    </div>
+                    {% if log.error %}
+                    <div class="error-msg">❌ {{ log.error }}</div>
+                    {% endif %}
+                    {% if log.thumbnail %}
+                    <img src="/proxy?url={{ log.thumbnail | urlencode }}" class="thumbnail" alt="缩略图" onerror="this.style.display='none'" />
+                    {% endif %}
                 </div>
-                {% if log.error %}
-                <div class="error-msg">❌ {{ log.error }}</div>
-                {% endif %}
-                {% if log.thumbnail %}
-                <img src="/proxy?url={{ log.thumbnail | urlencode }}" class="thumbnail" alt="缩略图" onerror="this.style.display='none'" />
-                {% endif %}
-            </div>
-            {% endfor %}
-        {% else %}
-            <div class="no-records">
-                暂无请求记录，等待代理请求...
-            </div>
-        {% endif %}
+                {% endfor %}
+            {% else %}
+                <div class="no-records">
+                    暂无请求记录，等待代理请求...
+                </div>
+            {% endif %}
+        </div>
     </div>
     <script>
         function clearLogs() {
             if (confirm('确定要清空所有记录吗？')) {
                 fetch('/clear', { method: 'POST' })
-                    .then(() => location.reload());
+                    .then(() => refreshLogs());
             }
         }
+        
+        function refreshLogs() {
+            
+            fetch('/api/logs')
+                .then(response => response.json())
+                .then(data => {
+                    updateStats(data.total, data.success, data.failed);
+                    updateLogs(data.logs);
+                })
+                .catch(error => {
+                    console.error('刷新记录失败:', error);
+                });
+        }
+        
+        function updateStats(total, success, failed) {
+            const statsDiv = document.getElementById('stats');
+            statsDiv.innerHTML = `<strong>统计信息：</strong> 总记录数: ${total} | 成功: ${success} | 失败: ${failed}`;
+        }
+        
+        function updateLogs(logs) {
+            const container = document.getElementById('logsContainer');
+            
+            if (logs.length === 0) {
+                container.innerHTML = '<div class="no-records">暂无请求记录，等待代理请求...</div>';
+                return;
+            }
+            
+            let logsHtml = '';
+            logs.forEach(log => {
+                const statusClass = log.status === 'success' ? 'success' : 'error';
+                const statusText = log.status === 'success' ? '✅ 成功' : '❌ 失败';
+                const errorHtml = log.error ? `<div class="error-msg">❌ ${log.error}</div>` : '';
+                const thumbnailHtml = log.thumbnail ?
+                    `<img src="/proxy?url=${encodeURIComponent(log.thumbnail)}" class="thumbnail" alt="缩略图" onerror="this.style.display='none'" />` : '';
+                
+                logsHtml += `
+                    <div class="log-entry ${statusClass}">
+                        <div class="timestamp">🕐 ${log.timestamp}</div>
+                        <div class="url">🔗 ${log.url}</div>
+                        <div class="status ${statusClass}">${statusText}</div>
+                        ${errorHtml}
+                        ${thumbnailHtml}
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = logsHtml;
+        }
+        
+        function createProxyRequest() {
+            const urlInput = document.getElementById('proxyUrl');
+            const resultDiv = document.getElementById('proxyResult');
+            let url = urlInput.value.trim();
+            urlInput.value = ""
+            if (!url) {
+                showResult('请输入图片URL', 'error');
+                return;
+            }
+            if(!url.startsWith("http"))
+                url = "https://"+url
+            // 验证URL格式
+            if (!url.endsWith('.jpg') && !url.endsWith('.jpeg') && !url.endsWith('.png') &&
+                !url.endsWith('.gif') && !url.endsWith('.webp') && !url.endsWith('.mp4') &&
+                !url.endsWith('.mov') && !url.endsWith('.flv')) {
+                showResult('URL格式不正确，仅支持 .jpg, .jpeg, .png, .gif, .webp, .mp4, .mov, .flv 格式', 'error');
+                return;
+            }
+            
+            if (!url.includes('sina') && !url.includes('weibo')) {
+                showResult('URL格式不正确，仅支持微博相关图片', 'error');
+                return;
+            }
+            
+            // 显示加载状态
+            showResult('正在处理请求...', 'success');
+            
+            // 创建反代请求
+            fetch(`/proxy?url=${encodeURIComponent(url)}`)
+                .then(response => {
+                    if (response.ok) {
+                        showResult(`反代请求成功！代理URL: ${window.location.origin}/proxy?url=${encodeURIComponent(url)}`, 'success');
+                        // 2秒后刷新记录以显示新记录
+                        refreshLogs();
+                    } else {
+                        return response.text().then(text => {
+                            showResult(`请求失败: ${text}`, 'error');
+                        });
+                    }
+                })
+                .catch(error => {
+                    showResult(`请求出错: ${error.message}`, 'error');
+                });
+        }
+        
+        function showResult(message, type) {
+            const resultDiv = document.getElementById('proxyResult');
+            resultDiv.textContent = message;
+            resultDiv.className = `proxy-result ${type}`;
+            resultDiv.style.display = 'block';
+        }
+        
         // 自动刷新（每30秒）
-        setTimeout(() => location.reload(), 30000);
+        setInterval(() => refreshLogs(), 30000);
     </script>
 </body>
 </html>
