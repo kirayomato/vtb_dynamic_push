@@ -146,11 +146,16 @@ def query_weibodynamic(uid, cookie, msg) -> bool:
     try:
         result = json.loads(response.text)
     except (UnicodeDecodeError, json.JSONDecodeError) as e:
-        logger.error(
-            f"【{uid}】解析content出错:{e}, 休眠一分钟, url: {query_url} \ncontent:{content}",
-            prefix,
-        )
-        sleep(60)
+        if "<html>" in content:
+            logger.warning("微博Cookies无效", prefix)
+            notify("微博Cookies无效", "", on_click="https://m.weibo.cn/")
+            sleep(300)
+        else:
+            logger.error(
+                f"【{uid}】解析content出错:{e}, 休眠一分钟, url: {query_url} \ncontent:{content}",
+                prefix,
+            )
+            sleep(60)
         return False
     if result["ok"] not in (0, 1):
         if result["ok"] == -100:
