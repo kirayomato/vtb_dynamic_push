@@ -1,6 +1,6 @@
 import requests
 from fastapi import FastAPI, Query, HTTPException, Request
-from fastapi.responses import StreamingResponse, HTMLResponse
+from fastapi.responses import StreamingResponse, HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from query_weibo import get_headers
 from datetime import datetime
@@ -133,6 +133,23 @@ async def clear_logs():
         request_logs.clear()
         url_set.clear()
     return {"message": "Logs cleared successfully"}
+
+
+@app.get("/api/logs")
+async def get_logs():
+    """获取请求记录的JSON数据"""
+    with log_lock:
+        # 统计信息
+        total = len(request_logs)
+        success = sum(1 for log in request_logs if log["status"] == "success")
+        failed = total - success
+
+        return {
+            "logs": request_logs,
+            "total": total,
+            "success": success,
+            "failed": failed,
+        }
 
 
 # 注册路由
