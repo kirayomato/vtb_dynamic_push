@@ -50,7 +50,7 @@ def query_valid(uid, cookie):
         response = requests.get(
             query_url, headers=headers, cookies=cookie, proxies=proxies, timeout=10
         )
-        result = json.loads(str(response.content, "utf-8"))
+        result = json.loads(response.text)
         cards = result["data"]["list"]
         global cookies_valid
         for card in cards:
@@ -89,12 +89,6 @@ def query_weibodynamic(uid, cookie, msg) -> bool:
         else:
             content = re.sub(r"<[^>]+>", "", mblog["text"])
 
-        if mblog.get("action_info"):
-            for act, val in mblog["action_info"].items():
-                action = act
-                val = mblog["action_info"][act]["list"][0]
-                content = val["text"]
-                break
         if "retweeted_status" in mblog:
             action = "转发微博"
             if mblog["retweeted_status"].get("user"):
