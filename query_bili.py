@@ -208,7 +208,7 @@ def query_bilidynamic(uid, cookie, msg) -> bool:
         USER_SIGN_DICT[uid] = sign
         for card in cards:
             dynamic_id = card["desc"]["dynamic_id"]
-            timestamp = item["desc"]["timestamp"]
+            timestamp = card["desc"]["timestamp"]
             url = f"https://t.bilibili.com/{dynamic_id}"
             content, pic_url, action = get_content(card)
             DYNAMIC_DICT[uid][dynamic_id] = content, pic_url, timestamp
