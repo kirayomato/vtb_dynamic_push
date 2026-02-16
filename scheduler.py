@@ -19,8 +19,8 @@ class Scheduler:
             new_weight = 1
         else:
             max_weight = int(config.get("scheduler", "max_weight") or 10)
-            new_weight = max(1, min(new_weight, max_weight))
             new_weight = sqrt(new_weight)
+            new_weight = max(1, min(new_weight, max_weight))
             new_weight = 0.2 * new_weight + 0.8 * old_weight
         self.total_weight += new_weight - old_weight
         self.items[key]["weight"] = new_weight
