@@ -7,6 +7,8 @@ from time import sleep
 import threading
 import json
 
+prefix = "【Config】"
+
 
 def update_config(config):
     while True:
@@ -14,7 +16,7 @@ def update_config(config):
         sleep(30)
 
 
-def load_cookie(path, ck, name, prefix):
+def load_cookie(path, ck, name, _prefix):
     if not os.path.exists(path):
         with open(path, "w") as f:
             f.write("[]")
@@ -24,12 +26,12 @@ def load_cookie(path, ck, name, prefix):
         cookies = {}
         for cookie in temp:
             cookies[cookie.get("name")] = cookie.get("value")
-        logger.debug(f"读取{path}", "【Cookies】", Fore.GREEN)
+        logger.debug(f"读取{path}", prefix, Fore.GREEN)
         if ck != cookies:
             ck = cookies
-            logger.info(f"{name}Cookies更新", prefix, Fore.GREEN)
+            logger.info(f"{name}Cookies更新", _prefix, Fore.GREEN)
     except BaseException as e:
-        logger.error(f"{name}Cookies读取错误: {e}", prefix)
+        logger.error(f"{name}Cookies读取错误: {e}", _prefix)
     return ck
 
 
@@ -40,7 +42,7 @@ class Config(object):
         self.WeiboCookies = {}
         self.BiliCookies = {}
         if not os.path.exists(self._path):
-            logger.error("配置文件不存在: config.ini", "【Config】")
+            logger.error("配置文件不存在: config.ini", prefix)
             return
         self._lock = threading.Lock()
         self.update()
@@ -48,28 +50,31 @@ class Config(object):
         thread.start()
 
     def get(self, section, name, default=None):
-        logger.debug(
-            Fore.GREEN + f"【Config】加载配置{section}下的{name}" + Style.RESET_ALL
-        )
+        logger.debug(f"加载配置{section}下的{name}", prefix)
         try:
             with self._lock:
                 return self._config.get(section, name)
         except (configparser.NoSectionError, configparser.NoOptionError):
-            logger.error(f"【Config】配置文件缺少: [{section}]:{name}")
+            logger.error(f"配置文件缺少: [{section}]:{name}", prefix)
             return default
         except BaseException as e:
             logger.error(
-                f"【Config】加载配置{section}下的{name}时出错【{e}】：{traceback.format_exc()}"
+                f"加载配置{section}下的{name}时出错【{e}】：{traceback.format_exc()}",
+                prefix,
             )
             return default
 
     def update(self):
-        logger.debug("更新Config", "【Config】", Fore.GREEN)
+        logger.debug("更新Config", prefix, Fore.GREEN)
         with self._lock:
             self._config.read(self._path, encoding="utf-8-sig")
         self.WeiboCookies = load_cookie(
             "WeiboCookies.json", self.WeiboCookies, "微博", "【查询微博状态】"
         )
+        for key in ("SSOLoginState", "mweibo_short_token"):
+            if not self.WeiboCookies.get(key):
+                logger.warning(f"微博Cookies缺少{key}", prefix)
+
         self.BiliCookies = load_cookie(
             "BiliCookies.json", self.BiliCookies, "B站", "【查询B站状态】"
         )
