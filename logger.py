@@ -7,6 +7,7 @@ from colorama import Fore, Style
 from time import time
 from collections import deque
 from reprint import output
+from web import output_stream
 import shutil
 from datetime import datetime, timedelta
 import unicodedata
@@ -82,6 +83,7 @@ class mylogger:
             "%(asctime)s|%(filename)14s|line:%(lineno)3d|%(levelname)7s|%(message)s"
         )
         logging.getLogger("urllib3").setLevel(logging.INFO)
+        logging.getLogger("werkzeug").setLevel(logging.WARNING)
         # 控制台日志
         self.console_logger = self._create_console_logger(formatter)
         # 文件日志
@@ -94,9 +96,12 @@ class mylogger:
         logger.propagate = False  # 防止日志传递给根记录器
 
         console_handler = logging.StreamHandler(stream=sys.stdout)
+        web_handler = logging.StreamHandler(stream=output_stream)
         console_handler.setFormatter(formatter)
+        web_handler.setFormatter(formatter)
         logger.addHandler(console_handler)
 
+        logger.addHandler(web_handler)
         return logger
 
     def _create_file_logger(self, formatter):

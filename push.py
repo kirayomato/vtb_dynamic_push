@@ -1,4 +1,8 @@
-from win11toast import notify as _notify
+try:
+    from win11toast import notify as _notify
+except ImportError:
+    _notify = None
+    logger.error("导入win11toast模块失败，无法使用弹窗通知")
 import json
 
 import urllib
@@ -330,26 +334,22 @@ def notify(
             pic_url = None
 
     push.common_push(title, body, on_click, pic_url, priority)
-    if on_click is None:
-        return _notify(
-            title=title,
-            body=body,
-            duration=duration,
-            scenario=scenario,
-            app_id="vtb_dynamic",
-            **kwargs,
-        )
-    else:
-        return _notify(
-            title=title,
-            body=body,
-            duration=duration,
-            scenario=scenario,
-            button={
+
+    if _notify:
+        if on_click is not None:
+            button = {
                 "activationType": "protocol",
                 "arguments": on_click,
                 "content": "打开页面",
-            },
+            }
+        else:
+            button = None
+        _notify(
+            title=title,
+            body=body,
+            duration=duration,
+            scenario=scenario,
+            button=button,
             on_click=on_click,
             app_id="vtb_dynamic",
             **kwargs,

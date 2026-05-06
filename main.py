@@ -3,6 +3,7 @@ import os
 from time import sleep
 import traceback
 from logger import logger, output_list, lock
+from web import app
 from query_weibo import query_weibodynamic, query_valid, USER_NAME_DICT
 from query_bili import (
     query_bilidynamic,
@@ -14,6 +15,7 @@ from query_afd import query_afddynamic, AFD_NAME_DICT
 from colorama import Fore, init
 from push import notify
 from push import global_config as config
+import uvicorn
 from random import random
 from scheduler import Scheduler
 
@@ -203,6 +205,10 @@ def bili_live():
         sleep(intervals_second * (1 + random() / 10))
 
 
+def run_server():
+    uvicorn.run(app, host="0.0.0.0", port=5000, log_level="warning")
+
+
 if __name__ == "__main__":
     msg = [""] * 4
     swi = [0] * 4
@@ -212,10 +218,12 @@ if __name__ == "__main__":
     thread2 = threading.Thread(target=bili_live, daemon=True, name="查询B站直播")
     thread3 = threading.Thread(target=weibo, daemon=True, name="查询微博动态")
     thread4 = threading.Thread(target=afd_dy, daemon=True, name="查询爱发电")
+    thread5 = threading.Thread(target=run_server, daemon=True, name="web服务")
     thread1.start()
     thread2.start()
     thread3.start()
     thread4.start()
+    thread5.start()
     while True:
         if sum(swi) == cnt:
             with lock:
