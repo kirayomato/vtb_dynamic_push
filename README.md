@@ -134,6 +134,8 @@ cookies要求为json格式，结构如下
 启动图片反代服务
 `python image_proxy.py`
 
+打开
+`http://localhost:5000/`访问简易web界面
 ## 声明
 
 - 本仓库发布的`vtb_dynamic_push`项目中涉及的任何脚本，仅用于测试和学习研究，禁止用于商业用途
