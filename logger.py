@@ -33,11 +33,8 @@ def process_prefix(prefix):
 
 def clear_output(fn):
     def wrapper(*args, **kwargs):
-        global output_list
-        with lock:
-            for i in range(len(output_list)):
-                output_list[i] = ""
-            fn(*args, **kwargs)
+        output_manager.clear()
+        fn(*args, **kwargs)
 
     return wrapper
 
@@ -162,7 +159,41 @@ class mylogger:
         self._log_message("error", msg, prefix, color)
 
 
+class OutputManager:
+    """管理输出列表的状态刷新"""
+
+    def __init__(self, output_list):
+        self.output_list = output_list
+        self.length = len(output_list)
+        self.msg = [""] * self.length
+        self.swi = [0] * self.length
+        self.cnt = 0
+
+    def set_swi(self, index):
+        """标记某个任务已完成初始化"""
+        if 0 <= index < self.length:
+            self.swi[index] = 1
+
+    def inc_cnt(self):
+        """增加已完成初始化的任务计数"""
+        self.cnt += 1
+
+    def refresh(self):
+        """当所有任务初始化完成后，刷新output_list"""
+        if sum(self.swi) == self.cnt:
+            with lock:
+                for i in range(self.length):
+                    if self.msg[i]:
+                        self.output_list[i] = self.msg[i]
+
+    def clear(self):
+        with lock:
+            for i in range(self.length):
+                self.output_list[i] = ""
+
+
 with output(output_type="list", initial_len=4, interval=0) as output_list:
     logger = mylogger()
     lock = threading.Lock()
+    output_manager = OutputManager(output_list)
     move_old_logs("log")

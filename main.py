@@ -1,8 +1,7 @@
 import threading
-import os
 from time import sleep
 import traceback
-from logger import logger, output_list, lock
+from logger import logger, output_manager
 from web import app
 from query_weibo import query_weibodynamic, query_valid, USER_NAME_DICT
 from query_bili import (
@@ -47,8 +46,7 @@ def weibo():
         return
     if cookies_check == "true":
         check_uid = config.get("weibo", "cookies_check_uid")
-    global cnt
-    cnt += 1
+    output_manager.inc_cnt()
     logger.info("开始检测微博", prefix, Fore.GREEN)
     test = 0
     intervals_second = 5
@@ -69,7 +67,9 @@ def weibo():
                 uid = sched.next_target()
                 if uid:
                     try:
-                        weight = query_weibodynamic(uid, config.WeiboCookies, msg)
+                        weight = query_weibodynamic(
+                            uid, config.WeiboCookies, output_manager.msg
+                        )
                         if weight is not False:
                             assert type(weight) is int
                             sched.update(uid, weight)
@@ -82,8 +82,8 @@ def weibo():
         else:
             logger.warning("未填写UID", prefix)
             return
-        if not swi[1]:
-            swi[1] = 1
+        if not output_manager.swi[1]:
+            output_manager.set_swi(1)
             logger.info(
                 f'监控列表({len(USER_NAME_DICT)}):{",".join(USER_NAME_DICT.values())}',
                 prefix,
@@ -97,8 +97,7 @@ def bili_dy():
     if enable_dynamic_push != "true":
         logger.warning("未开启动态推送功能", prefix)
         return
-    global cnt
-    cnt += 1
+    output_manager.inc_cnt()
     logger.info("开始检测动态", prefix, Fore.GREEN)
     intervals_second = 5
     sched = Scheduler()
@@ -111,7 +110,9 @@ def bili_dy():
                 uid = sched.next_target()
                 if uid:
                     try:
-                        weight = query_bilidynamic(uid, config.BiliCookies, msg)
+                        weight = query_bilidynamic(
+                            uid, config.BiliCookies, output_manager.msg
+                        )
                         if weight is not False:
                             assert type(weight) is int
                             sched.update(uid, weight)
@@ -124,8 +125,8 @@ def bili_dy():
         else:
             logger.warning("未填写UID", prefix)
             return
-        if not swi[0]:
-            swi[0] = 1
+        if not output_manager.swi[0]:
+            output_manager.set_swi(0)
             logger.info(
                 f'监控列表({len(DYNAMIC_NAME_DICT)}):{",".join(DYNAMIC_NAME_DICT.values())}',
                 prefix,
@@ -139,8 +140,7 @@ def afd_dy():
     if enable_dynamic_push != "true":
         logger.warning("未开启动态推送功能", prefix)
         return
-    global cnt
-    cnt += 1
+    output_manager.inc_cnt()
     logger.info("开始检测爱发电", prefix, Fore.GREEN)
     intervals_second = 10
     while True:
@@ -150,7 +150,7 @@ def afd_dy():
             for uid in uid_list:
                 intervals_second = float(config.get("afd", "intervals_second")) / 2
                 try:
-                    query_afddynamic(uid, None, msg, intervals_second)
+                    query_afddynamic(uid, None, output_manager.msg, intervals_second)
                 except BaseException as e:
                     logger.error(
                         f"【{uid}】出错【{e}】：{traceback.format_exc()}", prefix
@@ -159,8 +159,8 @@ def afd_dy():
         else:
             logger.warning("未填写UID", prefix)
             return
-        if not swi[3]:
-            swi[3] = 1
+        if not output_manager.swi[3]:
+            output_manager.set_swi(3)
             logger.info(
                 f'监控列表({len(AFD_NAME_DICT)}):{",".join(AFD_NAME_DICT.values())}',
                 prefix,
@@ -174,8 +174,7 @@ def bili_live():
     if enable_living_push != "true":
         logger.warning("未开启直播推送功能", prefix)
         return
-    global cnt
-    cnt += 1
+    output_manager.inc_cnt()
     logger.info("开始检测直播", prefix, Fore.GREEN)
     intervals_second = 30
     while True:
@@ -189,14 +188,16 @@ def bili_live():
         if uid_list:
             uid_list = set(uid_list.split(","))
             try:
-                query_live_status_batch(uid_list, config.BiliCookies, msg, special)
+                query_live_status_batch(
+                    uid_list, config.BiliCookies, output_manager.msg, special
+                )
             except BaseException as e:
                 logger.error(f"出错【{e}】：{traceback.format_exc()}", prefix)
         else:
             logger.warning("未填写UID", prefix)
             return
-        if not swi[2]:
-            swi[2] = 1
+        if not output_manager.swi[2]:
+            output_manager.set_swi(2)
             logger.info(
                 f'监控列表({len(LIVE_NAME_DICT)}):{",".join(LIVE_NAME_DICT.values())}',
                 prefix,
@@ -210,9 +211,6 @@ def run_server():
 
 
 if __name__ == "__main__":
-    msg = [""] * 4
-    swi = [0] * 4
-    cnt = 0
     init(autoreset=True)
     thread1 = threading.Thread(target=bili_dy, daemon=True, name="查询B站动态")
     thread2 = threading.Thread(target=bili_live, daemon=True, name="查询B站直播")
@@ -225,9 +223,5 @@ if __name__ == "__main__":
     thread4.start()
     thread5.start()
     while True:
-        if sum(swi) == cnt:
-            with lock:
-                for i in range(4):
-                    if msg[i]:
-                        output_list[i] = msg[i]
-            sleep(0.1)
+        output_manager.refresh()
+        sleep(0.1)
