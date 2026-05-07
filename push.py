@@ -1,15 +1,15 @@
-try:
-    from win11toast import notify as _notify
-except ImportError:
-    _notify = None
-    logger.error("导入win11toast模块失败，无法使用弹窗通知")
 import json
-
 import urllib
 from logger import logger
 import requests
 from config import Config, general_headers
 import re
+
+try:
+    from win11toast import notify as _notify
+except ImportError:
+    _notify = None
+    logger.error("导入win11toast模块失败，无法使用弹窗通知")
 
 
 class PushException(Exception):
