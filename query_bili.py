@@ -14,7 +14,6 @@ from datetime import datetime
 import re
 from functools import partial
 
-
 environ["NO_PROXY"] = "*"
 DYNAMIC_DICT = {}
 LIVING_STATUS_DICT = {}
@@ -167,7 +166,7 @@ def query_bilidynamic(uid, cookie, msg) -> bool:
         )
         sleep(300)
         return False
-    if result["data"]["cards"] is None:
+    if not result.get("data", {}).get("cards"):
         global cookies_failed_count
         cookies_failed_count += 1
         if cookies_failed_count % 3 == 0:
