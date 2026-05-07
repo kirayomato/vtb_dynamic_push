@@ -3,3 +3,5 @@ colorama
 fastapi
 uvicorn
 jinja2
+reprint
+win11toast; sys_platform == 'win32'
