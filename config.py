@@ -30,6 +30,10 @@ def load_cookie(path, ck, name, _prefix):
         if ck != cookies:
             ck = cookies
             logger.info(f"{name}Cookies更新", _prefix, Fore.GREEN)
+            if name == "微博":
+                for key in ("SSOLoginState", "mweibo_short_token"):
+                    if not ck.get(key):
+                        logger.warning(f"微博Cookies缺少{key}", prefix)
     except BaseException as e:
         logger.error(f"{name}Cookies读取错误: {e}", _prefix)
     return ck
@@ -71,9 +75,6 @@ class Config(object):
         self.WeiboCookies = load_cookie(
             "WeiboCookies.json", self.WeiboCookies, "微博", "【查询微博状态】"
         )
-        for key in ("SSOLoginState", "mweibo_short_token"):
-            if not self.WeiboCookies.get(key):
-                logger.warning(f"微博Cookies缺少{key}", prefix)
 
         self.BiliCookies = load_cookie(
             "BiliCookies.json", self.BiliCookies, "B站", "【查询B站状态】"
