@@ -166,14 +166,6 @@ def query_bilidynamic(uid, cookie, msg) -> bool:
         )
         sleep(300)
         return False
-    if not result.get("data", {}).get("cards"):
-        global cookies_failed_count
-        cookies_failed_count += 1
-        if cookies_failed_count % 3 == 0:
-            logger.warning("B站Cookies无效", prefix)
-            notify("B站Cookies无效", "", on_click="https://www.bilibili.com/")
-    else:
-        cookies_failed_count = 0
     try:
         cards = result["data"]["cards"]
         if len(cards) == 0:
@@ -188,10 +180,17 @@ def query_bilidynamic(uid, cookie, msg) -> bool:
         home_url = f"https://space.bilibili.com/{uid}"
     except (KeyError, TypeError):
         logger.error(
-            f"【{uid}】返回数据不完整, 休眠三分钟, url: {query_url} \ndata:{result}",
+            f"【{uid}】返回数据不完整, 休眠五分钟, url: {query_url} \ndata:{result}",
             prefix,
         )
-        sleep(180)
+        global cookies_failed_count
+        cookies_failed_count += 1
+        if cookies_failed_count % 3 == 0:
+            logger.warning("B站Cookies无效", prefix)
+            notify("B站Cookies无效", "", on_click="https://www.bilibili.com/")
+        else:
+            cookies_failed_count = 0
+        sleep(300)
         return False
     msg[0] = (
         datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -512,4 +511,9 @@ def get_headers(uid):
     headers = general_headers.copy()
     headers["origin"] = "https://space.bilibili.com/"
     headers["referer"] = f"https://space.bilibili.com/{uid}/dynamic"
+    headers["Dnt"] = "1"
+    headers["sec-fetch-site"] = "same-origin"
+    headers["sec-fetch-mode"] = "navigate"
+    headers["sec-fetch-dest"] = "document"
+    headers["sec-fetch-user"] = "?1"
     return headers
