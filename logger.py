@@ -11,6 +11,7 @@ from web import output_stream
 import shutil
 from datetime import datetime, timedelta
 import unicodedata
+from apscheduler.schedulers.background import BackgroundScheduler
 
 prefix_dict = {}
 
@@ -73,6 +74,11 @@ class mylogger:
         os.makedirs(log_dir, exist_ok=True)
         self.log_level = logging.INFO
         self._setup_loggers()
+        self.move_old_task = BackgroundScheduler()
+        self.move_old_task.add_job(
+            move_old_logs, "cron", hour=0, minute=0, args=[log_dir]
+        )
+        self.move_old_task.start()
 
     def _setup_loggers(self):
         """配置日志处理器"""
@@ -192,8 +198,7 @@ class OutputManager:
                 self.output_list[i] = ""
 
 
+logger = mylogger()
 with output(output_type="list", initial_len=4, interval=0) as output_list:
-    logger = mylogger()
     lock = threading.Lock()
     output_manager = OutputManager(output_list)
-    move_old_logs("log")
