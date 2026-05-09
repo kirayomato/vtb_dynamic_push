@@ -29,9 +29,6 @@ def get_icon(headers, image_url, prefix, platform, uname, _type):
         return None
     with open(icon, "wb") as f:
         f.write(r.content)
-    # img = Image.open(icon)
-    # img = img.resize((64, 64))
-    # img.save(f'icon/{uid}.ico')
     return realpath(icon)
 
 
