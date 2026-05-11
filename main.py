@@ -40,12 +40,12 @@ threading.excepthook = crash_handler
 def weibo():
     prefix = "【查询微博动态】"
     enable_dynamic_push = config.get("weibo", "enable_dynamic_push")
-    cookies_check = config.get("weibo", "enable_cookies_check")
+    cookies_check = config.get("weibo", "enable_cookie_check")
     if enable_dynamic_push != "true":
         logger.warning("未开启微博推送功能", prefix)
         return
     if cookies_check == "true":
-        check_uid = config.get("weibo", "cookies_check_uid")
+        check_uid = config.get("weibo", "cookie_check_uid")
     output_manager.inc_cnt()
     logger.info("开始检测微博", prefix, Fore.GREEN)
     test = 0
