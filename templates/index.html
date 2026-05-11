@@ -472,7 +472,7 @@
                 for (const [section, options] of Object.entries(config)) {
                     html += `<div class="config-section"><h3>[${section}]</h3>`;
                     for (const [key, value] of Object.entries(options)) {
-                        const inputType = key.includes('enable') || key.includes('check') ? 'select' : 'input';
+                        const inputType = key.includes('enable') ? 'select' : 'input';
                         if (inputType === 'select') {
                             html += `<div class="config-row">
                                 <label>${key}:</label>
