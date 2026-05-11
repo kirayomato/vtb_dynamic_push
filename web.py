@@ -219,6 +219,42 @@ async def write_cookies(
         return {"error": f"保存失败: {e}"}
 
 
+@app.get("/config")
+async def get_config():
+    """获取config.ini配置"""
+    try:
+        from push import global_config
+
+        config = global_config._config
+        result = {}
+        for section in config.sections():
+            result[section] = dict(config[section])
+        return {"config": result}
+    except Exception as e:
+        return {"error": f"读取配置失败: {e}"}
+
+
+@app.post("/config")
+async def save_config(config_data: dict = Body(...)):
+    """保存config.ini配置"""
+    try:
+        from push import global_config
+
+        config = global_config._config
+        for section, options in config_data.items():
+            if not config.has_section(section):
+                continue
+            for key, value in options.items():
+                config.set(section, key, str(value))
+
+        with open("config.ini", "w", encoding="utf-8") as f:
+            config.write(f)
+
+        return {"message": "配置保存成功"}
+    except Exception as e:
+        return {"error": f"保存配置失败: {e}"}
+
+
 if __name__ == "__main__":
     import uvicorn
 

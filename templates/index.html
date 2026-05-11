@@ -141,6 +141,82 @@
             padding: 20px;
         }
 
+        /* 配置编辑器样式 */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .modal.active {
+            display: block;
+        }
+
+        .modal-content {
+            background: var(--bg-secondary);
+            border-radius: 5px;
+            max-width: 900px;
+            margin: 20px auto;
+            border: 1px solid var(--border);
+        }
+
+        .modal-header {
+            padding: 15px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-body {
+            padding: 20px;
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+
+        .config-section {
+            margin-bottom: 20px;
+        }
+
+        .config-section h3 {
+            margin: 0 0 10px 0;
+            color: var(--accent);
+        }
+
+        .config-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 8px;
+            align-items: center;
+        }
+
+        .config-row label {
+            width: 180px;
+            flex-shrink: 0;
+            font-size: 14px;
+        }
+
+        .config-row input,
+        .config-row select {
+            flex: 1;
+            font-size: 14px;
+        }
+
+        .modal-footer {
+            padding: 15px 20px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
         ::-webkit-scrollbar {
             width: 8px;
         }
@@ -189,6 +265,7 @@
                     <option value="24px">24px</option>
                 </select>
             </div>
+            <button onclick="openConfigEditor()">编辑配置</button>
             <button onclick="updateCookies('weibo')">更新微博Cookies</button>
             <button onclick="updateCookies('bili')">更新B站Cookies</button>
             <div class="stats"><span id="logCount">0 条日志</span></div>
@@ -196,6 +273,23 @@
     </div>
     <div class="log-container" id="logContainer">
         <div class="loading">正在加载日志...</div>
+    </div>
+
+    <!-- 配置编辑器弹窗 -->
+    <div class="modal" id="configModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>编辑配置</h2>
+                <button onclick="closeConfigEditor()">×</button>
+            </div>
+            <div class="modal-body" id="configForm">
+                <div class="loading">加载中...</div>
+            </div>
+            <div class="modal-footer">
+                <button onclick="saveConfig()">保存</button>
+                <button onclick="closeConfigEditor()">取消</button>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -266,10 +360,10 @@
         // HTML转义函数
         function escapeHtml(text) {
             const map = {
-                '&': '&amp',
-                '<': '&lt',
-                '>': '&gt',
-                '"': '&quot',
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
                 "'": '&#039;'
             };
             return text.replace(/[&<>"']/g, m => map[m]);
@@ -354,6 +448,76 @@
                 }).then(r => r.json());
                 alert(message || error);
             } catch (e) { alert('错误: ' + e); }
+        }
+
+        // 打开配置编辑器
+        async function openConfigEditor() {
+            const modal = $('configModal');
+            modal.classList.add('active');
+            await loadConfig();
+        }
+
+        // 关闭配置编辑器
+        function closeConfigEditor() {
+            $('configModal').classList.remove('active');
+        }
+
+        // 加载配置
+        async function loadConfig() {
+            try {
+                const { config, error } = await fetch('/config').then(r => r.json());
+                if (error) { alert(error); return; }
+                
+                let html = '';
+                for (const [section, options] of Object.entries(config)) {
+                    html += `<div class="config-section"><h3>[${section}]</h3>`;
+                    for (const [key, value] of Object.entries(options)) {
+                        const inputType = key.includes('enable') || key.includes('check') ? 'select' : 'input';
+                        if (inputType === 'select') {
+                            html += `<div class="config-row">
+                                <label>${key}:</label>
+                                <select data-section="${section}" data-key="${key}">
+                                    <option value="true" ${value === 'true' ? 'selected' : ''}>true</option>
+                                    <option value="false" ${value === 'false' ? 'selected' : ''}>false</option>
+                                </select>
+                            </div>`;
+                        } else {
+                            html += `<div class="config-row">
+                                <label>${key}:</label>
+                                <input type="text" data-section="${section}" data-key="${key}" value="${escapeHtml(value)}">
+                            </div>`;
+                        }
+                    }
+                    html += '</div>';
+                }
+                $('configForm').innerHTML = html;
+            } catch (e) { alert('加载配置失败: ' + e); }
+        }
+
+        // 保存配置
+        async function saveConfig() {
+            const formData = {};
+            document.querySelectorAll('[data-section]').forEach(el => {
+                const section = el.dataset.section;
+                const key = el.dataset.key;
+                const value = el.value;
+                if (!formData[section]) formData[section] = {};
+                formData[section][key] = value;
+            });
+            
+            try {
+                const { message, error } = await fetch('/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                }).then(r => r.json());
+                
+                if (error) alert(error);
+                else {
+                    alert(message);
+                    closeConfigEditor();
+                }
+            } catch (e) { alert('保存失败: ' + e); }
         }
     </script>
 </body>
