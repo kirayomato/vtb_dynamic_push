@@ -7,11 +7,11 @@
 
 本项目在原项目的基础上增加了多项功能
 
-1. 支持填写cookies，获取仅粉丝可见内容，且在cookies失效时进行提示
+1. 支持填写Cookie，获取仅粉丝可见内容，且在Cookie失效时进行提示
 
-    检测微博cookies是否有效的原理为如果获取的微博列表中存在仅粉见微博，则说明有效，需要提供一个最近发过粉见微博的账号
+    检测微博Cookie是否有效的原理为如果获取的微博列表中存在仅粉见微博，则说明有效，需要提供一个最近发过粉见微博的账号
 
-    目前B站动态必须填写cookies才能获取，查询直播暂不需要
+    目前B站动态必须填写Cookie才能获取，查询直播暂不需要
 
 2. Windows弹窗推送，更加方便桌面用户使用，效果如图
 
@@ -19,7 +19,7 @@
 
     点击消息或下方按钮即可打开对应动态/直播间链接
 
-    推送通知使用`win11toast`库实现，在Windows10及其他操作系统上不保证能正常使用
+    推送通知使用[win11toast](https://github.com/GitHub30/win11toast)库实现，只支持**Windows10**和**Windows11**
 
 
 3. 微博和动态检测功能增加头像、签名变化的检测。直播检测功能增加直播间标题、封面变化的检测
@@ -47,7 +47,7 @@
 - `enable_dynamic_push`是否启用微博推送
 - `uid_list`需要扫描的博主uid列表，使用英文逗号分隔
 - `intervals_second`每个UID扫描间隔秒数，每轮间隔为`intervals*len(uid_list)`，不建议过于频繁，否则可能触发风控
-- `enable_cookies_check`是否启用cookies检测功能，默认关闭
+- `enable_cookies_check`是否启用cookie检测功能，默认关闭
 - `cookies_check_uid`检测cookies使用的账号，默认为[Hitomi浅川瞳poi](https://weibo.com/u/1794972577)，需要关注，检测原理为判断是否获取到粉见微博，要求最近25条微博中包含粉见微博。
 
 `bili`下的参数
@@ -102,13 +102,13 @@
 - `enable` 是否启用图片反代服务。由于微博图片限制headers，在推送中直接使用图片链接将会无法显示图片，需要使用反代服务
 - `proxy_host` 反代主机的域名，如`127.0.0.1`
 
-#### 2.填写cookies
+#### 2.填写Cookie
 
-在`BiliCookies.json`文件中填写b站cookies，在`WeiboCookies.json`文件中填写微博cookies
+在`BiliCookies.json`文件中填写b站Cookie，在`WeiboCookies.json`文件中填写微博Cookie
 
-微博cookies需要在 https://m.weibo.cn/ 中登陆进行获取
+微博Cookie需要在 https://m.weibo.cn/ 中登陆进行获取，有时候即使已经登陆了获取的Cookie也会出现不完整的情况，需要重新登陆
 
-cookies要求为json格式，结构如下
+Cookie要求为json格式，结构如下
 ```
 [
 {
