@@ -129,7 +129,8 @@ class Push(object):
         :url: 跳转地址
         :pic_url：图片地址
         """
-        content += f"\n\n[链接]({url})"
+        if url:
+            content += f"\n\n[链接]({url})"
         if pic_url:
             content += f"\n\n![Image]({pic_url})"
 
