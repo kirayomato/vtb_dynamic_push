@@ -160,10 +160,14 @@ def query_bilidynamic(uid, cookie, msg) -> bool:
         sleep(180)
         return False
     if result["code"] != 0:
-        logger.error(
-            f'【{uid}】请求返回数据code错误:{result["code"]}, 休眠五分钟, msg:{result["message"]}, url: {query_url} \ndata:{result}',
-            prefix,
-        )
+        if result["code"] == -101:
+            logger.warning("B站Cookies无效", prefix)
+            notify("B站Cookies无效", "", on_click="https://www.bilibili.com/")
+        else:
+            logger.error(
+                f'【{uid}】请求返回数据code错误:{result["code"]}, 休眠五分钟, msg:{result["message"]}, url: {query_url} \ndata:{result}',
+                prefix,
+            )
         sleep(300)
         return False
     try:
