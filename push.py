@@ -6,9 +6,9 @@ from config import Config, general_headers
 import re
 
 try:
-    from win11toast import notify as _notify
+    from win11toast import notify as win_notify
 except ImportError:
-    _notify = None
+    win_notify = None
     logger.error("导入win11toast模块失败，无法使用弹窗通知")
 
 
@@ -336,7 +336,7 @@ def notify(
 
     push.common_push(title, body, on_click, pic_url, priority)
 
-    if _notify:
+    if win_notify:
         if on_click is not None:
             button = {
                 "activationType": "protocol",
@@ -345,7 +345,7 @@ def notify(
             }
         else:
             button = None
-        _notify(
+        win_notify(
             title=title,
             body=body,
             duration=duration,
