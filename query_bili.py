@@ -6,6 +6,7 @@ from push import notify
 from logger import logger
 from config import general_headers
 from utils import check_diff, get_icon, get_image
+from wbi import build_query, make_key, extract_key
 
 # from PIL import Image
 from colorama import Fore, Style
@@ -23,6 +24,7 @@ USER_SIGN_DICT = {}
 USER_FACE_DICT = {}
 DYNAMIC_NAME_DICT = {}
 LIVE_NAME_DICT = {}
+WBI_KEY = None
 proxies = {
     "http": "",
     "https": "",
@@ -53,79 +55,150 @@ def query_bilidynamic(uid, cookie, msg) -> bool:
         )
         time.sleep(t)
 
+    def deal_major(major):
+        if not major:
+            return "", None
+        major_type = major.get("type")
+        if major_type == "MAJOR_TYPE_OPUS":
+            content = ""
+            opus = major["opus"]
+            if opus.get("title"):
+                content += f"## {opus['title']}\n"
+            content += opus["summary"]["text"]
+            pic_url = opus.get("pics")
+        elif major_type == "MAJOR_TYPE_ARCHIVE":
+            archive = major["archive"]
+            content = archive["title"]
+            pic_url = archive.get("cover")
+        elif major_type == "MAJOR_TYPE_PGC":
+            pgc = major["pgc"]
+            content = pgc["title"]
+            pic_url = pgc.get("cover")
+        elif major_type == "MAJOR_TYPE_LIVE_RCMD":
+            live_rcmd = json.loads(major["live_rcmd"]["content"])
+            live_info = live_rcmd.get("live_play_info", {})
+            content = f"【{live_info.get("area_name")}】{live_info.get("title")}"
+            pic_url = live_rcmd.get("cover")
+        else:
+            logger.error(f"无法识别的动态类型: {major}", prefix)
+        if isinstance(pic_url, list):
+            pic_url = [i["url"] for i in pic_url]
+        if not pic_url:
+            pic_url = None
+        return content, pic_url
+
     def get_content(item):
-        dynamic_type = item["desc"]["type"]
-        card = json.loads(item["card"])
-        action = "动态更新"
+        """根据动态类型提取内容"""
+        dynamic_type = item["type"]
+        modules = item["modules"]
+        module_dynamic = modules["module_dynamic"]
+
+        DYNAMIC_TYPE_MAP = {
+            "DYNAMIC_TYPE_DRAW": "动态更新",
+            "DYNAMIC_TYPE_WORD": "动态更新",
+            "DYNAMIC_TYPE_FORWARD": "转发动态",
+            "DYNAMIC_TYPE_AV": "投稿视频",
+            "DYNAMIC_TYPE_ARTICLE": "投稿专栏",
+            "DYNAMIC_TYPE_PGC_UNION": "转发视频",
+            "DYNAMIC_TYPE_LIVE_RCMD": "开播了",
+        }
+
+        if dynamic_type not in DYNAMIC_TYPE_MAP.keys():
+            logger.error(f"无法识别的动态类型: {dynamic_type}", prefix)
+        action = DYNAMIC_TYPE_MAP.get(dynamic_type)
+
         pic_url = None
-        content = None
-        if dynamic_type == 1:
-            # 转发动态
-            action = "转发动态"
-            content = card["item"]["content"]
-            if card.get("origin_user"):
-                origin_user = card["origin_user"]["info"]["uname"]
-                content += f"\n\n转发**{origin_user}**的动态：\n> "
-            else:
-                content += "\n\n转发动态：\n> "
-            try:
-                origin = json.loads(card["origin"])
-                if "title" in origin:
-                    ori_content = origin["title"]
+        content = ""
+        if dynamic_type == "DYNAMIC_TYPE_FORWARD":
+            content = module_dynamic["desc"]["text"]
+            # 尝试获取原始动态内容
+            orig_item = item.get("orig", {})
+            if orig_item:
+                if orig_item.get("module_author"):
+                    origin_user = orig_item["module_author"]["name"]
+                    content += f"\n\n转发**{origin_user}**的动态：\n> "
                 else:
-                    if "item" in origin:
-                        if "content" in origin["item"]:
-                            ori_content = origin["item"]["content"]
-                        else:
-                            ori_content = origin["item"]["description"]
-                    elif "live_play_info" in origin:
-                        ori_content = origin["live_play_info"]["title"]
-                        pic_url = origin["live_play_info"]["cover"]
-                if "videos" in origin:
-                    pic_url = origin["pic"]
-                elif "item" in origin:
-                    if origin["item"].get("pictures"):
-                        pic_url = [i["img_src"] for i in origin["item"]["pictures"]]
-                elif "title" in origin:
-                    pic_url = origin["image_urls"]
+                    content += "\n\n转发动态：\n> "
+                ori_content, pic_url, _ = get_content(orig_item)
                 content += format_re(ori_content)
+            else:
+                logger.error(f"原动态获取失败: {item}", prefix)
+        else:
+            major = module_dynamic.get("major", {})
+            content, pic_url = deal_major(major)
 
-            except (UnicodeDecodeError, json.JSONDecodeError) as e:
-                origin = card["origin"]
-                content += origin
-                dynamic_id = item["desc"]["dynamic_id"]
-                url = f"https://t.bilibili.com/{dynamic_id}"
-                logger.warning(
-                    f"【{uid}】源动态解析出错:{e}, url: {url} \ncontent:{origin}",
-                    prefix,
-                )
-
-        elif dynamic_type == 2:
-            # 图文动态
-            content = card["item"]["description"]
-            if card["item"].get("pictures"):
-                pic_url = [i["img_src"] for i in card["item"]["pictures"]]
-        elif dynamic_type == 4:
-            # 文字动态
-            content = card["item"]["content"]
-        elif dynamic_type == 8:
-            # 投稿动态
-            action = "发布投稿"
-            content = card["title"]
-            pic_url = card["pic"]
-        elif dynamic_type == 64:
-            # 专栏动态
-            action = "发布专栏"
-            content = card["title"]
-            pic_url = card["image_urls"]
-
+        if not content:
+            if item["basic"]["is_only_fans"]:
+                content = "仅粉丝可见动态，获取内容失败"
+            else:
+                logger.error(f"无法获取动态内容: {item}", prefix)
         return content, pic_url, action
+
+    def _update_wbi_key():
+        """更新WBI签名key"""
+        url = "https://api.bilibili.com/x/web-interface/nav"
+        try:
+            response = requests.get(
+                url, headers=general_headers, cookies=cookie, timeout=10
+            )
+            data = response.json()
+            if data["code"] == 0:
+                img_url = data["data"]["wbi_img"]["img_url"]
+                sub_url = data["data"]["wbi_img"]["sub_url"]
+                img_key = extract_key(img_url)
+                sub_key = extract_key(sub_url)
+                return make_key(img_key, sub_key)
+        except Exception as e:
+            logger.error(f"获取WBI keys失败: {e}", prefix)
+        return None
+
+    def get_wbi_key():
+        """获取WBI签名key，优先使用缓存"""
+        global WBI_KEY
+        if WBI_KEY is None:
+            WBI_KEY = _update_wbi_key()
+        return WBI_KEY
+
+    def refresh_wbi_key():
+        """刷新WBI签名key"""
+        global WBI_KEY
+        WBI_KEY = None
+        return get_wbi_key()
 
     prefix = "【查询B站动态】"
     if uid is None:
         return False
     uid = str(uid)
-    query_url = f"http://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/space_history?host_uid={uid}&offset_dynamic_id=0&need_top=0&platform=web"
+
+    # 获取WBI签名key（使用缓存）
+    try:
+        wbi_key = get_wbi_key()
+    except Exception as e:
+        logger.error(f"获取WBI签名key失败: {e}", prefix)
+        sleep(60)
+        return False
+
+    # 构建请求参数
+    ts = int(time.time())
+    params = [
+        ("host_mid", uid),
+        ("offset", ""),
+        ("timezone_offset", "-480"),
+        ("platform", "web"),
+        (
+            "features",
+            "itemOpusStyle,ClistOnlyfans,CopusBigCover,ConlyfansVote,CforwardListHidden,CdecorationCard,CcommentsNewVersion,ConlyfansAssetsV2,CugcDelete,ConlyfansQaCard,CavatarAutoTheme,CsunflowerStyle,CcardsEnhance,Ceva3CardOpus,Ceva3CardVideo,Ceva3CardComment,Ceva3CardUser",
+        ),
+        ("web_location", "0.0"),
+        ("x-bili-device-req-json", '{"platform":"web","device":"pc","spmid":"0.0"}'),
+    ]
+
+    # 生成签名
+    query_string = build_query(wbi_key, ts, params)
+    query_url = (
+        f"https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/space?{query_string}"
+    )
+
     headers = get_headers(uid)
     try:
         response = requests.get(
@@ -163,6 +236,15 @@ def query_bilidynamic(uid, cookie, msg) -> bool:
         if result["code"] == -101:
             logger.warning("B站Cookies无效", prefix)
             notify("B站Cookies无效", "", on_click="https://www.bilibili.com/")
+        elif result["code"] == -352:
+            # WBI签名失效，刷新key后重试
+            logger.warning("WBI签名失效，正在刷新key", prefix)
+            try:
+                refresh_wbi_key()
+                sleep(5)
+                return False
+            except Exception as e:
+                logger.error(f"刷新WBI key失败: {e}", prefix)
         else:
             logger.error(
                 f'【{uid}】请求返回数据code错误:{result["code"]}, 休眠五分钟, msg:{result["message"]}, url: {query_url} \ndata:{result}',
@@ -171,16 +253,19 @@ def query_bilidynamic(uid, cookie, msg) -> bool:
         sleep(300)
         return False
     try:
-        cards = result["data"]["cards"]
-        if len(cards) == 0:
+        items = result["data"]["items"]
+        if len(items) == 0:
             if DYNAMIC_DICT.get(uid) is not None:
                 logger.warning(f"{uid}】动态列表为空, url: {query_url}", prefix)
             return 1
-        item = cards[0]
-        user = item["desc"]["user_profile"]
-        uname = user["info"]["uname"]
-        face = user["info"]["face"]
-        sign = user["sign"]
+
+        # 获取用户信息（从第一个动态获取）
+        first_item = items[0]
+        modules = first_item.get("modules", {})
+        module_author = modules.get("module_author", {})
+        uname = module_author.get("name", "")
+        face = module_author.get("face", "")
+        sign = module_author.get("sign", "")
         home_url = f"https://space.bilibili.com/{uid}"
     except (KeyError, TypeError):
         logger.error(
@@ -208,11 +293,18 @@ def query_bilidynamic(uid, cookie, msg) -> bool:
         DYNAMIC_NAME_DICT[uid] = uname
         USER_FACE_DICT[uid] = face
         USER_SIGN_DICT[uid] = sign
-        for card in cards:
-            dynamic_id = card["desc"]["dynamic_id"]
-            timestamp = card["desc"]["timestamp"]
+        for item in items:
+            dynamic_id = item["id_str"]
+            modules = item.get("modules", {})
+            if (
+                modules.get("module_tag", {})
+                and modules["module_tag"].get("text") == "置顶"
+            ):
+                continue
+            module_author = modules.get("module_author", {})
+            timestamp = int(module_author.get("pub_ts", 0))
             url = f"https://t.bilibili.com/{dynamic_id}"
-            content, pic_url, action = get_content(card)
+            content, pic_url, action = get_content(item)
             DYNAMIC_DICT[uid][dynamic_id] = content, pic_url, timestamp
         logger.info(
             f"【{uname}】动态初始化,len={len(DYNAMIC_DICT[uid])}",
@@ -239,12 +331,19 @@ def query_bilidynamic(uid, cookie, msg) -> bool:
     chk_diff(uname, DYNAMIC_NAME_DICT, "B站昵称")
 
     last_id = min(DYNAMIC_DICT[uid])
-    for item in reversed(cards):
-        dynamic_id = item["desc"]["dynamic_id"]
+    for item in reversed(items):
+        dynamic_id = item["id_str"]
         if dynamic_id in DYNAMIC_DICT[uid] or dynamic_id < last_id:
             continue
 
-        timestamp = item["desc"]["timestamp"]
+        modules = item.get("modules", {})
+        if (
+            modules.get("module_tag", {})
+            and modules["module_tag"].get("text") == "置顶"
+        ):
+            continue
+        module_author = modules.get("module_author", {})
+        timestamp = int(module_author.get("pub_ts", 0))
         dynamic_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(timestamp))
 
         content, pic_url, action = get_content(item)
@@ -270,7 +369,7 @@ def query_bilidynamic(uid, cookie, msg) -> bool:
         logger.debug(str(DYNAMIC_DICT[uid]), prefix, Fore.LIGHTBLUE_EX)
 
     # 检测删除动态
-    st = set([card["desc"]["dynamic_id"] for card in cards])
+    st = set([item["id_str"] for item in items])
     last_id = min(st)
     del_list = []
     for _id in DYNAMIC_DICT[uid]:
@@ -303,7 +402,8 @@ def query_bilidynamic(uid, cookie, msg) -> bool:
                     pic_url=pic_url,
                 )
                 del_list.append(_id)
-            except:
+            except Exception as e:
+                logger.warning(f"检测动态删除时出错: {e}", prefix)
                 continue
 
     for _id in del_list:
@@ -513,11 +613,10 @@ def query_live_status_batch(uid_list, cookie, msg, special):
 
 def get_headers(uid):
     headers = general_headers.copy()
-    headers["origin"] = "https://space.bilibili.com/"
+    headers["origin"] = "https://www.bilibili.com/"
     headers["referer"] = f"https://space.bilibili.com/{uid}/dynamic"
     headers["Dnt"] = "1"
-    headers["sec-fetch-site"] = "same-origin"
-    headers["sec-fetch-mode"] = "navigate"
-    headers["sec-fetch-dest"] = "document"
-    headers["sec-fetch-user"] = "?1"
+    headers["sec-fetch-site"] = "same-site"
+    headers["sec-fetch-mode"] = "cors"
+    headers["sec-fetch-dest"] = "empty"
     return headers
