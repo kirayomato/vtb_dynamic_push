@@ -6,7 +6,7 @@ from push import notify
 from logger import logger
 from config import general_headers
 from utils import check_diff, get_icon, get_image
-from wbi import build_query, make_key, extract_key
+from wbi import build_query, _update_wbi_key
 
 # from PIL import Image
 from colorama import Fore, Style
@@ -77,7 +77,7 @@ def query_bilidynamic(uid, cookie, msg) -> bool:
         elif major_type == "MAJOR_TYPE_LIVE_RCMD":
             live_rcmd = json.loads(major["live_rcmd"]["content"])
             live_info = live_rcmd.get("live_play_info", {})
-            content = f"【{live_info.get("area_name")}】{live_info.get("title")}"
+            content = f"【{live_info.get('area_name')}】{live_info.get('title')}"
             pic_url = live_rcmd.get("cover")
         else:
             logger.error(f"无法识别的动态类型: {major}", prefix)
@@ -134,29 +134,14 @@ def query_bilidynamic(uid, cookie, msg) -> bool:
                 logger.error(f"无法获取动态内容: {item}", prefix)
         return content, pic_url, action
 
-    def _update_wbi_key():
-        """更新WBI签名key"""
-        url = "https://api.bilibili.com/x/web-interface/nav"
-        try:
-            response = requests.get(
-                url, headers=general_headers, cookies=cookie, timeout=10
-            )
-            data = response.json()
-            if data["code"] == 0:
-                img_url = data["data"]["wbi_img"]["img_url"]
-                sub_url = data["data"]["wbi_img"]["sub_url"]
-                img_key = extract_key(img_url)
-                sub_key = extract_key(sub_url)
-                return make_key(img_key, sub_key)
-        except Exception as e:
-            logger.error(f"获取WBI keys失败: {e}", prefix)
-        return None
-
     def get_wbi_key():
         """获取WBI签名key，优先使用缓存"""
         global WBI_KEY
         if WBI_KEY is None:
-            WBI_KEY = _update_wbi_key()
+            try:
+                WBI_KEY = _update_wbi_key(general_headers, cookie)
+            except Exception as e:
+                logger.error(f"获取WBI keys失败: {e}", prefix)
         return WBI_KEY
 
     def refresh_wbi_key():
