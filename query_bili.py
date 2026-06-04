@@ -359,37 +359,24 @@ def query_bilidynamic(uid, cookie, msg) -> bool:
     del_list = []
     for _id in DYNAMIC_DICT[uid]:
         if _id >= last_id and _id not in st:
-            try:
-                content, pic_url, timestamp = DYNAMIC_DICT[uid][_id]
-                res = requests.post(
-                    url="https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/get_dynamic_detail",
-                    data={"dynamic_id": _id},
-                    headers=get_headers(uid),
-                    cookies=cookie,
-                )
-                result = json.loads(res.text)
-                assert result["data"]["card"]["desc"] is None
+            content, pic_url, timestamp = DYNAMIC_DICT[uid][_id]
+            image = get_image(pic_url, headers, prefix, "bili", uname, "dynamic")
 
-                image = get_image(pic_url, headers, prefix, "bili", uname, "dynamic")
-
-                url = f"https://t.bilibili.com/{_id}"
-                logger.info(
-                    f"【{uname}】删除动态: \n{content}，url: {url}\nimage list:{pic_url}",
-                    prefix,
-                    Fore.LIGHTBLUE_EX,
-                )
-                notify(
-                    f"【{uname}】删除动态",
-                    content,
-                    on_click=url,
-                    image=image,
-                    icon=icon_path,
-                    pic_url=pic_url,
-                )
-                del_list.append(_id)
-            except Exception as e:
-                logger.warning(f"检测动态删除时出错: {e}", prefix)
-                continue
+            url = f"https://t.bilibili.com/{_id}"
+            logger.info(
+                f"【{uname}】删除动态: \n{content}，url: {url}\nimage list:{pic_url}",
+                prefix,
+                Fore.LIGHTBLUE_EX,
+            )
+            notify(
+                f"【{uname}】删除动态",
+                content,
+                on_click=url,
+                image=image,
+                icon=icon_path,
+                pic_url=pic_url,
+            )
+            del_list.append(_id)
 
     for _id in del_list:
         del DYNAMIC_DICT[uid][_id]
