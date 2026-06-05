@@ -56,11 +56,12 @@ def query_bilidynamic(uid, cookie, msg) -> bool:
         time.sleep(t)
 
     def deal_major(major):
+        content = ""
+        pic_url = None
         if not major:
             return "", None
         major_type = major.get("type")
         if major_type == "MAJOR_TYPE_OPUS":
-            content = ""
             opus = major["opus"]
             if opus.get("title"):
                 content += f"## {opus['title']}\n"
@@ -78,9 +79,10 @@ def query_bilidynamic(uid, cookie, msg) -> bool:
             live_rcmd = json.loads(major["live_rcmd"]["content"])
             live_info = live_rcmd.get("live_play_info", {})
             content = f"【{live_info.get('area_name')}】{live_info.get('title')}"
-            pic_url = live_rcmd.get("cover")
+            pic_url = live_info.get("cover")
         else:
             logger.error(f"无法识别的动态类型: {major}", prefix)
+            return "", None
         if isinstance(pic_url, list):
             pic_url = [i["url"] for i in pic_url]
         if not pic_url:
@@ -109,6 +111,8 @@ def query_bilidynamic(uid, cookie, msg) -> bool:
 
         pic_url = None
         content = ""
+        if dynamic_type == "DYNAMIC_TYPE_LIVE_RCMD":
+            return "", None, "skip"
         if dynamic_type == "DYNAMIC_TYPE_FORWARD":
             content = module_dynamic["desc"]["text"]
             # 尝试获取原始动态内容
@@ -290,6 +294,14 @@ def query_bilidynamic(uid, cookie, msg) -> bool:
             timestamp = int(module_author.get("pub_ts", 0))
             url = f"https://t.bilibili.com/{dynamic_id}"
             content, pic_url, action = get_content(item)
+            if not content:
+                if action == "skip":
+                    continue
+                else:
+                    logger.error(
+                        f"【{uname}】动态解析错误:\n {item}",
+                        prefix,
+                    )
             DYNAMIC_DICT[uid][dynamic_id] = content, pic_url, timestamp
         logger.info(
             f"【{uname}】动态初始化,len={len(DYNAMIC_DICT[uid])}",
@@ -332,7 +344,14 @@ def query_bilidynamic(uid, cookie, msg) -> bool:
         dynamic_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(timestamp))
 
         content, pic_url, action = get_content(item)
-
+        if not content:
+            if action == "skip":
+                continue
+            else:
+                logger.error(
+                    f"【{uname}】动态解析错误:\n {item}",
+                    prefix,
+                )
         url = f"https://t.bilibili.com/{dynamic_id}"
 
         image = get_image(pic_url, headers, prefix, "bili", uname, "dynamic")
