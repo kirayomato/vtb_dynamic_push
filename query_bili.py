@@ -355,7 +355,7 @@ def query_bilidynamic(uid, cookie, msg) -> bool:
 
     # 检测删除动态
     st = set([item["id_str"] for item in items])
-    last_id = min(st)
+    last_id = items[-1]["id_str"]
     del_list = []
     for _id in DYNAMIC_DICT[uid]:
         if _id >= last_id and _id not in st:
