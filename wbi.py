@@ -1,6 +1,6 @@
 import hashlib
 from typing import Any, List, Tuple
-
+from logger import logger
 import requests
 
 
@@ -59,7 +59,9 @@ def _update_wbi_key(headers, cookie):
         img_key = extract_key(img_url)
         sub_key = extract_key(sub_url)
         return make_key(img_key, sub_key)
-    return None
+    else:
+        logger.error(f"获取WBI keys失败:\n {data}", "【查询B站动态】")
+        return None
 
 
 def test_extract_key() -> None:

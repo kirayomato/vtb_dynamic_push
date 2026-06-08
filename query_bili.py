@@ -144,8 +144,10 @@ def query_bilidynamic(uid, cookie, msg) -> bool:
         if WBI_KEY is None:
             try:
                 WBI_KEY = _update_wbi_key(general_headers, cookie)
+                assert WBI_KEY is not None, "获取WBI签名key失败"
             except Exception as e:
-                logger.error(f"获取WBI keys失败: {e}", prefix)
+                logger.error(f"获取WBI签名key失败: {e}", prefix)
+                return None
         return WBI_KEY
 
     def refresh_wbi_key():
@@ -230,10 +232,11 @@ def query_bilidynamic(uid, cookie, msg) -> bool:
             logger.warning("WBI签名失效，正在刷新key", prefix)
             try:
                 refresh_wbi_key()
-                sleep(5)
-                return False
             except Exception as e:
                 logger.error(f"刷新WBI key失败: {e}", prefix)
+                sleep(60)
+            finally:
+                return False
         else:
             logger.error(
                 f'【{uid}】请求返回数据code错误:{result["code"]}, 休眠五分钟, msg:{result["message"]}, url: {query_url} \ndata:{result}',
