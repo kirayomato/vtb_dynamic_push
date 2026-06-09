@@ -255,6 +255,52 @@ async def save_config(config_data: dict = Body(...)):
         return {"error": f"保存配置失败: {e}"}
 
 
+@app.get("/user_info/bili/batch")
+async def get_bili_user_info_batch(uids: str):
+    """批量获取B站用户信息，uids为逗号分隔"""
+    try:
+        from query_bili import DYNAMIC_NAME_DICT, LIVE_NAME_DICT
+
+        uid_list = uids.split(",")
+        result = {}
+
+        for uid in uid_list:
+            uid = uid.strip()
+            if not uid:
+                continue
+
+            name = DYNAMIC_NAME_DICT.get(uid)
+            if not name:
+                name = LIVE_NAME_DICT.get(uid)
+
+            result[uid] = name
+
+        return result
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/user_info/weibo/batch")
+async def get_weibo_user_info_batch(uids: str):
+    """批量获取微博用户信息，uids为逗号分隔"""
+    try:
+        from query_weibo import USER_NAME_DICT
+
+        uid_list = uids.split(",")
+        result = {}
+
+        for uid in uid_list:
+            uid = uid.strip()
+            if not uid:
+                continue
+
+            result[uid] = USER_NAME_DICT.get(uid)
+
+        return result
+    except Exception as e:
+        return {"error": str(e)}
+
+
 if __name__ == "__main__":
     import uvicorn
 

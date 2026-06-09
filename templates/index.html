@@ -200,13 +200,13 @@
         .config-row label {
             width: 180px;
             flex-shrink: 0;
-            font-size: 14px;
+            font-size: 16px;
         }
 
         .config-row input,
         .config-row select {
             flex: 1;
-            font-size: 14px;
+            font-size: 16px;
         }
 
         .modal-footer {
@@ -233,6 +233,89 @@
         ::-webkit-scrollbar-thumb:hover {
             background: #666;
         }
+
+        /* 列表配置样式 */
+        .list-config {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .list-items {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
+        .list-item {
+            display: flex;
+            gap: 3px;
+            align-items: center;
+            background: var(--bg-tertiary);
+            padding: 3px 5px;
+            border-radius: 3px;
+            border: 1px solid var(--border);
+        }
+
+        .list-item-input {
+            background: transparent;
+            color: var(--text-primary);
+            border: none;
+            padding: 2px 5px;
+            width: auto;
+            min-width: 30px;
+            max-width: 100px;
+        }
+
+        .list-item-input:focus {
+            outline: none;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+        }
+
+        .list-item-remove {
+            background: transparent;
+            color: #d32f2f;
+            border: none;
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            padding: 0;
+        }
+
+        .list-item-remove:hover {
+            color: #f44336;
+            background: rgba(211, 47, 47, 0.2);
+            border-radius: 2px;
+        }
+
+        .list-item-name {
+            color: rgb(255 245 11);
+            font-size: 16px;
+            padding: 2px 8px;
+            background: transparent;
+            border-radius: 3px;
+            white-space: nowrap;
+        }
+
+        .list-item-add {
+            background: transparent;
+            color: #4caf50;
+            border: 1px dashed #4caf50;
+            padding: 5px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+            align-self: flex-start;
+        }
+
+        .list-item-add:hover {
+            background: rgba(76, 175, 80, 0.1);
+        }
     </style>
 </head>
 
@@ -258,7 +341,7 @@
                 <label>字体:</label>
                 <select id="fontSize">
                     <option value="12px">12px</option>
-                    <option value="14px">14px</option>
+                    <option value="16px">16px</option>
                     <option value="16px">16px</option>
                     <option value="18px" selected>18px</option>
                     <option value="20px">20px</option>
@@ -462,12 +545,72 @@
             $('configModal').classList.remove('active');
         }
 
+        // 检查是否是逗号分隔的列表配置
+        function isListConfig(key, value) {
+            return value.includes(',') || key.includes('list');
+        }
+
+        // 获取B站用户名
+        async function fetchBiliUserNames(uids) {
+            try {
+                const response = await fetch(`/user_info/bili/batch?uids=${uids.join(',')}`);
+                return await response.json();
+            } catch (e) {
+                console.error('获取B站用户名失败:', e);
+                return {};
+            }
+        }
+
+        // 获取微博用户名
+        async function fetchWeiboUserNames(uids) {
+            try {
+                const response = await fetch(`/user_info/weibo/batch?uids=${uids.join(',')}`);
+                return await response.json();
+            } catch (e) {
+                console.error('获取微博用户名失败:', e);
+                return {};
+            }
+        }
+
         // 加载配置
         async function loadConfig() {
             try {
                 const { config, error } = await fetch('/config').then(r => r.json());
                 if (error) { alert(error); return; }
-                
+
+                // 收集所有B站UID
+                const biliUids = [];
+                const biliUidKeys = ['dynamic_uid_list', 'live_uid_list', 'special_list'];
+                for (const [section, options] of Object.entries(config)) {
+                    for (const [key, value] of Object.entries(options)) {
+                        if (biliUidKeys.includes(key) && value) {
+                            value.split(',').forEach(uid => {
+                                uid = uid.trim();
+                                if (uid && !biliUids.includes(uid)) {
+                                    biliUids.push(uid);
+                                }
+                            });
+                        }
+                    }
+                }
+
+                // 收集所有微博UID
+                const weiboUids = [];
+                for (const [section, options] of Object.entries(config)) {
+                    if (section === 'weibo' && options.uid_list) {
+                        options.uid_list.split(',').forEach(uid => {
+                            uid = uid.trim();
+                            if (uid && !weiboUids.includes(uid)) {
+                                weiboUids.push(uid);
+                            }
+                        });
+                    }
+                }
+
+                // 获取用户名
+                const biliUserNamesMap = biliUids.length > 0 ? await fetchBiliUserNames(biliUids) : {};
+                const weiboUserNamesMap = weiboUids.length > 0 ? await fetchWeiboUserNames(weiboUids) : {};
+
                 let html = '';
                 for (const [section, options] of Object.entries(config)) {
                     html += `<div class="config-section"><h3>[${section}]</h3>`;
@@ -480,6 +623,32 @@
                                     <option value="true" ${value === 'true' ? 'selected' : ''}>true</option>
                                     <option value="false" ${value === 'false' ? 'selected' : ''}>false</option>
                                 </select>
+                            </div>`;
+                        } else if (isListConfig(key, value)) {
+                            // 逗号分隔的列表配置
+                            const items = value.split(',').map(item => item.trim()).filter(item => item);
+                            const isBiliUid = section === 'bili';
+                            const isWeiboUid = section === 'weibo';
+                            html += `<div class="config-row">
+                                <label>${key}:</label>
+                                <div class="list-config" data-section="${section}" data-key="${key}">
+                                    <div class="list-items">`;
+                            items.forEach((item) => {
+                                let displayName = '';
+                                if (isBiliUid && biliUserNamesMap[item]) {
+                                    displayName = `<span class="list-item-name">${escapeHtml(biliUserNamesMap[item])}</span>`;
+                                } else if (isWeiboUid && weiboUserNamesMap[item]) {
+                                    displayName = `<span class="list-item-name">${escapeHtml(weiboUserNamesMap[item])}</span>`;
+                                }
+                                html += `<div class="list-item">
+                                    <input type="text" value="${escapeHtml(item)}" class="list-item-input">
+                                    ${displayName}
+                                    <button class="list-item-remove" onclick="removeListItem(this)">×</button>
+                                </div>`;
+                            });
+                            html += `</div>
+                                    <button class="list-item-add" onclick="addListItem(this)">+ 添加</button>
+                                </div>
                             </div>`;
                         } else {
                             html += `<div class="config-row">
@@ -494,24 +663,54 @@
             } catch (e) { alert('加载配置失败: ' + e); }
         }
 
+        // 添加列表项
+        function addListItem(btn) {
+            const listContainer = btn.previousElementSibling;
+            const section = btn.closest('.list-config').dataset.section;
+            const key = btn.closest('.list-config').dataset.key;
+            const newItem = document.createElement('div');
+            newItem.className = 'list-item';
+            newItem.innerHTML = `
+                <input type="text" value="" class="list-item-input">
+                <button class="list-item-remove" onclick="removeListItem(this)">×</button>
+            `;
+            listContainer.appendChild(newItem);
+        }
+
+        // 删除列表项
+        function removeListItem(btn) {
+            btn.parentElement.remove();
+        }
+
         // 保存配置
         async function saveConfig() {
             const formData = {};
             document.querySelectorAll('[data-section]').forEach(el => {
                 const section = el.dataset.section;
                 const key = el.dataset.key;
-                const value = el.value;
+                let value = el.value;
+
                 if (!formData[section]) formData[section] = {};
+
+                // 处理列表配置
+                if (el.classList.contains('list-config')) {
+                    const inputs = el.querySelectorAll('.list-item-input');
+                    value = Array.from(inputs)
+                        .map(input => input.value.trim())
+                        .filter(item => item)
+                        .join(',');
+                }
+
                 formData[section][key] = value;
             });
-            
+
             try {
                 const { message, error } = await fetch('/config', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(formData)
                 }).then(r => r.json());
-                
+
                 if (error) alert(error);
                 else {
                     alert(message);
