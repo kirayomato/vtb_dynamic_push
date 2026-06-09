@@ -86,8 +86,12 @@ def query_bilidynamic(uid, cookie, msg) -> bool:
             pic_url = live.get("cover")
         elif major_type == "MAJOR_TYPE_NONE":
             content = "源动态已被作者删除"
+        elif major_type == "MAJOR_TYPE_COMMON":
+            common = major["common"]
+            content = f"【{common.get('title')}】{common.get("desc")}"
+            pic_url = common.get("cover")
         else:
-            logger.error(f"无法识别的动态类型: {major}", prefix)
+            logger.error(f"无法识别的动态类型: {major_type}\n{major}", prefix)
             return "", None
         if isinstance(pic_url, list):
             pic_url = [i["url"] for i in pic_url]
@@ -111,6 +115,7 @@ def query_bilidynamic(uid, cookie, msg) -> bool:
             "DYNAMIC_TYPE_LIVE_RCMD": "开播了",
             "DYNAMIC_TYPE_LIVE": "开播了",
             "DYNAMIC_TYPE_NONE": "原动态被删除",
+            "DYNAMIC_TYPE_COMMON_SQUARE": "更换装扮",
         }
 
         if dynamic_type not in DYNAMIC_TYPE_MAP.keys():
@@ -123,6 +128,7 @@ def query_bilidynamic(uid, cookie, msg) -> bool:
             "DYNAMIC_TYPE_LIVE_RCMD",
             "DYNAMIC_TYPE_LIVE",
             "DYNAMIC_TYPE_NONE",
+            "DYNAMIC_TYPE_COMMON_SQUARE",
         ):
             return "", None, "skip"
         if dynamic_type == "DYNAMIC_TYPE_FORWARD":
