@@ -88,7 +88,7 @@ def query_bilidynamic(uid, cookie, msg) -> bool:
             content = "源动态已被作者删除"
         elif major_type == "MAJOR_TYPE_COMMON":
             common = major["common"]
-            content = f"【{common.get('title')}】{common.get("desc")}"
+            content = f"【{common.get('title')}】{common.get('desc')}"
             pic_url = common.get("cover")
         else:
             logger.error(f"无法识别的动态类型: {major_type}\n{major}", prefix)
