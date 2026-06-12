@@ -151,7 +151,7 @@ def query_bilidynamic(uid, cookie, msg) -> bool:
 
         if not content:
             if item["basic"]["is_only_fans"]:
-                content = "仅粉丝可见动态，获取内容失败"
+                content = "充电动态，获取内容失败"
             else:
                 logger.error(f"无法获取动态内容: {item}", prefix)
         return content, pic_url, action
