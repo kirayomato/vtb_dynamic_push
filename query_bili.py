@@ -136,8 +136,9 @@ def query_bilidynamic(uid, cookie, msg) -> bool:
             # 尝试获取原始动态内容
             orig_item = item.get("orig", {})
             if orig_item:
-                if orig_item.get("module_author"):
-                    origin_user = orig_item["module_author"]["name"]
+                orig_moudle = orig_item["modules"]
+                if orig_moudle.get("module_author"):
+                    origin_user = orig_moudle["module_author"]["name"]
                     content += f"\n\n转发**{origin_user}**的动态：\n> "
                 else:
                     content += "\n\n转发动态：\n> "
