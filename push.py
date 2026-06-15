@@ -319,6 +319,8 @@ def notify(
 ):
     if body:
         body = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", body)
+    if len(body) > 200:
+        body = body[:200] + "..."
     priority = 6
     push = Push()
     if kwargs.get("audio"):
