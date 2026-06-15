@@ -34,8 +34,8 @@ ANSI_COLORS = {
     92: "#80FF80",
     93: "#FFFF80",
     94: "#00FFFF",
-    95: "#FF80FF",
-    96: "#80FFFF",
+    95: "#80FFFF",
+    96: "#FF80FF",
     97: "#FFFFFF",
 }
 ANSI_RE = re.compile(r"\x1b\[([0-9;]+)m")
