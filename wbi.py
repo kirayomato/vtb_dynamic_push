@@ -3,6 +3,9 @@ from typing import Any, List, Tuple
 from logger import logger
 import requests
 
+from push import notify
+
+prefix = "【查询B站动态】"
 
 def extract_key(url: str) -> str:
     return url.rsplit("/", 1)[-1].rsplit(".", 1)[0]
@@ -59,8 +62,11 @@ def _update_wbi_key(headers, cookie):
         img_key = extract_key(img_url)
         sub_key = extract_key(sub_url)
         return make_key(img_key, sub_key)
+    elif data["code"] == -101:
+        logger.warning("B站Cookie无效", prefix)
+        notify("B站Cookie无效", "", on_click="https://www.bilibili.com/")
     else:
-        logger.error(f"获取WBI keys失败:\n {data}", "【查询B站动态】")
+        logger.error(f"获取WBI keys失败:\n {data}", prefix)
         return None
 
 

@@ -44,13 +44,14 @@ def format_re(text):
 def query_valid(uid, cookie):
     query_url = f"https://m.weibo.cn/api/container/getIndex?type=uid&value={uid}&containerid=107603{uid}&count=25"
     headers = get_headers(uid)
+    global cookies_valid
+    cookies_valid = False
     try:
         response = requests.get(
             query_url, headers=headers, cookies=cookie, proxies=proxies, timeout=10
         )
         result = json.loads(response.text)
         cards = result["data"]["cards"]
-        global cookies_valid
         for card in cards:
             if card["mblog"]["visible"]["type"] == 10:
                 cookies_valid = True
@@ -122,6 +123,8 @@ def query_weibodynamic(uid, cookie, msg) -> bool:
             logger.error(f"触发风控, 休眠五分钟, {error_text}", prefix)
             sleep(300)
         elif response.status_code == 432:
+            global cookies_valid
+            cookies_valid = False
             logger.warning("微博Cookie无效", prefix)
             notify("微博Cookie无效", "", on_click="https://m.weibo.cn/")
             sleep(300)
