@@ -115,7 +115,7 @@ class mylogger:
 
         # 创建定时轮转文件处理器
         file_handler = TimedRotatingFileHandler(
-            filename="log/vtb_dynamic.log",
+            filename=f"{self.log_dir}/vtb_dynamic.log",
             encoding="utf-8",
             when="midnight",
             interval=1,
