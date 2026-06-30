@@ -29,13 +29,13 @@ def load_cookie(path, ck, name, _prefix):
         logger.debug(f"读取{path}", prefix, Fore.GREEN)
         if ck != cookies:
             ck = cookies
-            logger.info(f"{name}Cookies更新", _prefix, Fore.GREEN)
+            logger.info(f"{name}Cookie更新", _prefix, Fore.GREEN)
             if name == "微博":
                 for key in ("SSOLoginState", "mweibo_short_token"):
                     if not ck.get(key):
-                        logger.warning(f"微博Cookies缺少{key}", prefix)
+                        logger.warning(f"微博Cookie缺少{key}", prefix)
     except BaseException as e:
-        logger.error(f"{name}Cookies读取错误: {e}", _prefix)
+        logger.error(f"{name}Cookie读取错误: {e}", _prefix)
     return ck
 
 

@@ -55,8 +55,8 @@ def weibo():
         if cookies_check == "true" and not query_valid(check_uid, config.WeiboCookies):
             test += 1
             if test % 3 == 0:
-                logger.warning("微博Cookies无效", prefix)
-                notify("微博Cookies无效", "", on_click="https://m.weibo.cn/")
+                logger.warning("微博Cookie无效", prefix)
+                notify("微博Cookie无效", "", on_click="https://m.weibo.cn/")
         else:
             test = 0
         uid_list = config.get("weibo", "uid_list")

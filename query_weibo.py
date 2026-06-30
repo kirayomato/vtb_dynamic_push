@@ -122,8 +122,8 @@ def query_weibodynamic(uid, cookie, msg) -> bool:
             logger.error(f"触发风控, 休眠五分钟, {error_text}", prefix)
             sleep(300)
         elif response.status_code == 432:
-            logger.warning("微博Cookies无效", prefix)
-            notify("微博Cookies无效", "", on_click="https://m.weibo.cn/")
+            logger.warning("微博Cookie无效", prefix)
+            notify("微博Cookie无效", "", on_click="https://m.weibo.cn/")
             sleep(300)
         else:
             logger.warning(f"请求错误, 休眠一分钟, {error_text}", prefix)
@@ -141,8 +141,8 @@ def query_weibodynamic(uid, cookie, msg) -> bool:
     if result["ok"] not in (0, 1):
         if result["ok"] == -100:
             if "passport.weibo.com" in result["url"]:
-                logger.warning("微博Cookies无效", prefix)
-                notify("微博Cookies无效", "", on_click="https://m.weibo.cn/")
+                logger.warning("微博Cookie无效", prefix)
+                notify("微博Cookie无效", "", on_click="https://m.weibo.cn/")
             else:
                 logger.error(
                     f'触发风控，请完成验证码校验, 休眠五分钟\n{result["url"]} , url: {query_url} \ndata:{result}',
