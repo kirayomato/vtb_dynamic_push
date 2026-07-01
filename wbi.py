@@ -7,6 +7,7 @@ from push import notify
 
 prefix = "【查询B站动态】"
 
+
 def extract_key(url: str) -> str:
     return url.rsplit("/", 1)[-1].rsplit(".", 1)[0]
 
@@ -67,7 +68,7 @@ def _update_wbi_key(headers, cookie):
         notify("B站Cookie无效", "", on_click="https://www.bilibili.com/")
     else:
         logger.error(f"获取WBI keys失败:\n {data}", prefix)
-        return None
+    return None
 
 
 def test_extract_key() -> None:
