@@ -1,7 +1,9 @@
 requests
 colorama
-fastapi
+fastapi<0.136.0
+starlette<1.0
 uvicorn
 jinja2
 reprint
+apscheduler
 win11toast; sys_platform == 'win32'
