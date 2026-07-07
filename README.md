@@ -100,7 +100,7 @@
 
 `image_proxy`下的参数
 - `enable` 是否启用图片反代服务。由于微博图片限制headers，在推送中直接使用图片链接将会无法显示图片，需要使用反代服务
-- `proxy_host` 反代主机的域名，如`127.0.0.1`
+- `proxy_host` 格式 `{IP}:{PORT}` 图片链接会被替换为 `http://{proxy_host}/proxy?url={image_url}` 需要接收信息的一方可以访问到 `proxy_host`
 
 #### 2.填写Cookie
 

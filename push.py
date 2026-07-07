@@ -332,7 +332,7 @@ def notify(
         if global_config.get("image_proxy", "enable") == "true":
             host = global_config.get("image_proxy", "proxy_host", "127.0.0.1")
             pic_url = pic_url.replace("/large/", "/bmiddle/")
-            pic_url = f"http://{host}:5001/proxy?url={urllib.parse.quote(pic_url)}"
+            pic_url = f"http://{host}/proxy?url={urllib.parse.quote(pic_url)}"
         else:
             pic_url = None
 

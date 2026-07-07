@@ -7,7 +7,7 @@ max_weight = 5
 [image_proxy]
 # 是否启用图片反代 true/false
 enable = false
-proxy_host = 127.0.0.1
+proxy_host = 127.0.0.1:5001
 
 [weibo]
 # 是否启用动态推送 true/false
