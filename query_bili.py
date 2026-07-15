@@ -183,8 +183,8 @@ def query_bilidynamic(uid, cookie, msg) -> bool:
     try:
         wbi_key = get_wbi_key()
     except Exception as e:
-        logger.error("获取WBI签名key失败", prefix)
-        sleep(60)
+        logger.error(f"获取WBI签名key失败：{repr(e)}", prefix)
+        sleep(300)
         return False
 
     # 构建请求参数
