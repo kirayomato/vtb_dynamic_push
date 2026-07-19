@@ -266,7 +266,7 @@ def query_bilidynamic(uid, cookie, msg) -> bool:
         items = result["data"]["items"]
         if len(items) == 0:
             if DYNAMIC_DICT.get(uid) is not None:
-                logger.warning(f"{uid}】动态列表为空, url: {query_url}", prefix)
+                logger.warning(f"【{uid}】动态列表为空, url: {query_url}", prefix)
             return 1
 
         # 获取用户信息（从第一个动态获取）
