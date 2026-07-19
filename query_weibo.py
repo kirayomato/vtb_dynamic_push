@@ -127,7 +127,7 @@ def query_weibodynamic(uid, cookie, msg) -> bool:
             cookies_valid = False
             logger.warning("微博Cookie无效", prefix)
             notify("微博Cookie无效", "", on_click="https://m.weibo.cn/")
-            sleep(300)
+            sleep(600)
         else:
             logger.warning(f"请求错误, 休眠一分钟, {error_text}", prefix)
             sleep(60)
