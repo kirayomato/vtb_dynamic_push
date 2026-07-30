@@ -461,12 +461,21 @@
             div.style.cssText = `color: ${log.color}; font-size: ${$('fontSize').value}`;
 
             const time = new Date(log.timestamp).toLocaleTimeString();
-            let msg = escapeHtml(log.message); // 转义HTML内容
+            let msg = log.message;
             if (log.urls && log.urls.length > 0) {
-                // 替换所有的URL为链接
-                log.urls.forEach(url => {
-                    msg = msg.replace(`url: ${url}`, `url: <a href="${url}" target="_blank" class="log-url">${url}</a>`);
+                // 先用占位符替换URL，再转义HTML，最后还原URL为链接
+                const placeholders = [];
+                log.urls.forEach((url, i) => {
+                    const placeholder = `__URL_${i}__`;
+                    placeholders.push({ placeholder, url });
+                    msg = msg.replace(`url: ${url}`, `url: ${placeholder}`);
                 });
+                msg = escapeHtml(msg);
+                placeholders.forEach(({ placeholder, url }) => {
+                    msg = msg.replace(placeholder, `<a href="${url}" target="_blank" class="log-url">${escapeHtml(url)}</a>`);
+                });
+            } else {
+                msg = escapeHtml(msg);
             }
 
             div.innerHTML = `
