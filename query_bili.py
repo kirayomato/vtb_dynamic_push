@@ -265,9 +265,11 @@ def query_bilidynamic(uid, cookie, msg) -> bool:
     try:
         items = result["data"]["items"]
         if len(items) == 0:
-            if DYNAMIC_DICT.get(uid) is not None:
+            if DYNAMIC_DICT.get(uid):
                 refresh_wbi_key()
-                logger.warning(f"【{uid}】动态列表为空, url: {query_url}", prefix)
+            else:
+                logger.debug(f"【{uid}】动态列表为空, url: {query_url}", prefix)
+                DYNAMIC_DICT[uid] = {}
             return 1
 
         # 获取用户信息（从第一个动态获取）
@@ -299,7 +301,7 @@ def query_bilidynamic(uid, cookie, msg) -> bool:
         + f"查询{uname}动态"
         + Style.RESET_ALL
     )
-    if DYNAMIC_DICT.get(uid) is None:
+    if not DYNAMIC_DICT.get(uid):
         DYNAMIC_DICT[uid] = {}
         DYNAMIC_NAME_DICT[uid] = uname
         USER_FACE_DICT[uid] = face

@@ -166,7 +166,10 @@ def query_weibodynamic(uid, cookie, msg) -> bool:
             if i["card_type"] == 9 and i["mblog"]["user"]["id"] == int(uid)
         ]
         if len(cards) == 0:
-            if DYNAMIC_DICT.get(uid) is None:
+            if DYNAMIC_DICT.get(uid):
+                logger.warning("微博Cookie无效", prefix)
+                notify("微博Cookie无效", "", on_click="https://m.weibo.cn/")
+            else:
                 logger.debug(f"【{uid}】微博列表为空", prefix)
                 DYNAMIC_DICT[uid] = {}
             return 1
@@ -193,7 +196,7 @@ def query_weibodynamic(uid, cookie, msg) -> bool:
         + f"查询{uname}微博"
         + Style.RESET_ALL
     )
-    if DYNAMIC_DICT.get(uid) is None:
+    if not DYNAMIC_DICT.get(uid):
         DYNAMIC_DICT[uid] = {}
         USER_FACE_DICT[uid] = face
         USER_SIGN_DICT[uid] = sign
