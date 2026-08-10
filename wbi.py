@@ -8,6 +8,25 @@ from push import notify
 prefix = "【查询B站动态】"
 
 
+class WBIKey:
+    """WBI 签名 key 的进程内缓存，按需获取并在失效时刷新。"""
+
+    _key = None
+
+    @classmethod
+    def get(cls, headers, cookie):
+        if cls._key is None:
+            cls._key = _update_wbi_key(headers, cookie)
+            if cls._key is None:
+                raise RuntimeError("获取WBI签名key失败")
+        return cls._key
+
+    @classmethod
+    def refresh(cls, headers, cookie):
+        cls._key = None
+        return cls.get(headers, cookie)
+
+
 def extract_key(url: str) -> str:
     return url.rsplit("/", 1)[-1].rsplit(".", 1)[0]
 

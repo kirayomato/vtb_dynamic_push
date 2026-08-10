@@ -6,7 +6,7 @@ from push import notify
 from logger import logger
 from config import general_headers
 from utils import check_diff, get_icon, get_image
-from wbi import build_query, _update_wbi_key
+from wbi import build_query, WBIKey
 
 # from PIL import Image
 from colorama import Fore, Style
@@ -24,7 +24,6 @@ USER_SIGN_DICT = {}
 USER_FACE_DICT = {}
 DYNAMIC_NAME_DICT = {}
 LIVE_NAME_DICT = {}
-WBI_KEY = None
 proxies = {
     "http": "",
     "https": "",
@@ -42,6 +41,16 @@ def format_re(text):
 def get_active(uid):
     time_threshold = time.time() - 7 * 24 * 3600
     return 1 + sum(1 for i in DYNAMIC_DICT[uid].values() if i[2] > time_threshold)
+
+
+def _refresh_wbi(cookie, prefix, sleep):
+    """刷新 WBI 签名 key；刷新失败仅记录日志。始终返回 False 供调用方 return。"""
+    try:
+        WBIKey.refresh(general_headers, cookie)
+    except Exception as e:
+        logger.error(f"刷新WBI key失败: {e}", prefix)
+        sleep(600)
+    return False
 
 
 def query_bilidynamic(uid, cookie, msg) -> bool:
@@ -157,23 +166,6 @@ def query_bilidynamic(uid, cookie, msg) -> bool:
                 logger.error(f"无法获取动态内容: {item}", prefix)
         return content, pic_url, action
 
-    def get_wbi_key():
-        """获取WBI签名key，优先使用缓存"""
-        global WBI_KEY
-        if WBI_KEY is None:
-            try:
-                WBI_KEY = _update_wbi_key(general_headers, cookie)
-            except Exception as e:
-                logger.error(f"获取WBI签名key失败: {e}", prefix)
-        assert WBI_KEY is not None
-        return WBI_KEY
-
-    def refresh_wbi_key():
-        """刷新WBI签名key"""
-        global WBI_KEY
-        WBI_KEY = None
-        return get_wbi_key()
-
     prefix = "【查询B站动态】"
     if uid is None:
         return False
@@ -181,7 +173,7 @@ def query_bilidynamic(uid, cookie, msg) -> bool:
 
     # 获取WBI签名key（使用缓存）
     try:
-        wbi_key = get_wbi_key()
+        wbi_key = WBIKey.get(general_headers, cookie)
     except Exception as e:
         logger.error(f"获取WBI签名key失败：{repr(e)}", prefix)
         sleep(600)
@@ -248,13 +240,7 @@ def query_bilidynamic(uid, cookie, msg) -> bool:
         elif result["code"] == -352:
             # WBI签名失效，刷新key后重试
             logger.warning("WBI签名失效，正在刷新key", prefix)
-            try:
-                refresh_wbi_key()
-            except Exception as e:
-                logger.error(f"刷新WBI key失败: {e}", prefix)
-                sleep(60)
-            finally:
-                return False
+            return _refresh_wbi(cookie, prefix, sleep)
         else:
             logger.error(
                 f'【{uid}】请求返回数据code错误:{result["code"]}, 休眠五分钟, msg:{result["message"]}, url: {query_url} \ndata:{result}',
@@ -266,7 +252,8 @@ def query_bilidynamic(uid, cookie, msg) -> bool:
         items = result["data"]["items"]
         if len(items) == 0:
             if DYNAMIC_DICT.get(uid):
-                refresh_wbi_key()
+                # 已初始化却返回空列表，疑似签名失效，刷新 key 后重试
+                return _refresh_wbi(cookie, prefix, sleep)
             else:
                 logger.debug(f"【{uid}】动态列表为空, url: {query_url}", prefix)
                 DYNAMIC_DICT[uid] = {}
