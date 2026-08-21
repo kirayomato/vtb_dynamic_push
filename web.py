@@ -130,6 +130,9 @@ class LogStore:
 
 log_store = LogStore()
 
+# 调度器注册表：由 main.py 在运行时填充（键为线程名，值为 Scheduler 实例）
+scheduler_registry: dict = {}
+
 
 class LogCapture(io.StringIO):
     def write(self, s):
@@ -299,6 +302,40 @@ async def get_weibo_user_info_batch(uids: str):
         return result
     except Exception as e:
         return {"error": str(e)}
+
+
+# 调度器名称（线程名）到中文显示名的映射
+SCHEDULER_LABELS = {
+    "weibo": "微博动态",
+    "bili_dy": "B站动态",
+}
+
+
+@app.get("/scheduler")
+async def get_scheduler_info():
+    """获取各调度器的实时状态（权重、访问次数、平均间隔等）"""
+    try:
+        from push import global_config as config
+
+        sched_enable = config.get("scheduler", "enable") == "true"
+        max_weight = int(config.get("scheduler", "max_weight") or 10)
+
+        info = {}
+        for name, sched in scheduler_registry.items():
+            if sched is None:
+                continue
+            data = sched.get_info()
+            data["enable"] = sched_enable
+            data["max_weight"] = max_weight
+            data["label"] = SCHEDULER_LABELS.get(name, name)
+            info[name] = data
+
+        return {
+            "scheduler": info,
+            "registered": list(scheduler_registry.keys()),
+        }
+    except Exception as e:
+        return {"error": f"读取调度器失败: {e}"}
 
 
 if __name__ == "__main__":

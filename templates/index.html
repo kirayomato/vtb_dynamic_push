@@ -316,6 +316,100 @@
         .list-item-add:hover {
             background: rgba(76, 175, 80, 0.1);
         }
+
+        /* 调度器面板样式 */
+        .scheduler-card {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            margin-bottom: 15px;
+            overflow: hidden;
+        }
+
+        .scheduler-card-header {
+            padding: 10px 15px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .scheduler-card-header h3 {
+            margin: 0;
+            color: var(--accent);
+            font-size: 16px;
+        }
+
+        .scheduler-meta {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .scheduler-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 12px;
+            margin-left: 6px;
+        }
+
+        .scheduler-badge.on {
+            background: rgba(76, 175, 80, 0.2);
+            color: #4caf50;
+        }
+
+        .scheduler-badge.off {
+            background: rgba(158, 158, 158, 0.2);
+            color: #9e9e9e;
+        }
+
+        .scheduler-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        .scheduler-table th,
+        .scheduler-table td {
+            padding: 6px 10px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .scheduler-table th {
+            color: var(--text-secondary);
+            font-weight: bold;
+            position: sticky;
+            top: 0;
+            background: var(--bg-tertiary);
+        }
+
+        .scheduler-table tbody tr:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .scheduler-name {
+            color: rgb(255 245 11);
+            font-weight: bold;
+        }
+
+        .scheduler-empty {
+            padding: 15px;
+            color: var(--text-secondary);
+            text-align: center;
+        }
+
+        .weight-bar {
+            display: inline-block;
+            height: 8px;
+            background: var(--accent);
+            border-radius: 4px;
+            vertical-align: middle;
+            margin-right: 6px;
+        }
     </style>
 </head>
 
@@ -351,11 +445,29 @@
             <button onclick="openConfigEditor()">编辑配置</button>
             <button onclick="updateCookies('weibo')">更新微博Cookie</button>
             <button onclick="updateCookies('bili')">更新B站Cookie</button>
+            <button onclick="openSchedulerPanel()">调度器</button>
             <div class="stats"><span id="logCount">0 条日志</span></div>
         </div>
     </div>
     <div class="log-container" id="logContainer">
         <div class="loading">正在加载日志...</div>
+    </div>
+
+    <!-- 调度器信息弹窗 -->
+    <div class="modal" id="schedulerModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>调度器状态</h2>
+                <button onclick="closeSchedulerPanel()">×</button>
+            </div>
+            <div class="modal-body" id="schedulerBody">
+                <div class="loading">加载中...</div>
+            </div>
+            <div class="modal-footer">
+                <span class="stats" id="schedulerUpdated"></span>
+                <button onclick="closeSchedulerPanel()">关闭</button>
+            </div>
+        </div>
     </div>
 
     <!-- 配置编辑器弹窗 -->
@@ -726,6 +838,153 @@
                     closeConfigEditor();
                 }
             } catch (e) { alert('保存失败: ' + e); }
+        }
+
+        // ===== 调度器面板 =====
+        const schedulerState = {
+            open: false,
+            timer: null,
+            nameMap: {} // uid -> 显示名 缓存
+        };
+
+        // 调度器名称（线程名）到用户名解析类型的映射
+        const SCHEDULER_NAME_TYPE = {
+            weibo: 'weibo',
+            bili_dy: 'bili'
+        };
+
+        function openSchedulerPanel() {
+            schedulerState.open = true;
+            $('schedulerModal').classList.add('active');
+            refreshScheduler();
+            // 每 2 秒自动刷新
+            schedulerState.timer = setInterval(refreshScheduler, 2000);
+        }
+
+        function closeSchedulerPanel() {
+            schedulerState.open = false;
+            $('schedulerModal').classList.remove('active');
+            if (schedulerState.timer) {
+                clearInterval(schedulerState.timer);
+                schedulerState.timer = null;
+            }
+        }
+
+        // 格式化相对时间
+        function formatRelative(ts) {
+            if (!ts) return '—';
+            const diff = (Date.now() - ts * 1000) / 1000; // 秒
+            if (diff < 0) diff = 0;
+            if (diff < 60) return `${Math.floor(diff)} 秒前`;
+            if (diff < 3600) return `${Math.floor(diff / 60)} 分钟前`;
+            return `${Math.floor(diff / 3600)} 小时前`;
+        }
+
+        async function resolveNames(schedulers) {
+            // 收集需要解析名称的 uid
+            const pending = {};
+            for (const [name, info] of Object.entries(schedulers)) {
+                const type = SCHEDULER_NAME_TYPE[name];
+                if (!type) continue;
+                for (const t of info.targets) {
+                    const key = t.key;
+                    if (schedulerState.nameMap[key]) continue;
+                    (pending[type] = pending[type] || []).push(key);
+                }
+            }
+            const results = {};
+            if (pending.weibo?.length) {
+                const map = await fetchWeiboUserNames(pending.weibo);
+                Object.assign(results, map);
+            }
+            if (pending.bili?.length) {
+                const map = await fetchBiliUserNames(pending.bili);
+                Object.assign(results, map);
+            }
+            Object.assign(schedulerState.nameMap, results);
+        }
+
+        async function refreshScheduler() {
+            if (!schedulerState.open) return;
+            try {
+                const data = await fetch('/scheduler').then(r => r.json());
+                if (data.error) {
+                    $('schedulerBody').innerHTML = `<div class="scheduler-empty">${escapeHtml(data.error)}</div>`;
+                    return;
+                }
+                const info = data.scheduler || {};
+                const names = Object.keys(info);
+                await resolveNames(info);
+
+                if (names.length === 0) {
+                    $('schedulerBody').innerHTML = '<div class="scheduler-empty">暂无运行中的调度器</div>';
+                    $('schedulerUpdated').textContent = '';
+                    return;
+                }
+
+                let html = '';
+                for (const name of names) {
+                    const s = info[name];
+                    const badge = s.enable
+                        ? '<span class="scheduler-badge on">已启用</span>'
+                        : '<span class="scheduler-badge off">已禁用</span>';
+                    html += `
+                        <div class="scheduler-card">
+                            <div class="scheduler-card-header">
+                                <h3>${escapeHtml(s.label || name)}</h3>
+                                ${badge}
+                                <span class="scheduler-meta">
+                                    目标数: ${s.target_count} ·
+                                    总权重: ${s.total_weight} ·
+                                    最大权重: ${s.max_weight}
+                                </span>
+                            </div>`;
+                    if (s.targets.length === 0) {
+                        html += '<div class="scheduler-empty">无监控目标</div>';
+                    } else {
+                        html += `
+                            <table class="scheduler-table">
+                                <thead>
+                                    <tr>
+                                        <th>目标</th>
+                                        <th>权重</th>
+                                        <th>当前权重</th>
+                                        <th>访问次数</th>
+                                        <th>平均间隔(s)</th>
+                                        <th>最近访问</th>
+                                    </tr>
+                                </thead>
+                                <tbody>`;
+                        // 按当前权重降序排列，便于观察调度顺序
+                        const sorted = [...s.targets].sort(
+                            (a, b) => b.current_weight - a.current_weight
+                        );
+                        const maxW = Math.max(...s.targets.map(t => t.weight), 1);
+                        for (const t of sorted) {
+                            const displayName = schedulerState.nameMap[t.key] || '';
+                            const nameCell = displayName
+                                ? `${escapeHtml(t.key)} <span class="scheduler-name">(${escapeHtml(displayName)})</span>`
+                                : escapeHtml(t.key);
+                            const barW = Math.max(2, (t.weight / maxW) * 80);
+                            html += `
+                                <tr>
+                                    <td>${nameCell}</td>
+                                    <td><span class="weight-bar" style="width:${barW}px"></span>${t.weight}</td>
+                                    <td>${t.current_weight}</td>
+                                    <td>${t.access_count}</td>
+                                    <td>${t.avg_interval ?? '—'}</td>
+                                    <td>${formatRelative(t.last_access)}</td>
+                                </tr>`;
+                        }
+                        html += '</tbody></table>';
+                    }
+                    html += '</div>';
+                }
+                $('schedulerBody').innerHTML = html;
+                $('schedulerUpdated').textContent = `更新于 ${new Date().toLocaleTimeString()}`;
+            } catch (e) {
+                $('schedulerBody').innerHTML = `<div class="scheduler-empty">加载失败: ${escapeHtml(e)}</div>`;
+            }
         }
     </script>
 </body>

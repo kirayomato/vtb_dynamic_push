@@ -1,5 +1,6 @@
 from collections import defaultdict
 import time
+import threading
 from typing import Dict, List, Optional
 from push import global_config as config
 from math import sqrt
@@ -11,10 +12,12 @@ class Scheduler:
         self.total_weight = 0
         self.access_times = defaultdict(list)
         self.avg_interval = defaultdict(int)
+        self.lock = threading.Lock()
 
     def update(self, key: str, new_weight: int) -> None:
         """更新权重"""
-        old_weight = self.items[key]["weight"]
+        with self.lock:
+            old_weight = self.items[key]["weight"]
         if config.get("scheduler", "enable") != "true":
             new_weight = 1
         else:
@@ -27,8 +30,9 @@ class Scheduler:
 
     def next_target(self) -> Optional[str]:
         """获取下一个要访问的项目"""
-        if not self.items:
-            return None
+        with self.lock:
+            if not self.items:
+                return None
 
         # 平滑加权轮询算法
         best_item = None
@@ -61,8 +65,9 @@ class Scheduler:
 
     def update_targets(self, new_ids: List[str]):
         """更新目标列表：新增/删除目标"""
-        new_set = set(new_ids)
-        old_set = set(self.items.keys())
+        with self.lock:
+            new_set = set(new_ids)
+            old_set = set(self.items.keys())
 
         max_weight = int(config.get("scheduler", "max_weight") or 10)
         # 新增
@@ -77,3 +82,27 @@ class Scheduler:
         for key in old_set - new_set:
             self.total_weight -= self.items[key]["weight"]
             del self.items[key]
+
+    def get_info(self) -> dict:
+        """返回当前调度器状态的序列化快照（线程安全）"""
+        with self.lock:
+            targets = []
+            for key, item in self.items.items():
+                times = self.access_times.get(key, [])
+                last_access = max(times) if times else None
+                avg = self.avg_interval.get(key)
+                targets.append(
+                    {
+                        "key": key,
+                        "weight": round(item["weight"], 3),
+                        "current_weight": round(item["current_weight"], 3),
+                        "access_count": len(times),
+                        "last_access": last_access,
+                        "avg_interval": round(avg[0], 2) if avg else None,
+                    }
+                )
+            return {
+                "total_weight": round(self.total_weight, 3),
+                "target_count": len(self.items),
+                "targets": targets,
+            }

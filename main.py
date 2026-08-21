@@ -3,6 +3,7 @@ from time import sleep
 import traceback
 from logger import logger, output_manager
 from web import app
+import web
 from query_weibo import query_weibodynamic, query_valid, USER_NAME_DICT
 from query_bili import (
     query_bilidynamic,
@@ -51,6 +52,7 @@ def weibo():
     test = 0
     intervals_second = 5
     sched = Scheduler()
+    web.scheduler_registry["weibo"] = sched
     while True:
         if cookies_check == "true" and not query_valid(check_uid, config.WeiboCookies):
             test += 1
@@ -101,6 +103,7 @@ def bili_dy():
     logger.info("开始检测动态", prefix, Fore.GREEN)
     intervals_second = 5
     sched = Scheduler()
+    web.scheduler_registry["bili_dy"] = sched
     while True:
         uid_list = config.get("bili", "dynamic_uid_list")
         if uid_list:
