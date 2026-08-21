@@ -955,9 +955,9 @@
                                     </tr>
                                 </thead>
                                 <tbody>`;
-                        // 按当前权重降序排列，便于观察调度顺序
+                        // 按权重降序排列，便于观察调度顺序
                         const sorted = [...s.targets].sort(
-                            (a, b) => b.current_weight - a.current_weight
+                            (a, b) => b.weight - a.weight
                         );
                         const maxW = Math.max(...s.targets.map(t => t.weight), 1);
                         for (const t of sorted) {
