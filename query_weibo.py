@@ -30,7 +30,7 @@ cookies_valid = False
 
 
 def get_active(uid):
-    time_threshold = time.time() - 7 * 24 * 3600
+    time_threshold = time.time() - 30 * 24 * 3600
     return 1 + sum(1 for i in DYNAMIC_DICT[uid].values() if i[2] > time_threshold)
 
 
