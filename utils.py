@@ -2,7 +2,7 @@ from os.path import realpath, exists
 import requests
 from requests.exceptions import RequestException
 from logger import logger
-from push import notify, win_notify
+from push import notify
 from pathlib import Path
 
 proxies = {
@@ -12,8 +12,6 @@ proxies = {
 
 
 def get_icon(headers, image_url, prefix, platform, uname, _type):
-    if not win_notify:
-        return None
     image_url = image_url.split("?")[0]
     name = image_url.split("/")[-1]
     dir_path = Path("image") / platform / uname / _type
@@ -68,8 +66,6 @@ def check_diff(
 
 
 def get_image(pic_url, headers, prefix, platform, uname, _type):
-    if not win_notify:
-        return None
     image = None
     opus_path = None
     if pic_url:
