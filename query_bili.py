@@ -7,6 +7,7 @@ from logger import logger
 from config import general_headers
 from utils import check_diff, get_icon, get_image
 from wbi import build_query, WBIKey
+from storage import dyn_del, dyn_load, dyn_set, dyn_set_many, kv_load, kv_set
 
 # from PIL import Image
 from colorama import Fore, Style
@@ -29,6 +30,48 @@ proxies = {
     "https": "",
 }
 cookies_failed_count = 0
+_prefix = "【B站持久化】"
+
+
+def init_state():
+    """从本地数据库恢复上次运行的状态，避免重新初始化。
+
+    由 main.py 在启动查询线程前显式调用，不在 import 期执行，
+    避免导入本模块就产生建库、连库等副作用。
+    """
+    try:
+        DYNAMIC_DICT.update(dyn_load("bili"))
+        for store, target in (
+            ("bili.name", DYNAMIC_NAME_DICT),
+            ("bili.live_name", LIVE_NAME_DICT),
+            ("bili.face", USER_FACE_DICT),
+            ("bili.sign", USER_SIGN_DICT),
+            ("bili.live_status", LIVING_STATUS_DICT),
+            ("bili.room_title", ROOM_TITLE_DICT),
+            ("bili.room_cover", ROOM_COVER_DICT),
+        ):
+            target.update(kv_load(store))
+        logger.info(
+            f"已从本地数据库恢复B站状态: 动态用户{len(DYNAMIC_DICT)}个/"
+            f"{sum(len(v) for v in DYNAMIC_DICT.values())}条动态, "
+            f"直播状态{len(LIVING_STATUS_DICT)}个",
+            _prefix,
+            Fore.LIGHTBLUE_EX,
+        )
+    except Exception as e:
+        logger.error(f"恢复B站持久化状态失败: {e}", _prefix)
+
+
+def _save_user_info(uid):
+    kv_set("bili.name", uid, DYNAMIC_NAME_DICT.get(uid))
+    kv_set("bili.face", uid, USER_FACE_DICT.get(uid))
+    kv_set("bili.sign", uid, USER_SIGN_DICT.get(uid))
+
+
+def _save_live_info(uid):
+    kv_set("bili.live_status", uid, LIVING_STATUS_DICT.get(uid))
+    kv_set("bili.room_title", uid, ROOM_TITLE_DICT.get(uid))
+    kv_set("bili.room_cover", uid, ROOM_COVER_DICT.get(uid))
 
 
 def format_re(text):
@@ -316,6 +359,8 @@ def query_bilidynamic(uid, cookie, msg, special) -> bool:
                         prefix,
                     )
             DYNAMIC_DICT[uid][dynamic_id] = content, pic_url, timestamp
+        _save_user_info(uid)
+        dyn_set_many("bili", uid, DYNAMIC_DICT[uid])
         logger.info(
             f"【{uname}】动态初始化,len={len(DYNAMIC_DICT[uid])}",
             prefix,
@@ -339,6 +384,7 @@ def query_bilidynamic(uid, cookie, msg, special) -> bool:
     chk_diff(face, USER_FACE_DICT, "B站头像", pic=face)
     chk_diff(sign, USER_SIGN_DICT, "B站签名")
     chk_diff(uname, DYNAMIC_NAME_DICT, "B站昵称")
+    _save_user_info(uid)
 
     last_id = min(DYNAMIC_DICT[uid])
     for item in reversed(items):
@@ -383,6 +429,7 @@ def query_bilidynamic(uid, cookie, msg, special) -> bool:
             pic_url=pic_url,
         )
         DYNAMIC_DICT[uid][dynamic_id] = content, pic_url, timestamp
+        dyn_set("bili", uid, dynamic_id, content, pic_url, timestamp)
         logger.debug(str(DYNAMIC_DICT[uid]), prefix, Fore.LIGHTBLUE_EX)
 
     # 检测删除动态
@@ -412,6 +459,7 @@ def query_bilidynamic(uid, cookie, msg, special) -> bool:
 
     for _id in del_list:
         del DYNAMIC_DICT[uid][_id]
+        dyn_del("bili", uid, _id)
     return get_active(uid)
 
 
@@ -519,6 +567,7 @@ def query_live_status_batch(uid_list, cookie, msg, special):
                 uname = item_info["uname"]
                 area = item_info["area_v2_name"]
                 LIVE_NAME_DICT[uid] = uname
+                kv_set("bili.live_name", uid, uname)
                 face = item_info["face"]
                 live_status = item_info["live_status"]
                 room_id = item_info["room_id"]
@@ -546,6 +595,7 @@ def query_live_status_batch(uid_list, cookie, msg, special):
                 if room_cover_url == "":
                     room_cover_url = keyframe
                 ROOM_COVER_DICT[uid] = room_cover_url
+                _save_live_info(uid)
                 if live_status == 1:
                     logger.info(f"【{uname}】【{area}】【{room_title}】直播中", prefix)
                 else:
@@ -613,6 +663,7 @@ def query_live_status_batch(uid_list, cookie, msg, special):
                 logger.debug(
                     f"【{uname}】【{area}】【{room_title}】未开播", prefix, Fore.CYAN
                 )
+            _save_live_info(uid)
 
 
 def get_headers(uid):

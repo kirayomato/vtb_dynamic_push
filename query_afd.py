@@ -9,6 +9,7 @@ import requests
 from requests.exceptions import RequestException
 from config import general_headers
 from utils import check_diff, get_icon, get_image
+from storage import dyn_del, dyn_load, dyn_set, dyn_set_many, kv_load, kv_set
 
 # from PIL import Image
 from colorama import Fore, Style
@@ -30,6 +31,46 @@ proxies = {
 }
 prefix = "【查询爱发电】"
 
+_prefix = "【爱发电持久化】"
+
+
+def init_state():
+    """从本地数据库恢复上次运行的状态，避免重新初始化。
+
+    由 main.py 在启动查询线程前显式调用，不在 import 期执行，
+    避免导入本模块就产生建库、连库等副作用。
+    """
+    try:
+        DYNAMIC_DICT.update(dyn_load("afd"))
+        for store, target in (
+            ("afd.name", AFD_NAME_DICT),
+            ("afd.face", USER_FACE_DICT),
+            ("afd.sign", USER_SIGN_DICT),
+            ("afd.real_id", REAL_ID_DICR),
+        ):
+            target.update(kv_load(store))
+        for uid, plans in kv_load("afd.plan").items():
+            if plans:
+                PLAN_DICT[uid] = plans
+        logger.info(
+            f"已从本地数据库恢复爱发电状态: 用户{len(DYNAMIC_DICT)}个/"
+            f"{sum(len(v) for v in DYNAMIC_DICT.values())}条动态",
+            _prefix,
+            Fore.LIGHTCYAN_EX,
+        )
+    except Exception as e:
+        logger.error(f"恢复爱发电持久化状态失败: {e}", _prefix)
+
+
+def _save_user_info(uid):
+    kv_set("afd.name", uid, AFD_NAME_DICT.get(uid))
+    kv_set("afd.face", uid, USER_FACE_DICT.get(uid))
+    kv_set("afd.sign", uid, USER_SIGN_DICT.get(uid))
+
+
+def _save_plans(uid):
+    kv_set("afd.plan", uid, PLAN_DICT.get(uid))
+
 
 def get_realid(uid):
     if uid is None:
@@ -42,6 +83,7 @@ def get_realid(uid):
         response = requests.get(query_url, headers=headers, proxies=proxies, timeout=10)
         result = json.loads(response.text)
         REAL_ID_DICR[uid] = result["data"]["user"]["user_id"]
+        kv_set("afd.real_id", uid, REAL_ID_DICR[uid])
         return REAL_ID_DICR[uid]
     except BaseException as e:
         logger.warning(f"获取真实UID失败:{e}, url: {query_url} ,休眠一分钟", prefix)
@@ -149,6 +191,8 @@ def query_afddynamic(uid, cookie, msg, intervals_second):
             content, pic_url, action, dynamic_time = get_content(mblog)
             DYNAMIC_DICT[uid][mblog_id] = content, pic_url, dynamic_time
 
+        _save_user_info(uid)
+        dyn_set_many("afd", uid, DYNAMIC_DICT[uid])
         created_at = datetime.fromtimestamp(cards[-1]["publish_time"])
         dynamic_time = created_at.strftime("%Y-%m-%d %H:%M:%S")
         logger.info(
@@ -200,6 +244,7 @@ def query_afddynamic(uid, cookie, msg, intervals_second):
             pic_url=pic_url,
         )
         DYNAMIC_DICT[uid][dynamic_id] = content, pic_url, dynamic_time
+        dyn_set("afd", uid, dynamic_id, content, pic_url, dynamic_time)
         logger.debug(str(DYNAMIC_DICT[uid]), prefix, Fore.LIGHTCYAN_EX)
 
     # 检测删除动态
@@ -228,6 +273,7 @@ def query_afddynamic(uid, cookie, msg, intervals_second):
             )
     for _id in del_list:
         del DYNAMIC_DICT[uid][_id]
+        dyn_del("afd", uid, _id)
     time.sleep(max(1, intervals_second) * (1 + random() / 10))
     query_afdplan(sleep, headers, cookie, uid, uname, real_uid, home_url, icon_path)
 
@@ -294,6 +340,7 @@ def query_afdplan(sleep, headers, cookie, uid, uname, real_uid, home_url, icon_p
             mblog_id = mblog["plan_id"]
             content, pic_url, action, dynamic_time = get_plan_content(mblog)
             PLAN_DICT[uid][mblog_id] = content, pic_url
+        _save_plans(uid)
 
         logger.info(
             f"【{uname}】爱发电计划初始化, len={len(PLAN_DICT[uid])}",
@@ -330,6 +377,7 @@ def query_afdplan(sleep, headers, cookie, uid, uname, real_uid, home_url, icon_p
             pic_url=pic_url,
         )
         PLAN_DICT[uid][plan_id] = content, pic_url
+        _save_plans(uid)
         logger.debug(str(PLAN_DICT[uid]), prefix, Fore.LIGHTCYAN_EX)
 
     # 检测删除计划
@@ -357,6 +405,8 @@ def query_afdplan(sleep, headers, cookie, uid, uname, real_uid, home_url, icon_p
             )
     for _id in del_list:
         del PLAN_DICT[uid][_id]
+    if del_list:
+        _save_plans(uid)
 
 
 def get_headers(uid):

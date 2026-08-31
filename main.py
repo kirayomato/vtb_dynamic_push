@@ -4,14 +4,20 @@ import traceback
 from logger import logger, output_manager
 from web import app
 import web
-from query_weibo import query_weibodynamic, query_valid, USER_NAME_DICT
+from query_weibo import (
+    query_weibodynamic,
+    query_valid,
+    USER_NAME_DICT,
+    init_state as init_weibo_state,
+)
 from query_bili import (
     query_bilidynamic,
     query_live_status_batch,
     DYNAMIC_NAME_DICT,
     LIVE_NAME_DICT,
+    init_state as init_bili_state,
 )
-from query_afd import query_afddynamic, AFD_NAME_DICT
+from query_afd import query_afddynamic, AFD_NAME_DICT, init_state as init_afd_state
 from colorama import Fore, init
 from push import notify
 from push import global_config as config
@@ -213,6 +219,11 @@ def run_server():
 
 if __name__ == "__main__":
     init(autoreset=True)
+    # 从本地数据库恢复各平台状态，必须在任何查询线程启动之前完成，
+    # 否则线程会先跑到初始化分支，把已有状态当成"新用户"重新拉取一遍。
+    init_bili_state()
+    init_weibo_state()
+    init_afd_state()
     thread1 = threading.Thread(target=bili_dy, daemon=True, name="查询B站动态")
     thread2 = threading.Thread(target=bili_live, daemon=True, name="查询B站直播")
     thread3 = threading.Thread(target=weibo, daemon=True, name="查询微博动态")

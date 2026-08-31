@@ -9,6 +9,7 @@ import requests
 from requests.exceptions import RequestException
 from config import general_headers
 from utils import check_diff, get_icon, get_image
+from storage import dyn_del, dyn_load, dyn_set, dyn_set_many, kv_load, kv_set
 
 # from PIL import Image
 from colorama import Fore, Style
@@ -25,6 +26,43 @@ proxies = {
     "https": "",
 }
 prefix = "【查询微博状态】"
+
+_prefix = "【微博持久化】"
+
+
+def init_state():
+    """从本地数据库恢复上次运行的状态，避免重新初始化。
+
+    由 main.py 在启动查询线程前显式调用，不在 import 期执行，
+    避免导入本模块就产生建库、连库等副作用。
+    """
+    try:
+        loaded = dyn_load("weibo")
+        for uid, items in loaded.items():
+            # 微博id在内存中以int为键，持久化为字符串，这里还原
+            DYNAMIC_DICT[uid] = {int(k): v for k, v in items.items()}
+        for store, target in (
+            ("weibo.name", USER_NAME_DICT),
+            ("weibo.face", USER_FACE_DICT),
+            ("weibo.sign", USER_SIGN_DICT),
+            ("weibo.count", USER_COUNT_DICT),
+        ):
+            target.update(kv_load(store))
+        logger.info(
+            f"已从本地数据库恢复微博状态: 用户{len(DYNAMIC_DICT)}个/"
+            f"{sum(len(v) for v in DYNAMIC_DICT.values())}条微博",
+            _prefix,
+            Fore.LIGHTYELLOW_EX,
+        )
+    except Exception as e:
+        logger.error(f"恢复微博持久化状态失败: {e}", _prefix)
+
+
+def _save_user_info(uid):
+    kv_set("weibo.name", uid, USER_NAME_DICT.get(uid))
+    kv_set("weibo.face", uid, USER_FACE_DICT.get(uid))
+    kv_set("weibo.sign", uid, USER_SIGN_DICT.get(uid))
+
 
 cookies_valid = False
 
@@ -202,6 +240,7 @@ def query_weibodynamic(uid, cookie, msg, special) -> bool:
         USER_SIGN_DICT[uid] = sign
         USER_NAME_DICT[uid] = uname
         USER_COUNT_DICT[uid] = total
+        kv_set("weibo.count", uid, total)
         LAST_ID = cards[-1]["mblog"]["id"]
         for card in cards:
             mblog = card["mblog"]
@@ -209,13 +248,16 @@ def query_weibodynamic(uid, cookie, msg, special) -> bool:
             url = card["scheme"]
             if mblog_id >= LAST_ID:
                 created_at = datetime.strptime(
-                    mblog["created_at"], "%a %b %d %H:%M:%S %z %Y"
+                    mblog["created_at"], "%a %b %d %H:%M:%S +0800 %Y"
                 ).timestamp()
                 content, pic_url, action = get_content(mblog)
+                # 存时间戳而非datetime对象，保证可持久化且get_active可比较
                 DYNAMIC_DICT[uid][mblog_id] = content, pic_url, created_at
                 if uid in special:
                     get_image(pic_url, headers, prefix, "weibo", uname, "dynamic")
 
+        _save_user_info(uid)
+        dyn_set_many("weibo", uid, DYNAMIC_DICT[uid])
         created_at = datetime.strptime(
             cards[-1]["mblog"]["created_at"], "%a %b %d %H:%M:%S %z %Y"
         )
@@ -244,6 +286,7 @@ def query_weibodynamic(uid, cookie, msg, special) -> bool:
     chk_diff(face, USER_FACE_DICT, "微博头像", pic=face)
     chk_diff(sign, USER_SIGN_DICT, "微博签名")
     chk_diff(uname, USER_NAME_DICT, "微博昵称")
+    _save_user_info(uid)
 
     cnt = 0
     for card in reversed(cards):
@@ -262,6 +305,7 @@ def query_weibodynamic(uid, cookie, msg, special) -> bool:
 
         if mblog_id < max(DYNAMIC_DICT[uid]):
             DYNAMIC_DICT[uid][mblog_id] = content, pic_url, created_at.timestamp()
+            dyn_set("weibo", uid, mblog_id, content, pic_url, created_at.timestamp())
             logger.info(
                 f"【{uname}】历史微博，不进行推送({total}) {display_time}: \n{content}，url: {url}",
                 prefix,
@@ -286,10 +330,12 @@ def query_weibodynamic(uid, cookie, msg, special) -> bool:
             pic_url=pic_url,
         )
         DYNAMIC_DICT[uid][mblog_id] = content, pic_url, created_at.timestamp()
+        dyn_set("weibo", uid, mblog_id, content, pic_url, created_at.timestamp())
         logger.debug(str(DYNAMIC_DICT[uid]), prefix, Fore.LIGHTYELLOW_EX)
 
     _total = USER_COUNT_DICT[uid]
     USER_COUNT_DICT[uid] = total
+    kv_set("weibo.count", uid, total)
     if total == _total + cnt:
         return get_active(uid)
 
@@ -328,6 +374,7 @@ def query_weibodynamic(uid, cookie, msg, special) -> bool:
                     )
             for _id in del_list:
                 del DYNAMIC_DICT[uid][_id]
+                dyn_del("weibo", uid, _id)
         if total == _total + cnt:
             return get_active(uid)
         elif total > _total + cnt:
