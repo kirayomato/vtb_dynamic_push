@@ -49,6 +49,7 @@
 - `intervals_second`每个UID扫描间隔秒数，每轮间隔为`intervals*len(uid_list)`，不建议过于频繁，否则可能触发风控
 - `enable_cookie_check`是否启用cookie检测功能，默认关闭
 - `cookie_check_uid`检测cookie使用的账号，默认为[Hitomi浅川瞳poi](https://weibo.com/u/1794972577)，需要关注，检测原理为判断是否获取到粉见微博，要求最近25条微博中包含粉见微博。
+- `special_list`特别关注列表，使用英文逗号分隔。其中的博主动态会保存所有图片。
 
 `bili`下的参数
 - `enable_dynamic_push`是否启用B站动态推送
@@ -57,7 +58,7 @@
 
 - `enable_living_push`是否启用开播推送
 - `dynamic_uid_list`需要扫描直播的up主uid列表，使用英文逗号分隔。注意是uid而不是直播间号
-- `special_list`特别关注列表，在其中的up主开播时推送将会增加响铃，需要同时填写在`live_uid_list`中
+- `special_list`特别关注列表，使用英文逗号分隔。其中的UP主动态会保存所有图片；开播推送会增加响铃提示，且需要同时填写在`live_uid_list`中
 - `live_intervals_second`直播扫描间隔秒数，不建议设置太频繁，否则可能触发风控
 
 `afd`下的参数

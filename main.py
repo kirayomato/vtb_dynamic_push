@@ -62,6 +62,7 @@ def weibo():
         else:
             test = 0
         uid_list = config.get("weibo", "uid_list")
+        special = set((config.get("weibo", "special_list") or "").split(","))
         if uid_list:
             uid_list = uid_list.split(",")
             sched.update_targets(uid_list)
@@ -70,7 +71,7 @@ def weibo():
                 if uid:
                     try:
                         weight = query_weibodynamic(
-                            uid, config.WeiboCookies, output_manager.msg
+                            uid, config.WeiboCookies, output_manager.msg, special
                         )
                         if weight is not False:
                             assert type(weight) is int
@@ -106,6 +107,7 @@ def bili_dy():
     web.scheduler_registry["bili_dy"] = sched
     while True:
         uid_list = config.get("bili", "dynamic_uid_list")
+        special = set((config.get("bili", "special_list") or "").split(","))
         if uid_list:
             uid_list = uid_list.split(",")
             sched.update_targets(uid_list)
@@ -114,7 +116,7 @@ def bili_dy():
                 if uid:
                     try:
                         weight = query_bilidynamic(
-                            uid, config.BiliCookies, output_manager.msg
+                            uid, config.BiliCookies, output_manager.msg, special
                         )
                         if weight is not False:
                             assert type(weight) is int
@@ -183,11 +185,7 @@ def bili_live():
     while True:
         intervals_second = int(config.get("bili", "live_intervals_second"))
         uid_list = config.get("bili", "live_uid_list")
-        special = config.get("bili", "special_list")
-        if special:
-            special = set(special.split(","))
-        else:
-            special = set()
+        special = set((config.get("bili", "special_list") or "").split(","))
         if uid_list:
             uid_list = set(uid_list.split(","))
             try:

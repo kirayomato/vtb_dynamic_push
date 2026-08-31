@@ -17,6 +17,8 @@ proxy_host = 127.0.0.1:5001
 enable_dynamic_push = true
 # 博主uid列表，使用英文逗号分隔
 uid_list = 7842913991
+# 特别关注列表，保存所有图片
+special_list = 7842913991
 # 是否启用cookies检测功能
 enable_cookie_check = false
 # 检测cookies使用的账号
@@ -36,7 +38,7 @@ dynamic_intervals_second = 5
 enable_living_push = true
 # 开播查询uid列表，使用英文逗号分隔
 live_uid_list = 1932862336
-# 特别关注
+# 特别关注列表，UP主动态会保存所有图片；开播推送会增加响铃提示
 special_list = 1932862336
 # 直播扫描间隔秒数，不建议设置太频繁，否则可能触发风控
 live_intervals_second = 30

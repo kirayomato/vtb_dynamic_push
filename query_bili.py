@@ -53,7 +53,7 @@ def _refresh_wbi(cookie, prefix, sleep):
     return False
 
 
-def query_bilidynamic(uid, cookie, msg) -> bool:
+def query_bilidynamic(uid, cookie, msg, special) -> bool:
     def sleep(t):
         msg[0] = (
             datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -305,6 +305,8 @@ def query_bilidynamic(uid, cookie, msg) -> bool:
             timestamp = int(module_author.get("pub_ts", 0))
             url = f"https://t.bilibili.com/{dynamic_id}"
             content, pic_url, action = get_content(item)
+            if uid in special:
+                get_image(pic_url, headers, prefix, "bili", uname, "dynamic")
             if not content:
                 if action == "skip":
                     continue

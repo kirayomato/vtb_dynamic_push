@@ -61,7 +61,7 @@ def query_valid(uid, cookie):
         return True
 
 
-def query_weibodynamic(uid, cookie, msg) -> bool:
+def query_weibodynamic(uid, cookie, msg, special) -> bool:
     def sleep(t):
         msg[1] = (
             datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -213,6 +213,8 @@ def query_weibodynamic(uid, cookie, msg) -> bool:
                 ).timestamp()
                 content, pic_url, action = get_content(mblog)
                 DYNAMIC_DICT[uid][mblog_id] = content, pic_url, created_at
+                if uid in special:
+                    get_image(pic_url, headers, prefix, "weibo", uname, "dynamic")
 
         created_at = datetime.strptime(
             cards[-1]["mblog"]["created_at"], "%a %b %d %H:%M:%S %z %Y"
