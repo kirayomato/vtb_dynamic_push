@@ -3,6 +3,9 @@
 enable = true
 # 单个ID最大权重
 max_weight = 5
+# 手动固定权重，格式: 目标ID:权重,目标ID:权重（被固定的目标权重不会被自动调整）
+static_weight_weibo = 7842913991:5.0
+static_weight_bili_dy = 1932862336:5.0
 
 [image_proxy]
 # 是否启用图片反代 true/false

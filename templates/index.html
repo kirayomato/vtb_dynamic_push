@@ -410,6 +410,28 @@
             vertical-align: middle;
             margin-right: 6px;
         }
+
+        .scheduler-static-row {
+            background: rgba(255, 245, 11, 0.06);
+        }
+
+        .badge-pin {
+            display: inline-block;
+            padding: 0 5px;
+            margin-right: 4px;
+            border-radius: 8px;
+            font-size: 11px;
+            background: rgba(255, 245, 11, 0.2);
+            color: rgb(255 245 11);
+            vertical-align: middle;
+        }
+
+        .static-weight-input {
+            width: 70px;
+            padding: 2px 6px;
+            font-size: 13px;
+            text-align: center;
+        }
     </style>
 </head>
 
@@ -952,6 +974,7 @@
                                         <th>访问次数</th>
                                         <th>平均间隔(s)</th>
                                         <th>最近访问</th>
+                                        <th>静态权重</th>
                                     </tr>
                                 </thead>
                                 <tbody>`;
@@ -966,14 +989,22 @@
                                 ? `${escapeHtml(t.key)} <span class="scheduler-name">(${escapeHtml(displayName)})</span>`
                                 : escapeHtml(t.key);
                             const barW = Math.max(2, (t.weight / maxW) * 80);
+                            const rowCls = t.static ? ' class="scheduler-static-row"' : '';
+                            const pinMark = t.static ? '<span class="badge-pin">固定</span> ' : '';
                             html += `
-                                <tr>
+                                <tr${rowCls}>
                                     <td>${nameCell}</td>
-                                    <td><span class="weight-bar" style="width:${barW}px"></span>${t.weight}</td>
+                                    <td>${pinMark}<span class="weight-bar" style="width:${barW}px"></span>${t.weight}</td>
                                     <td>${t.current_weight}</td>
                                     <td>${t.access_count}</td>
                                     <td>${t.avg_interval ?? '—'}</td>
                                     <td>${formatRelative(t.last_access)}</td>
+                                    <td>
+                                        <input class="static-weight-input" type="number" step="any" min="0"
+                                            value="${t.static_weight ?? ''}"
+                                            title="手动固定权重（留空解除固定），修改后自动保存"
+                                            onchange="setStaticWeight(this, '${t.key}', '${name}')">
+                                    </td>
                                 </tr>`;
                         }
                         html += '</tbody></table>';
@@ -985,6 +1016,33 @@
             } catch (e) {
                 $('schedulerBody').innerHTML = `<div class="scheduler-empty">加载失败: ${escapeHtml(e)}</div>`;
             }
+        }
+
+        // 设置/清除某个目标的静态固定权重
+        async function setStaticWeight(input, uid, schedulerName) {
+            const val = input.value.trim();
+            let weight = null;
+            if (val !== '') {
+                const n = Number(val);
+                if (!isFinite(n) || n <= 0) {
+                    alert('权重必须是大于0的数字');
+                    input.value = '';
+                    return;
+                }
+                weight = n;
+            }
+            try {
+                const res = await fetch('/scheduler/static_weight', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ scheduler: schedulerName, uid, weight })
+                }).then(r => r.json());
+                if (res.error) {
+                    alert(res.error);
+                    input.value = weight ?? '';
+                }
+                refreshScheduler(); // 立即刷新以反映最新状态
+            } catch (e) { alert('保存失败: ' + e); }
         }
     </script>
 </body>

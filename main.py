@@ -51,7 +51,7 @@ def weibo():
     logger.info("开始检测微博", prefix, Fore.GREEN)
     test = 0
     intervals_second = 5
-    sched = Scheduler()
+    sched = Scheduler("weibo")
     web.scheduler_registry["weibo"] = sched
     while True:
         if cookies_check == "true" and not query_valid(check_uid, config.WeiboCookies):
@@ -102,7 +102,7 @@ def bili_dy():
     output_manager.inc_cnt()
     logger.info("开始检测动态", prefix, Fore.GREEN)
     intervals_second = 5
-    sched = Scheduler()
+    sched = Scheduler("bili_dy")
     web.scheduler_registry["bili_dy"] = sched
     while True:
         uid_list = config.get("bili", "dynamic_uid_list")

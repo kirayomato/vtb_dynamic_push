@@ -310,6 +310,9 @@ SCHEDULER_LABELS = {
     "bili_dy": "B站动态",
 }
 
+# 允许配置静态权重的调度器（与 Scheduler 实例名一一对应）
+ALLOWED_SCHEDULERS = ("weibo", "bili_dy")
+
 
 @app.get("/scheduler")
 async def get_scheduler_info():
@@ -336,6 +339,61 @@ async def get_scheduler_info():
         }
     except Exception as e:
         return {"error": f"读取调度器失败: {e}"}
+
+
+@app.post("/scheduler/static_weight")
+async def set_static_weight(payload: dict = Body(...)):
+    """设置/清除某个调度器下某个目标的静态固定权重。
+    payload: {"scheduler": "weibo"|"bili_dy", "uid": "...", "weight": <float|null>}，
+    weight 为 null/空 表示清除固定。静态权重按调度器分别存储在 [scheduler] 的
+    static_weight_{scheduler} 配置项中，互不干扰。
+    """
+    try:
+        from push import global_config as config
+
+        scheduler_name = payload.get("scheduler")
+        if scheduler_name not in ALLOWED_SCHEDULERS:
+            return {"error": "缺少或无效的 scheduler 参数"}
+        uid = str(payload.get("uid", "")).strip()
+        weight = payload.get("weight")
+        if not uid:
+            return {"error": "缺少uid"}
+
+        cfg_key = f"static_weight_{scheduler_name}"
+        c = config._config
+        # 加锁读写，避免与后台 config 刷新线程竞争
+        with config._lock:
+            raw = c.get("scheduler", cfg_key, fallback="")
+            mapping = {}
+            for part in (raw or "").split(","):
+                part = part.strip()
+                if part and ":" in part:
+                    k, _, v = part.partition(":")
+                    mapping[k.strip()] = v.strip()
+
+            if weight is None or str(weight).strip() == "":
+                mapping.pop(uid, None)
+            else:
+                try:
+                    w = float(weight)
+                    if w <= 0:
+                        return {"error": "权重必须大于0"}
+                except ValueError:
+                    return {"error": "权重格式错误"}
+                mapping[uid] = str(w)
+
+            new_str = ",".join(f"{k}:{v}" for k, v in mapping.items())
+            c.set("scheduler", cfg_key, new_str)
+            with open("config.ini", "w", encoding="utf-8") as f:
+                c.write(f)
+
+        return {
+            "message": "保存成功",
+            "scheduler": scheduler_name,
+            "static_weight": new_str,
+        }
+    except Exception as e:
+        return {"error": f"保存失败: {e}"}
 
 
 if __name__ == "__main__":
