@@ -46,15 +46,13 @@ def init_state():
             ("bili.live_name", LIVE_NAME_DICT),
             ("bili.face", USER_FACE_DICT),
             ("bili.sign", USER_SIGN_DICT),
-            ("bili.live_status", LIVING_STATUS_DICT),
             ("bili.room_title", ROOM_TITLE_DICT),
             ("bili.room_cover", ROOM_COVER_DICT),
         ):
             target.update(kv_load(store))
         logger.info(
             f"已从本地数据库恢复B站状态: 动态用户{len(DYNAMIC_DICT)}个/"
-            f"{sum(len(v) for v in DYNAMIC_DICT.values())}条动态, "
-            f"直播状态{len(LIVING_STATUS_DICT)}个",
+            f"{sum(len(v) for v in DYNAMIC_DICT.values())}条动态",
             _prefix,
             Fore.LIGHTBLUE_EX,
         )
@@ -69,7 +67,8 @@ def _save_user_info(uid):
 
 
 def _save_live_info(uid):
-    kv_set("bili.live_status", uid, LIVING_STATUS_DICT.get(uid))
+    # 直播开播状态(live_status)刻意不落库：重启后视作未知，重新探测，
+    # 避免用旧状态误判"新开播"推送或绕过直播中判定。
     kv_set("bili.room_title", uid, ROOM_TITLE_DICT.get(uid))
     kv_set("bili.room_cover", uid, ROOM_COVER_DICT.get(uid))
 
