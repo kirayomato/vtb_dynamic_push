@@ -39,8 +39,7 @@ def init_state():
     try:
         loaded = dyn_load("weibo")
         for uid, items in loaded.items():
-            # 微博id在内存中以int为键，持久化为字符串，这里还原
-            DYNAMIC_DICT[uid] = {int(k): v for k, v in items.items()}
+            DYNAMIC_DICT[uid] = items
         for store, target in (
             ("weibo.name", USER_NAME_DICT),
             ("weibo.face", USER_FACE_DICT),
