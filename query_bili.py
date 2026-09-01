@@ -32,6 +32,10 @@ proxies = {
 cookies_failed_count = 0
 _prefix = "【B站持久化】"
 
+#: 本进程内已完成"特别关注图片兜底"的用户，避免每个轮询周期重复扫描。
+#: 进程重启后自动清空，从而重新兜底（与持久化前"每次启动都重新拉取"的语义一致）。
+_SPECIAL_BACKFILLED = set()
+
 
 def init_state():
     """从本地数据库恢复上次运行的状态，避免重新初始化。
@@ -330,6 +334,23 @@ def query_bilidynamic(uid, cookie, msg, special) -> bool:
         + f"查询{uname}动态"
         + Style.RESET_ALL
     )
+    # 特别关注图片兜底：持久化后 DYNAMIC_DICT 由数据库恢复，初始化分支
+    # 不再每次启动都执行，导致"特别关注保存所有图片"只生效一次。此处在本进程
+    # 首次查询该用户时统一兜底：把当前 feed 内全部图片落盘。get_icon 内部有
+    # 文件存在性短路，重复执行只做廉价 stat，不会重复下载。
+    if uid in special and uid not in _SPECIAL_BACKFILLED:
+        _SPECIAL_BACKFILLED.add(uid)
+        for item in items:
+            modules = item.get("modules", {})
+            if (
+                modules.get("module_tag", {})
+                and modules["module_tag"].get("text") == "置顶"
+            ):
+                continue
+            _content, _pic, _action = get_content(item)
+            if _action == "skip" or not _pic:
+                continue
+            get_image(_pic, headers, prefix, "bili", uname, "dynamic")
     if not DYNAMIC_DICT.get(uid):
         DYNAMIC_DICT[uid] = {}
         DYNAMIC_NAME_DICT[uid] = uname
@@ -347,8 +368,6 @@ def query_bilidynamic(uid, cookie, msg, special) -> bool:
             timestamp = int(module_author.get("pub_ts", 0))
             url = f"https://t.bilibili.com/{dynamic_id}"
             content, pic_url, action = get_content(item)
-            if uid in special:
-                get_image(pic_url, headers, prefix, "bili", uname, "dynamic")
             if not content:
                 if action == "skip":
                     continue

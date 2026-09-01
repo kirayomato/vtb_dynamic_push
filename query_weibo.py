@@ -29,6 +29,10 @@ prefix = "【查询微博状态】"
 
 _prefix = "【微博持久化】"
 
+#: 本进程内已完成"特别关注图片兜底"的用户，避免每个轮询周期重复扫描。
+#: 进程重启后自动清空，从而重新兜底（与持久化前"每次启动都重新拉取"的语义一致）。
+_SPECIAL_BACKFILLED = set()
+
 
 def init_state():
     """从本地数据库恢复上次运行的状态，避免重新初始化。
@@ -233,6 +237,19 @@ def query_weibodynamic(uid, cookie, msg, special) -> bool:
         + f"查询{uname}微博"
         + Style.RESET_ALL
     )
+    # 特别关注图片兜底：持久化后 DYNAMIC_DICT 由数据库恢复，初始化分支
+    # 不再每次启动都执行，导致"特别关注保存所有图片"只生效一次。此处在本进程
+    # 首次查询该用户时统一兜底：把当前 feed 内全部图片落盘。get_icon 内部有
+    # 文件存在性短路，重复执行只做廉价 stat，不会重复下载。
+    if uid in special and uid not in _SPECIAL_BACKFILLED:
+        _SPECIAL_BACKFILLED.add(uid)
+        weibo_last = cards[-1]["mblog"]["id"]
+        for card in cards:
+            mblog = card["mblog"]
+            if mblog["id"] >= weibo_last:
+                _content, pic_url, _action = get_content(mblog)
+                if pic_url:
+                    get_image(pic_url, headers, prefix, "weibo", uname, "dynamic")
     if not DYNAMIC_DICT.get(uid):
         DYNAMIC_DICT[uid] = {}
         USER_FACE_DICT[uid] = face
@@ -252,8 +269,6 @@ def query_weibodynamic(uid, cookie, msg, special) -> bool:
                 content, pic_url, action = get_content(mblog)
                 # 存时间戳而非datetime对象，保证可持久化且get_active可比较
                 DYNAMIC_DICT[uid][mblog_id] = content, pic_url, created_at
-                if uid in special:
-                    get_image(pic_url, headers, prefix, "weibo", uname, "dynamic")
 
         _save_user_info(uid)
         dyn_set_many("weibo", uid, DYNAMIC_DICT[uid])
