@@ -217,6 +217,20 @@
             justify-content: flex-end;
         }
 
+        .raw-toggle {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 14px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .raw-toggle input {
+            cursor: pointer;
+        }
+
         ::-webkit-scrollbar {
             width: 8px;
         }
@@ -497,6 +511,9 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2>编辑配置</h2>
+                <label class="raw-toggle" title="切换 uid 列表为原始逗号分隔字符串显示">
+                    <input type="checkbox" id="rawListToggle"> 显示原始字符串
+                </label>
                 <button onclick="closeConfigEditor()">×</button>
             </div>
             <div class="modal-body" id="configForm">
@@ -535,6 +552,13 @@
 
             const saved = localStorage.getItem('logFontSize');
             if (saved) { $('fontSize').value = saved; updateFontSize(); }
+
+            // uid 列表显示模式：勾选后列表配置直接显示原始逗号分隔字符串
+            $('rawListToggle').addEventListener('change', e => {
+                localStorage.setItem('rawListMode', e.target.checked ? '1' : '');
+                if (lastConfig) renderConfig(lastConfig);
+            });
+            if (localStorage.getItem('rawListMode')) $('rawListToggle').checked = true;
         });
 
         // 加载日志
@@ -716,37 +740,53 @@
         }
 
         // 加载配置
+        let lastConfig = null; // 缓存最近一次拉取的配置，供切换显示模式时重渲染
+
+        function isRawListMode() {
+            return $('rawListToggle').checked;
+        }
+
         async function loadConfig() {
             try {
                 const { config, error } = await fetch('/config').then(r => r.json());
                 if (error) { alert(error); return; }
+                lastConfig = config;
+                await renderConfig(config);
+            } catch (e) { alert('加载配置失败: ' + e); }
+        }
 
-                // 收集所有B站UID
+        async function renderConfig(config) {
+            try {
+                const rawMode = isRawListMode();
+
+                // 收集所有B站UID（原始字符串模式下无需解析昵称）
                 const biliUids = [];
                 const biliUidKeys = ['dynamic_uid_list', 'live_uid_list', 'special_list'];
-                for (const [section, options] of Object.entries(config)) {
-                    for (const [key, value] of Object.entries(options)) {
-                        if (biliUidKeys.includes(key) && value) {
-                            value.split(',').forEach(uid => {
+                const weiboUids = [];
+                if (!rawMode) {
+                    for (const [section, options] of Object.entries(config)) {
+                        for (const [key, value] of Object.entries(options)) {
+                            if (biliUidKeys.includes(key) && value) {
+                                value.split(',').forEach(uid => {
+                                    uid = uid.trim();
+                                    if (uid && !biliUids.includes(uid)) {
+                                        biliUids.push(uid);
+                                    }
+                                });
+                            }
+                        }
+                    }
+
+                    // 收集所有微博UID
+                    for (const [section, options] of Object.entries(config)) {
+                        if (section === 'weibo' && options.uid_list) {
+                            options.uid_list.split(',').forEach(uid => {
                                 uid = uid.trim();
-                                if (uid && !biliUids.includes(uid)) {
-                                    biliUids.push(uid);
+                                if (uid && !weiboUids.includes(uid)) {
+                                    weiboUids.push(uid);
                                 }
                             });
                         }
-                    }
-                }
-
-                // 收集所有微博UID
-                const weiboUids = [];
-                for (const [section, options] of Object.entries(config)) {
-                    if (section === 'weibo' && options.uid_list) {
-                        options.uid_list.split(',').forEach(uid => {
-                            uid = uid.trim();
-                            if (uid && !weiboUids.includes(uid)) {
-                                weiboUids.push(uid);
-                            }
-                        });
                     }
                 }
 
@@ -767,8 +807,8 @@
                                     <option value="false" ${value === 'false' ? 'selected' : ''}>false</option>
                                 </select>
                             </div>`;
-                        } else if (isListConfig(key, value)) {
-                            // 逗号分隔的列表配置
+                        } else if (!rawMode && isListConfig(key, value)) {
+                            // 逗号分隔的列表配置（原始字符串模式下直接显示原始文本）
                             const items = value.split(',').map(item => item.trim()).filter(item => item);
                             const isBiliUid = section === 'bili';
                             const isWeiboUid = section === 'weibo';
