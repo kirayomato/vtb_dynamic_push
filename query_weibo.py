@@ -210,6 +210,7 @@ def query_weibodynamic(uid, cookie, msg, special) -> bool:
             if DYNAMIC_DICT.get(uid):
                 logger.warning("微博Cookie无效", prefix)
                 notify("微博Cookie无效", "", on_click="https://m.weibo.cn/")
+                sleep(300)
             else:
                 logger.debug(f"【{uid}】微博列表为空", prefix)
                 DYNAMIC_DICT[uid] = {}
