@@ -137,6 +137,12 @@ Cookie要求为json格式，结构如下
 
 打开
 `http://localhost:5000/`访问简易web界面
+
+web界面顶部提供「SQL 浏览器」，可直接查看 `data/state.db` 中的表结构与数据（只读）
+
+- 仅支持单条 `SELECT` / `WITH` / `VALUES` / `EXPLAIN` / `PRAGMA` 语句，`UPDATE`、`DELETE`、`DROP`、`ATTACH` 等会被拒绝
+- 单次最多返回 1000 行，执行超过 5 秒会被自动中断，避免误写全表扫描拖慢服务
+- 点击左侧表名可查看字段结构并预览前 100 行；`Ctrl+Enter` 快捷执行
 ## 声明
 
 - 本仓库发布的`vtb_dynamic_push`项目中涉及的任何脚本，仅用于测试和学习研究，禁止用于商业用途

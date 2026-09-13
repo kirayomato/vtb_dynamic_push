@@ -7,13 +7,18 @@
 - dynamics 表: 存储各平台的动态/微博/文章 (platform, uid, item_id, content, pic_url, ts)
 
 线程安全（RLock + WAL 模式），所有写入失败仅记录日志，不影响查询主流程。
+
+文件末尾另提供一套只读查询接口（list_tables / table_schema / run_readonly_query），
+供 web 端「SQL 浏览器」使用，写入被 SQLite 内核级拦截。
 """
 
 import atexit
 import json
 import os
+import re
 import sqlite3
 import threading
+import time
 from datetime import datetime
 
 prefix = "【持久化存储】"
@@ -43,6 +48,11 @@ def _db_path() -> str:
     return os.path.join(
         os.path.dirname(os.path.abspath(__file__)), "data", "state.db"
     )
+
+
+def db_path() -> str:
+    """当前持久化数据库文件路径（供只读浏览器等展示用）。"""
+    return _db_path()
 
 
 def _get_conn() -> sqlite3.Connection:
@@ -428,3 +438,336 @@ def dyn_query(
     except Exception as e:
         _log("error", f"查询动态失败 platform={platform}: {e}")
         return []
+
+
+# ---------------- 只读 SQL 浏览器 ----------------
+#
+# 只读边界由五层共同保证，任何一层单独失效都不会导致数据被改写：
+#   1. 语句白名单：只放行 SELECT / WITH / VALUES / EXPLAIN / PRAGMA 开头的语句，
+#      UPDATE、DROP、ATTACH 等在入口就被拒绝，并给出可读的报错；
+#   2. PRAGMA 黑名单：journal_mode / writable_schema / query_only 等会改动库文件
+#      或连接状态的 pragma 被单独拒绝（query_only 放行等于自废只读开关）；
+#   3. PRAGMA query_only=ON：SQLite 内核级只读开关，即使白名单有遗漏，
+#      prepare 阶段也会拒绝任何改写数据库的语句；
+#   4. set_authorizer 拒绝 INSERT/UPDATE/DELETE/DDL/ATTACH 等动作码，作兜底；
+#   5. Python 的 cursor.execute 原生只接受单条语句，`SELECT 1;DROP ...` 这类
+#      堆叠语句会直接抛 ProgrammingError，无法绕过。
+# 只读连接独立于写入连接，彼此不共享状态，查询由专用锁串行化。
+
+#: 单次查询最多返回的行数，防止一次把整库拉进浏览器
+SQL_BROWSE_MAX_ROWS = 1000
+#: 单次查询最长执行时间（秒），超时由 progress_handler 中断
+SQL_BROWSE_TIMEOUT = 5.0
+#: 单个单元格文本超过该长度就截断，避免超大 JSON 撑爆响应体
+SQL_CELL_MAX_CHARS = 4000
+#: 白名单：只有这些关键字开头的语句才允许执行
+_SQL_READ_KEYWORDS = ("select", "with", "values", "explain", "pragma")
+#: 禁止的 PRAGMA：这些会改动库文件/连接状态，属于"写"而非"读"
+#: （query_only 也在其中，防止只读开关被自己关掉；writable_schema 是经典绕过手法）
+_SQL_DENY_PRAGMAS = frozenset(
+    (
+        "journal_mode",
+        "writable_schema",
+        "synchronous",
+        "locking_mode",
+        "auto_vacuum",
+        "page_size",
+        "secure_delete",
+        "journal_size_limit",
+        "max_page_count",
+        "reserve_size",
+        "cell_size",
+        "legacy_file_format",
+        "wal_checkpoint",
+        "incremental_vacuum",
+        "optimize",
+        "query_only",
+        "trusted_schema",
+        "cache_spill",
+        "mmap_size",
+    )
+)
+#: 授权器拒绝的动作码（写数据 / 改结构 / 挂载其它库）
+_SQL_DENY_ACTIONS = frozenset(
+    getattr(sqlite3, _name)
+    for _name in (
+        "SQLITE_INSERT",
+        "SQLITE_UPDATE",
+        "SQLITE_DELETE",
+        "SQLITE_CREATE_INDEX",
+        "SQLITE_CREATE_TABLE",
+        "SQLITE_CREATE_TEMP_INDEX",
+        "SQLITE_CREATE_TEMP_TABLE",
+        "SQLITE_CREATE_TEMP_TRIGGER",
+        "SQLITE_CREATE_TEMP_VIEW",
+        "SQLITE_CREATE_TRIGGER",
+        "SQLITE_CREATE_VIEW",
+        "SQLITE_CREATE_VTABLE",
+        "SQLITE_DROP_INDEX",
+        "SQLITE_DROP_TABLE",
+        "SQLITE_DROP_TEMP_INDEX",
+        "SQLITE_DROP_TEMP_TABLE",
+        "SQLITE_DROP_TEMP_TRIGGER",
+        "SQLITE_DROP_TEMP_VIEW",
+        "SQLITE_DROP_TRIGGER",
+        "SQLITE_DROP_VIEW",
+        "SQLITE_DROP_VTABLE",
+        "SQLITE_ALTER_TABLE",
+        "SQLITE_REINDEX",
+        "SQLITE_ANALYZE",
+        "SQLITE_ATTACH",
+        "SQLITE_DETACH",
+        "SQLITE_SAVEPOINT",
+        "SQLITE_TRANSACTION",
+    )
+)
+
+_ro_conn = None
+_sql_lock = threading.RLock()
+
+
+def _sql_authorizer(action, arg1, arg2, db_name, source):
+    """SQLite 授权回调：拒绝一切写数据/改结构/挂载库的动作。"""
+    if action in _SQL_DENY_ACTIONS:
+        return sqlite3.SQLITE_DENY
+    if action == sqlite3.SQLITE_PRAGMA and (arg1 or "").lower() in _SQL_DENY_PRAGMAS:
+        return sqlite3.SQLITE_DENY
+    return sqlite3.SQLITE_OK
+
+
+def _get_read_conn() -> sqlite3.Connection:
+    """惰性创建只读查询专用连接。
+
+    没有用 `mode=ro` 的 URI 打开：WAL 库在只读模式下仍要求 -shm 可写，
+    进程刚启动、-shm 尚未建立时会直接打开失败。这里改为普通连接 +
+    `PRAGMA query_only=ON` + authorizer，兼容性更好，写入同样被内核拒绝。
+    """
+    global _ro_conn
+    with _sql_lock:
+        if _ro_conn is not None:
+            return _ro_conn
+        path = _db_path()
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        conn = sqlite3.connect(path, check_same_thread=False)
+        conn.execute("PRAGMA query_only=ON")
+        conn.execute("PRAGMA busy_timeout=3000")
+        conn.set_authorizer(_sql_authorizer)
+        _ro_conn = conn
+    _log("info", "只读查询连接已建立（SQL 浏览器）")
+    return _ro_conn
+
+
+def _close_read_conn() -> None:
+    global _ro_conn
+    with _sql_lock:
+        if _ro_conn is None:
+            return
+        try:
+            _ro_conn.close()
+        except Exception as e:
+            _log("error", f"关闭只读连接失败: {e}")
+        _ro_conn = None
+
+
+atexit.register(_close_read_conn)
+
+
+def _quote_ident(name: str) -> str:
+    """把标识符安全地包成 SQLite 双引号形式，内部双引号翻倍。"""
+    return '"' + str(name).replace('"', '""') + '"'
+
+
+def _strip_sql_comments(sql: str) -> str:
+    """去掉 SQL 中的 -- 行注释与 /* */ 块注释，便于取首个关键字。"""
+    out = []
+    i, n = 0, len(sql)
+    while i < n:
+        ch = sql[i]
+        if ch == "-" and sql.startswith("--", i):
+            j = sql.find("\n", i)
+            i = n if j == -1 else j + 1
+        elif ch == "/" and sql.startswith("/*", i):
+            j = sql.find("*/", i + 2)
+            i = n if j == -1 else j + 2
+        else:
+            out.append(ch)
+            i += 1
+    return "".join(out)
+
+
+def sql_first_keyword(sql: str) -> str:
+    """返回语句的首个关键字（小写），空语句返回空串。"""
+    m = re.match(r"[A-Za-z_]+", _strip_sql_comments(sql or "").lstrip())
+    return m.group(0).lower() if m else ""
+
+
+def _sql_pragma_name(sql: str) -> str:
+    """取出 PRAGMA 语句的目标名（小写），兼容 `PRAGMA main.xxx` 写法。"""
+    body = _strip_sql_comments(sql or "").strip()
+    m = re.match(r"(?i)pragma\s+(?:[A-Za-z_]\w*\s*\.\s*)?([A-Za-z_]\w*)", body)
+    return m.group(1).lower() if m else ""
+
+
+def _json_cell(value):
+    """把 sqlite 返回值规整成可 JSON 序列化的形式，超长文本截断。"""
+    if isinstance(value, (bytes, bytearray, memoryview)):
+        return f"<BLOB {len(bytes(value))} bytes>"
+    if isinstance(value, str) and len(value) > SQL_CELL_MAX_CHARS:
+        return value[:SQL_CELL_MAX_CHARS] + f"…（已截断，共 {len(value)} 字符）"
+    return value
+
+
+def list_tables() -> list:
+    """列出所有表/视图及行数，供 SQL 浏览器侧栏展示。
+
+    返回 [{name, type, rows}]；视图或统计失败时 rows 为 None。
+    """
+    try:
+        conn = _get_read_conn()
+        with _sql_lock:
+            tables = conn.execute(
+                "SELECT name, type FROM sqlite_master "
+                "WHERE type IN ('table', 'view') AND name NOT LIKE 'sqlite_%' "
+                "ORDER BY type, name"
+            ).fetchall()
+            result = []
+            for name, kind in tables:
+                try:
+                    rows = conn.execute(
+                        f"SELECT COUNT(*) FROM {_quote_ident(name)}"
+                    ).fetchone()[0]
+                except sqlite3.Error:
+                    rows = None
+                result.append({"name": name, "type": kind, "rows": rows})
+        return result
+    except Exception as e:
+        _log("error", f"读取表列表失败: {e}")
+        return []
+
+
+def table_schema(table: str) -> dict:
+    """返回指定表/视图的字段、索引与建表语句。
+
+    表名先到 sqlite_master 里核对，避免把用户输入直接拼进 SQL。
+    """
+    try:
+        conn = _get_read_conn()
+        with _sql_lock:
+            exists = conn.execute(
+                "SELECT 1 FROM sqlite_master WHERE type IN ('table', 'view') "
+                "AND name = ?",
+                (table,),
+            ).fetchone()
+            if not exists:
+                return {"error": f"表不存在: {table}"}
+            cols = conn.execute(
+                f"PRAGMA table_info({_quote_ident(table)})"
+            ).fetchall()
+            indexes = conn.execute(
+                f"PRAGMA index_list({_quote_ident(table)})"
+            ).fetchall()
+            ddl = conn.execute(
+                "SELECT sql FROM sqlite_master WHERE name = ?", (table,)
+            ).fetchone()
+        return {
+            "table": table,
+            "columns": [
+                {
+                    "name": c[1],
+                    "type": c[2],
+                    "notnull": bool(c[3]),
+                    "default": c[4],
+                    "pk": bool(c[5]),
+                }
+                for c in cols
+            ],
+            "indexes": [
+                {"name": i[1], "unique": bool(i[2])} for i in indexes
+            ],
+            "sql": ddl[0] if ddl else None,
+        }
+    except Exception as e:
+        _log("error", f"读取表结构失败 table={table}: {e}")
+        return {"error": f"读取表结构失败: {e}"}
+
+
+def run_readonly_query(sql: str, limit: int = None, timeout: float = None) -> dict:
+    """执行一条只读 SQL，返回结果集。
+
+    成功时返回 {columns, rows, row_count, truncated, limit, elapsed_ms}；
+    被拒或出错时返回 {error, sql_error?}。只允许单条 SELECT/WITH/VALUES/
+    EXPLAIN/PRAGMA 语句，超出 limit 的行丢弃并置 truncated=True，
+    执行超过 timeout 秒会被自动中断。
+    """
+    sql = (sql or "").strip().rstrip(";").strip()
+    if not sql:
+        return {"error": "SQL 不能为空", "sql_error": True}
+
+    keyword = sql_first_keyword(sql)
+    if keyword not in _SQL_READ_KEYWORDS:
+        allowed = " / ".join(k.upper() for k in _SQL_READ_KEYWORDS)
+        return {
+            "error": f"只读模式仅支持 {allowed} 语句，"
+            f"当前语句以 {(keyword.upper() or '(空)')} 开头",
+            "sql_error": True,
+        }
+
+    if keyword == "pragma":
+        pragma = _sql_pragma_name(sql)
+        if pragma in _SQL_DENY_PRAGMAS:
+            return {
+                "error": f"只读模式禁止修改数据库状态：PRAGMA {pragma}",
+                "sql_error": True,
+            }
+
+    if limit is None:
+        limit = SQL_BROWSE_MAX_ROWS
+    else:
+        limit = max(1, min(int(limit), SQL_BROWSE_MAX_ROWS))
+    timeout = SQL_BROWSE_TIMEOUT if timeout is None else max(0.1, float(timeout))
+
+    conn = _get_read_conn()
+    start = time.monotonic()
+    deadline = start + timeout
+
+    def _watchdog():
+        # 返回非 0 会让 SQLite 中断当前语句
+        return 1 if time.monotonic() > deadline else 0
+
+    try:
+        with _sql_lock:
+            conn.set_progress_handler(_watchdog, 20000)
+            try:
+                cur = conn.execute(sql)
+                columns = [d[0] for d in (cur.description or [])]
+                raw = cur.fetchmany(limit + 1)  # 多取一行用于判断是否被截断
+            finally:
+                conn.set_progress_handler(None, 0)
+        truncated = len(raw) > limit
+        rows = [[_json_cell(v) for v in row] for row in raw[:limit]]
+        return {
+            "columns": columns,
+            "rows": rows,
+            "row_count": len(rows),
+            "truncated": truncated,
+            "limit": limit,
+            "elapsed_ms": round((time.monotonic() - start) * 1000, 1),
+        }
+    except sqlite3.OperationalError as e:
+        msg = str(e)
+        low = msg.lower()
+        if "interrupt" in low:
+            msg = f"查询超时（>{timeout:g}s）已中断，请用 WHERE / LIMIT 缩小范围"
+        elif "authoriz" in low:
+            msg = "当前为只读模式，禁止 INSERT/UPDATE/DELETE 及结构变更"
+        elif "readonly" in low:
+            msg = "数据库为只读状态，写操作被拒绝"
+        return {"error": msg, "sql_error": True}
+    except sqlite3.Error as e:
+        msg = str(e)
+        if "one statement at a time" in msg:
+            msg = "一次只能执行一条语句，不支持用分号堆叠多条语句"
+        return {"error": msg, "sql_error": True}
+    except Exception as e:
+        _log("error", f"只读查询失败: {e}")
+        return {"error": f"查询失败: {e}", "sql_error": True}

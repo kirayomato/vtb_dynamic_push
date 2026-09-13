@@ -1,4 +1,5 @@
 import json
+import os
 import re
 import io
 from collections import deque
@@ -302,6 +303,49 @@ async def get_weibo_user_info_batch(uids: str):
         return result
     except Exception as e:
         return {"error": str(e)}
+
+
+# ---------------- 只读 SQL 浏览器 ----------------
+# 数据落库在 data/state.db，这里只暴露查询能力：写出、改结构、ATTACH 等
+# 全部在 storage 层被拒绝（白名单 + query_only + authorizer 三层拦截）。
+
+
+@app.get("/sql/tables")
+def sql_tables():
+    """列出数据库中的表/视图及行数，供 SQL 浏览器侧栏展示"""
+    try:
+        from storage import list_tables, db_path
+
+        return {"tables": list_tables(), "db": os.path.basename(db_path())}
+    except Exception as e:
+        return {"error": f"读取表列表失败: {e}"}
+
+
+@app.get("/sql/schema")
+def sql_schema(table: str):
+    """获取指定表/视图的字段、索引与建表语句"""
+    try:
+        from storage import table_schema
+
+        return table_schema(table)
+    except Exception as e:
+        return {"error": f"读取表结构失败: {e}"}
+
+
+@app.post("/sql/query")
+def sql_query(payload: dict = Body(...)):
+    """执行一条只读 SQL。payload: {"sql": "...", "limit": 500}
+
+    仅放行单条 SELECT/WITH/VALUES/EXPLAIN/PRAGMA 语句，写操作返回 error。
+    这里刻意用同步 def：查询最长可跑 5 秒，交给 FastAPI 的线程池执行，
+    避免阻塞事件循环把日志轮询和调度器面板一起卡住。
+    """
+    try:
+        from storage import run_readonly_query
+
+        return run_readonly_query(payload.get("sql", ""), payload.get("limit"))
+    except Exception as e:
+        return {"error": f"查询失败: {e}"}
 
 
 # 调度器名称（线程名）到中文显示名的映射

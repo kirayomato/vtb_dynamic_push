@@ -446,6 +446,193 @@
             font-size: 13px;
             text-align: center;
         }
+
+        /* ===== 只读 SQL 浏览器 ===== */
+        .sql-modal-content {
+            max-width: 1280px;
+        }
+
+        .sql-body {
+            display: flex;
+            gap: 12px;
+            max-height: 72vh;
+            padding: 12px;
+        }
+
+        .sql-sidebar {
+            width: 220px;
+            flex-shrink: 0;
+            overflow-y: auto;
+            border-right: 1px solid var(--border);
+            padding-right: 10px;
+        }
+
+        .sql-sidebar-title {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin: 0 0 8px 0;
+            text-transform: uppercase;
+        }
+
+        .sql-table-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 8px;
+            margin-bottom: 4px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 14px;
+            border: 1px solid transparent;
+        }
+
+        .sql-table-item:hover {
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        .sql-table-item.active {
+            background: rgba(74, 158, 255, 0.15);
+            border-color: var(--accent);
+        }
+
+        .sql-table-count {
+            font-size: 12px;
+            color: var(--text-secondary);
+            flex-shrink: 0;
+        }
+
+        .sql-main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            min-width: 0;
+        }
+
+        #sqlInput {
+            width: 100%;
+            height: 110px;
+            resize: vertical;
+            padding: 8px 10px;
+            font-family: Consolas, Monaco, monospace;
+            font-size: 15px;
+            line-height: 1.5;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            border-radius: 3px;
+        }
+
+        #sqlInput:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .sql-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .sql-status {
+            font-size: 13px;
+            color: var(--text-secondary);
+            min-height: 18px;
+        }
+
+        .sql-status.error {
+            color: #FF8080;
+        }
+
+        .sql-status.ok {
+            color: #80FF80;
+        }
+
+        .sql-schema {
+            font-size: 12px;
+            color: var(--text-secondary);
+            line-height: 1.7;
+            padding: 6px 8px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            max-height: 96px;
+            overflow-y: auto;
+            word-break: break-word;
+        }
+
+        .sql-schema code {
+            color: rgb(255 245 11);
+        }
+
+        .sql-result {
+            flex: 1;
+            overflow: auto;
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            min-height: 120px;
+        }
+
+        .sql-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        .sql-table th {
+            position: sticky;
+            top: 0;
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
+            text-align: left;
+            padding: 6px 10px;
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+        }
+
+        .sql-table td {
+            padding: 5px 10px;
+            border-bottom: 1px solid var(--border);
+            vertical-align: top;
+            max-width: 360px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .sql-table tbody tr:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .sql-row-num {
+            color: var(--text-secondary);
+            text-align: right;
+            width: 1%;
+            white-space: nowrap;
+        }
+
+        .sql-cell-null {
+            color: #777;
+            font-style: italic;
+        }
+
+        .sql-cell-num {
+            color: var(--accent);
+        }
+
+        .badge-readonly {
+            display: inline-block;
+            padding: 2px 8px;
+            margin-left: 8px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: normal;
+            background: rgba(76, 175, 80, 0.2);
+            color: #4caf50;
+            vertical-align: middle;
+        }
     </style>
 </head>
 
@@ -482,6 +669,7 @@
             <button onclick="updateCookies('weibo')">更新微博Cookie</button>
             <button onclick="updateCookies('bili')">更新B站Cookie</button>
             <button onclick="openSchedulerPanel()">调度器</button>
+            <button onclick="openSqlBrowser()">SQL 浏览器</button>
             <div class="stats"><span id="logCount">0 条日志</span></div>
         </div>
     </div>
@@ -526,6 +714,41 @@
         </div>
     </div>
 
+    <!-- 只读 SQL 浏览器弹窗 -->
+    <div class="modal" id="sqlModal">
+        <div class="modal-content sql-modal-content">
+            <div class="modal-header">
+                <h2>SQL 浏览器<span class="badge-readonly">只读</span></h2>
+                <span class="scheduler-meta" id="sqlDbInfo"></span>
+                <button onclick="closeSqlBrowser()">×</button>
+            </div>
+            <div class="sql-body">
+                <div class="sql-sidebar">
+                    <p class="sql-sidebar-title">数据表</p>
+                    <div id="sqlTables">
+                        <div class="loading">加载中...</div>
+                    </div>
+                </div>
+                <div class="sql-main">
+                    <textarea id="sqlInput" spellcheck="false" placeholder="在此输入只读 SQL，Ctrl+Enter 执行（点左侧表名可快速查看数据）"></textarea>
+                    <div class="sql-toolbar">
+                        <button onclick="runSql()">执行</button>
+                        <button onclick="clearSql()">清空</button>
+                        <div class="sql-status" id="sqlStatus"></div>
+                    </div>
+                    <div class="sql-schema" id="sqlSchema">点击左侧表名可查看字段结构并预览数据</div>
+                    <div class="sql-result" id="sqlResult">
+                        <div class="loading">输入 SQL 后点击执行</div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <span class="stats">只读模式：仅支持 SELECT / WITH / VALUES / EXPLAIN / PRAGMA 单条语句，最多返回 1000 行，超时 5 秒自动中断</span>
+                <button onclick="closeSqlBrowser()">关闭</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         const state = {
             latestId: 0,
@@ -559,6 +782,14 @@
                 if (lastConfig) renderConfig(lastConfig);
             });
             if (localStorage.getItem('rawListMode')) $('rawListToggle').checked = true;
+
+            // SQL 浏览器：Ctrl+Enter 执行
+            $('sqlInput').addEventListener('keydown', e => {
+                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                    e.preventDefault();
+                    runSql();
+                }
+            });
         });
 
         // 加载日志
@@ -1083,6 +1314,153 @@
                 }
                 refreshScheduler(); // 立即刷新以反映最新状态
             } catch (e) { alert('保存失败: ' + e); }
+        }
+
+        // ===== 只读 SQL 浏览器 =====
+        const sqlState = { open: false, tables: [], running: false };
+
+        function openSqlBrowser() {
+            sqlState.open = true;
+            $('sqlModal').classList.add('active');
+            if (!sqlState.tables.length) loadSqlTables();
+        }
+
+        function closeSqlBrowser() {
+            sqlState.open = false;
+            $('sqlModal').classList.remove('active');
+        }
+
+        // 加载数据表列表（名称 + 行数）
+        async function loadSqlTables() {
+            const box = $('sqlTables');
+            box.innerHTML = '<div class="loading">加载中...</div>';
+            try {
+                const data = await fetch('/sql/tables').then(r => r.json());
+                if (data.error) {
+                    box.innerHTML = `<div class="loading">${escapeHtml(data.error)}</div>`;
+                    return;
+                }
+                sqlState.tables = data.tables || [];
+                $('sqlDbInfo').textContent = data.db
+                    ? `${data.db} · ${sqlState.tables.length} 张表` : '';
+                if (!sqlState.tables.length) {
+                    box.innerHTML = '<div class="loading">数据库暂无表</div>';
+                    return;
+                }
+                box.innerHTML = sqlState.tables.map(t => `
+                    <div class="sql-table-item" data-table="${escapeHtml(t.name)}"
+                        title="${t.type === 'view' ? '视图' : '表'}，点击预览数据"
+                        onclick="selectSqlTable(this)">
+                        <span>${escapeHtml(t.name)}</span>
+                        <span class="sql-table-count">${t.rows ?? '—'}</span>
+                    </div>`).join('');
+            } catch (e) {
+                box.innerHTML = `<div class="loading">加载失败: ${escapeHtml(String(e))}</div>`;
+            }
+        }
+
+        // 点击表名：显示结构 + 预览前 100 行
+        async function selectSqlTable(el) {
+            document.querySelectorAll('.sql-table-item')
+                .forEach(n => n.classList.remove('active'));
+            el.classList.add('active');
+            const name = el.dataset.table;
+            $('sqlInput').value = `SELECT * FROM "${name}" LIMIT 100;`;
+            await loadSqlSchema(name);
+            runSql();
+        }
+
+        // 展示字段结构
+        async function loadSqlSchema(table) {
+            const box = $('sqlSchema');
+            box.textContent = '读取表结构...';
+            try {
+                const d = await fetch(`/sql/schema?table=${encodeURIComponent(table)}`)
+                    .then(r => r.json());
+                if (d.error) { box.textContent = d.error; return; }
+                const cols = (d.columns || []).map(c => {
+                    const flags = [
+                        c.type || 'ANY',
+                        c.pk ? 'PK' : '',
+                        c.notnull ? 'NOT NULL' : '',
+                        c.default !== null && c.default !== undefined ? `DEFAULT ${c.default}` : ''
+                    ].filter(Boolean).join(' ');
+                    return `<code>${escapeHtml(c.name)}</code> ${escapeHtml(flags)}`;
+                });
+                box.innerHTML = `字段（${cols.length}）：${cols.join('　|　') || '无'}`;
+            } catch (e) {
+                box.textContent = '读取表结构失败: ' + e;
+            }
+        }
+
+        // 执行只读查询
+        async function runSql() {
+            const sql = $('sqlInput').value.trim();
+            if (!sql) { setSqlStatus('请输入 SQL', 'error'); return; }
+            if (sqlState.running) return;
+            sqlState.running = true;
+            setSqlStatus('执行中...', '');
+            try {
+                const res = await fetch('/sql/query', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sql })
+                }).then(r => r.json());
+                if (res.error) {
+                    setSqlStatus(res.error, 'error');
+                    $('sqlResult').innerHTML = '<div class="loading">查询未执行</div>';
+                    return;
+                }
+                renderSqlResult(res);
+            } catch (e) {
+                setSqlStatus('请求失败: ' + e, 'error');
+            } finally {
+                sqlState.running = false;
+            }
+        }
+
+        function clearSql() {
+            $('sqlInput').value = '';
+            $('sqlStatus').className = 'sql-status';
+            $('sqlStatus').textContent = '';
+            $('sqlResult').innerHTML = '<div class="loading">输入 SQL 后点击执行</div>';
+        }
+
+        function setSqlStatus(text, cls) {
+            const el = $('sqlStatus');
+            el.textContent = text;
+            el.className = 'sql-status' + (cls ? ' ' + cls : '');
+        }
+
+        // 渲染结果表格
+        function renderSqlResult(res) {
+            const cols = res.columns || [];
+            if (!cols.length) {
+                $('sqlResult').innerHTML = '<div class="loading">该语句没有返回结果集</div>';
+                setSqlStatus(`执行成功 · 用时 ${res.elapsed_ms} ms`, 'ok');
+                return;
+            }
+            const head = '<tr><th class="sql-row-num">#</th>' +
+                cols.map(c => `<th>${escapeHtml(String(c))}</th>`).join('') + '</tr>';
+            const body = (res.rows || []).map((row, i) =>
+                `<tr><td class="sql-row-num">${i + 1}</td>` +
+                row.map(renderSqlCell).join('') + '</tr>').join('');
+            $('sqlResult').innerHTML =
+                `<table class="sql-table"><thead>${head}</thead><tbody>${body}</tbody></table>`;
+
+            let msg = `返回 ${res.row_count} 行 · ${cols.length} 列 · 用时 ${res.elapsed_ms} ms`;
+            if (res.truncated) msg += ` · 已达上限 ${res.limit} 行，结果被截断`;
+            setSqlStatus(msg, res.truncated ? '' : 'ok');
+        }
+
+        function renderSqlCell(v) {
+            if (v === null || v === undefined) {
+                return '<td><span class="sql-cell-null">NULL</span></td>';
+            }
+            if (typeof v === 'number') return `<td class="sql-cell-num">${v}</td>`;
+            const text = String(v);
+            const shown = text.length > 200 ? text.slice(0, 200) + '…' : text;
+            return `<td title="${escapeHtml(text)}">${escapeHtml(shown)}</td>`;
         }
     </script>
 </body>
