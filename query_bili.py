@@ -309,8 +309,8 @@ def query_bilidynamic(uid, cookie, msg, special) -> bool:
         first_item = items[0]
         modules = first_item.get("modules", {})
         module_author = modules.get("module_author", {})
-        uname = module_author.get("name", "")
-        face = module_author.get("face", "")
+        uname = module_author.get("name", DYNAMIC_NAME_DICT.get(uid, ""))
+        face = module_author.get("face", USER_FACE_DICT.get(uid, ""))
         sign = module_author.get("sign", "")
         home_url = f"https://space.bilibili.com/{uid}"
     except (KeyError, TypeError):

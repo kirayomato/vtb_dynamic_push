@@ -218,8 +218,8 @@ def query_weibodynamic(uid, cookie, msg, special) -> bool:
         card = cards[0]
         mblog = card["mblog"]
         user = mblog["user"]
-        uname = user["screen_name"]
-        face = user["profile_image_url"]
+        uname = user["screen_name"] or USER_NAME_DICT.get(uid, "")
+        face = user["profile_image_url"] or USER_FACE_DICT.get(uid, "")
         face = face.split("?", 1)[0]
         sign = user["description"]
         total = result["data"]["cardlistInfo"]["total"]
