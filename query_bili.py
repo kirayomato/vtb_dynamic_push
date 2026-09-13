@@ -405,7 +405,11 @@ def query_bilidynamic(uid, cookie, msg, special) -> bool:
     _save_user_info(uid)
 
     last_id = min(DYNAMIC_DICT[uid])
-    for item in reversed(items):
+    notified = False
+    new_count = 0
+    # items 按时间倒序(最新在前)：扫描到每条新动态就地下载图片+打日志（与改动前一致），
+    # 仅对第一条新动态(即最新)触发 notify，其余只入库不推送
+    for item in items:
         dynamic_id = item["id_str"]
         if dynamic_id in DYNAMIC_DICT[uid] or dynamic_id < last_id:
             continue
@@ -438,17 +442,26 @@ def query_bilidynamic(uid, cookie, msg, special) -> bool:
             prefix,
             Fore.LIGHTBLUE_EX,
         )
-        notify(
-            f"【{uname}】{action}",
-            content,
-            on_click=url,
-            image=image,
-            icon=icon_path,
-            pic_url=pic_url,
-        )
+        if not notified:
+            notify(
+                f"【{uname}】{action}",
+                content,
+                on_click=url,
+                image=image,
+                icon=icon_path,
+                pic_url=pic_url,
+            )
+            notified = True
+        new_count += 1
         DYNAMIC_DICT[uid][dynamic_id] = content, pic_url, timestamp
         dyn_set("bili", uid, dynamic_id, content, pic_url, timestamp)
         logger.debug(str(DYNAMIC_DICT[uid]), prefix, Fore.LIGHTBLUE_EX)
+    if new_count > 1:
+        logger.info(
+            f"【{uname}】本次共新增 {new_count} 条动态，仅推送最新一条",
+            prefix,
+            Fore.LIGHTBLUE_EX,
+        )
 
     # 检测删除动态
     st = set([item["id_str"] for item in items])

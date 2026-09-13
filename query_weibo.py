@@ -304,11 +304,17 @@ def query_weibodynamic(uid, cookie, msg, special) -> bool:
     _save_user_info(uid)
 
     cnt = 0
-    for card in reversed(cards):
+    max_id = max(DYNAMIC_DICT[uid])
+    min_id = min(DYNAMIC_DICT[uid])
+    notified = False
+    new_count = 0
+    # cards 按时间倒序(最新在前)：扫描到每条新微博就地下载图片+打日志（与改动前一致），
+    # 仅对第一条新微博(即最新)触发 notify，其余只入库不推送
+    for card in cards:
         mblog = card["mblog"]
         mblog_id = mblog["id"]
 
-        if mblog_id in DYNAMIC_DICT[uid] or mblog_id < min(DYNAMIC_DICT[uid]):
+        if mblog_id in DYNAMIC_DICT[uid] or mblog_id < min_id:
             continue
 
         created_at = datetime.strptime(
@@ -318,7 +324,8 @@ def query_weibodynamic(uid, cookie, msg, special) -> bool:
         content, pic_url, action = get_content(mblog)
         url = card["scheme"]
 
-        if mblog_id < max(DYNAMIC_DICT[uid]):
+        if mblog_id < max_id:
+            # 比已记录的最新微博更旧，仅作为历史入库，不推送也不计入 cnt
             DYNAMIC_DICT[uid][mblog_id] = content, pic_url, created_at.timestamp()
             dyn_set("weibo", uid, mblog_id, content, pic_url, created_at.timestamp())
             logger.info(
@@ -330,23 +337,31 @@ def query_weibodynamic(uid, cookie, msg, special) -> bool:
         if action in ["微博更新", "转发微博"]:
             cnt += 1
         image = get_image(pic_url, headers, prefix, "weibo", uname, "dynamic")
-
         logger.info(
             f"【{uname}】{action}({total}) {display_time}: \n{content}，url: {url}",
             prefix,
             Fore.LIGHTYELLOW_EX,
         )
-        notify(
-            f"【{uname}】{action}",
-            content,
-            on_click=url,
-            image=image,
-            icon=icon_path,
-            pic_url=pic_url,
-        )
+        if not notified:
+            notify(
+                f"【{uname}】{action}",
+                content,
+                on_click=url,
+                image=image,
+                icon=icon_path,
+                pic_url=pic_url,
+            )
+            notified = True
+        new_count += 1
         DYNAMIC_DICT[uid][mblog_id] = content, pic_url, created_at.timestamp()
         dyn_set("weibo", uid, mblog_id, content, pic_url, created_at.timestamp())
         logger.debug(str(DYNAMIC_DICT[uid]), prefix, Fore.LIGHTYELLOW_EX)
+    if new_count > 1:
+        logger.info(
+            f"【{uname}】本次共新增 {new_count} 条微博，仅推送最新一条",
+            prefix,
+            Fore.LIGHTYELLOW_EX,
+        )
 
     _total = USER_COUNT_DICT[uid]
     USER_COUNT_DICT[uid] = total
