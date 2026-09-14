@@ -1,5 +1,6 @@
 import configparser
 import os
+import re
 import traceback
 from colorama import Fore, Style
 from logger import logger
@@ -16,16 +17,67 @@ def update_config(config):
         sleep(30)
 
 
+def parse_cookie(raw):
+    """把 cookie 来源（文件内容/字符串）统一解析成 {name: value} 字典。
+
+    支持三种写法，向后兼容旧的浏览器导出 JSON 数组：
+      1. JSON 数组: [{"name": "...", "value": "..."}, ...]
+      2. JSON 对象: {"name": "value", ...}
+      3. 原始 Cookie 头字符串: "name1=val1; name2=val2"
+         （可带可选的 "Cookie:" 前缀，如开发者工具复制到的完整请求头）
+    无法解析时返回 {}。
+    """
+    if not raw or not raw.strip():
+        return {}
+    s = raw.strip()
+    # 1) 先尝试 JSON（数组或对象）
+    try:
+        data = json.loads(s)
+    except (json.JSONDecodeError, ValueError):
+        data = None
+    if isinstance(data, list):
+        cookies = {}
+        for c in data:
+            if isinstance(c, dict) and "name" in c:
+                cookies[c["name"]] = c.get("value")
+        return cookies
+    if isinstance(data, dict):
+        # 纯对象写法直接当 {name: value}
+        return {k: v for k, v in data.items()}
+    # 2) 当作原始 Cookie 头字符串解析
+    return _parse_cookie_string(s)
+
+
+def _parse_cookie_string(s):
+    """解析 `name=value; name=value` 形式的 Cookie 头字符串。
+
+    兼容可选的 "Cookie:" 前缀（开发者工具复制到的完整请求头）。
+    按分号切分，每个片段取第一个 '=' 左边为键、右边为值。
+    """
+    s = re.sub(r"^\s*cookie\s*:\s*", "", s, flags=re.IGNORECASE).strip()
+    cookies = {}
+    for part in s.split(";"):
+        part = part.strip()
+        if not part or "=" not in part:
+            continue
+        name, _, value = part.partition("=")
+        name = name.strip()
+        if name:
+            cookies[name] = value.strip()
+    return cookies
+
+
 def load_cookie(path, ck, name, _prefix):
     if not os.path.exists(path):
-        with open(path, "w") as f:
+        with open(path, "w", encoding="utf-8") as f:
             f.write("[]")
     try:
-        with open(path, "r") as f:
-            temp = json.load(f)
-        cookies = {}
-        for cookie in temp:
-            cookies[cookie.get("name")] = cookie.get("value")
+        with open(path, "r", encoding="utf-8") as f:
+            raw = f.read()
+        cookies = parse_cookie(raw)
+        if not cookies:
+            logger.warning(f"{name}Cookie为空或无法解析: {path}", prefix)
+            return ck
         logger.debug(f"读取{path}", prefix, Fore.GREEN)
         if ck != cookies:
             ck = cookies

@@ -109,7 +109,9 @@
 
 微博Cookie需要在 https://m.weibo.cn/ 中登陆进行获取，有时候即使已经登陆了获取的Cookie也会出现不完整的情况，需要重新登陆
 
-Cookie要求为json格式，结构如下
+Cookie有两种填写格式，程序会自动识别：
+
+1. JSON 格式（旧格式，向后兼容），结构如下
 ```
 [
 {
@@ -123,7 +125,12 @@ Cookie要求为json格式，结构如下
 ......
 ]
 ```
-推荐使用[EditThisCookie](https://chromewebstore.google.com/detail/editthiscookie-v3/ojfebgpkimhlhcblbalbfjblapadhbol)插件，导出后全部复制进去即可
+2. 原始 Cookie 头字符串格式：直接粘贴开发者工具里复制到的 `name=value; name=value; ...` 形式（可带可选 `Cookie:` 前缀），例如
+```
+SESSDATA=xxxx; bili_jct=yyyy; ...
+```
+
+推荐使用[EditThisCookie](https://chromewebstore.google.com/detail/editthiscookie-v3/ojfebgpkimhlhcblbalbfjblapadhbol)插件，导出后全部复制进去即可（导出的 JSON 或字符串均可直接粘贴）
 #### 3.安装第三方库
 
 `pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple/`

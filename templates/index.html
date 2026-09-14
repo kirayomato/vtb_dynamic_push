@@ -919,7 +919,7 @@
         // 更新Cookies
         async function updateCookies(type) {
             const name = type === 'weibo' ? '微博' : 'B站';
-            const content = prompt(`请输入新的${name}Cookies:`);
+            const content = prompt(`请输入新的${name}Cookies（支持浏览器导出的JSON数组，或直接粘贴 name=value; ... 字符串）:`);
             if (!content) return;
             try {
                 const { message, error } = await fetch(`/write-${type}`, {
