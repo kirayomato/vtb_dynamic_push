@@ -462,6 +462,13 @@ SQL_BROWSE_TIMEOUT = 5.0
 SQL_CELL_MAX_CHARS = 4000
 #: 白名单：只有这些关键字开头的语句才允许执行
 _SQL_READ_KEYWORDS = ("select", "with", "values", "explain", "pragma")
+#: 各表的日期列（库是手写的，直接写明即可）——默认查询按它对结果倒序（新的在前）。
+#: 表名 -> 时间列；不在表里的表默认查询不加 ORDER BY。
+_SQL_TABLE_TIME_COLUMN = {
+    "dynamics": "ts",
+    "kv": "updated_at",
+    "kv_history": "changed_at",
+}
 #: 禁止的 PRAGMA：这些会改动库文件/连接状态，属于"写"而非"读"
 #: （query_only 也在其中，防止只读开关被自己关掉；writable_schema 是经典绕过手法）
 _SQL_DENY_PRAGMAS = frozenset(
@@ -617,10 +624,19 @@ def _json_cell(value):
     return value
 
 
+def _time_column_for_table(name: str) -> str | None:
+    """返回该表的日期列（手写库，直接从映射取），没有配置则返回 None。
+
+    默认查询按此列倒序；未配置的表不加 ORDER BY。
+    """
+    return _SQL_TABLE_TIME_COLUMN.get(name)
+
+
 def list_tables() -> list:
     """列出所有表/视图及行数，供 SQL 浏览器侧栏展示。
 
-    返回 [{name, type, rows}]；视图或统计失败时 rows 为 None。
+    返回 [{name, type, rows, time_column}]；视图或统计失败时 rows 为 None，
+    time_column 用于前端生成"按日期倒序"的默认查询。
     """
     try:
         conn = _get_read_conn()
@@ -638,7 +654,14 @@ def list_tables() -> list:
                     ).fetchone()[0]
                 except sqlite3.Error:
                     rows = None
-                result.append({"name": name, "type": kind, "rows": rows})
+                result.append(
+                    {
+                        "name": name,
+                        "type": kind,
+                        "rows": rows,
+                        "time_column": _time_column_for_table(name),
+                    }
+                )
         return result
     except Exception as e:
         _log("error", f"读取表列表失败: {e}")
@@ -684,6 +707,7 @@ def table_schema(table: str) -> dict:
             "indexes": [
                 {"name": i[1], "unique": bool(i[2])} for i in indexes
             ],
+            "time_column": _time_column_for_table(table),
             "sql": ddl[0] if ddl else None,
         }
     except Exception as e:

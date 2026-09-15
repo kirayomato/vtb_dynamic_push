@@ -149,7 +149,7 @@ web界面顶部提供「SQL 浏览器」，可直接查看 `data/state.db` 中�
 
 - 仅支持单条 `SELECT` / `WITH` / `VALUES` / `EXPLAIN` / `PRAGMA` 语句，`UPDATE`、`DELETE`、`DROP`、`ATTACH` 等会被拒绝
 - 单次最多返回 1000 行，执行超过 5 秒会被自动中断，避免误写全表扫描拖慢服务
-- 点击左侧表名可查看字段结构并预览前 100 行；`Ctrl+Enter` 快捷执行
+- 点击左侧表名可查看字段结构，并按该表的时间列倒序预览前 100 行（如 `dynamics.ts`、`kv.updated_at`，新的在前）；`Ctrl+Enter` 快捷执行
 ## 声明
 
 - 本仓库发布的`vtb_dynamic_push`项目中涉及的任何脚本，仅用于测试和学习研究，禁止用于商业用途

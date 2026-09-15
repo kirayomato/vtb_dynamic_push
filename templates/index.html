@@ -1349,6 +1349,7 @@
                 }
                 box.innerHTML = sqlState.tables.map(t => `
                     <div class="sql-table-item" data-table="${escapeHtml(t.name)}"
+                        data-time="${escapeHtml(t.time_column || '')}"
                         title="${t.type === 'view' ? '视图' : '表'}，点击预览数据"
                         onclick="selectSqlTable(this)">
                         <span>${escapeHtml(t.name)}</span>
@@ -1359,13 +1360,15 @@
             }
         }
 
-        // 点击表名：显示结构 + 预览前 100 行
+        // 点击表名：显示结构 + 预览前 100 行（按日期列倒序，新的在前）
         async function selectSqlTable(el) {
             document.querySelectorAll('.sql-table-item')
                 .forEach(n => n.classList.remove('active'));
             el.classList.add('active');
             const name = el.dataset.table;
-            $('sqlInput').value = `SELECT * FROM "${name}" LIMIT 100;`;
+            const timeCol = el.dataset.time;
+            const order = timeCol ? ` ORDER BY "${timeCol}" DESC` : '';
+            $('sqlInput').value = `SELECT * FROM "${name}"${order} LIMIT 100;`;
             await loadSqlSchema(name);
             runSql();
         }
@@ -1387,7 +1390,10 @@
                     ].filter(Boolean).join(' ');
                     return `<code>${escapeHtml(c.name)}</code> ${escapeHtml(flags)}`;
                 });
-                box.innerHTML = `字段（${cols.length}）：${cols.join('　|　') || '无'}`;
+                box.innerHTML = `字段（${cols.length}）：${cols.join('　|　') || '无'}` +
+                    (d.time_column
+                        ? `　→ 默认按 <code>${escapeHtml(d.time_column)}</code> 倒序`
+                        : '');
             } catch (e) {
                 box.textContent = '读取表结构失败: ' + e;
             }
