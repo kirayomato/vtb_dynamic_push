@@ -102,7 +102,7 @@ def query_valid(uid, cookie):
         return True
 
 
-def query_weibodynamic(uid, cookie, msg, special) -> bool:
+def query_weibodynamic(uid, cookie, msg, special, cookies_check) -> bool:
     def sleep(t):
         msg[1] = (
             datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -208,9 +208,10 @@ def query_weibodynamic(uid, cookie, msg, special) -> bool:
         ]
         if len(cards) == 0:
             if DYNAMIC_DICT.get(uid):
-                logger.warning("微博Cookie无效", prefix)
-                notify("微博Cookie无效", "", on_click="https://m.weibo.cn/")
-                sleep(300)
+                if cookies_check == "true":
+                    logger.warning("微博Cookie无效", prefix)
+                    notify("微博Cookie无效", "", on_click="https://m.weibo.cn/")
+                    sleep(300)
             else:
                 logger.debug(f"【{uid}】微博列表为空", prefix)
                 DYNAMIC_DICT[uid] = {}

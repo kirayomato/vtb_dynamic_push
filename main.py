@@ -77,7 +77,11 @@ def weibo():
                 if uid:
                     try:
                         weight = query_weibodynamic(
-                            uid, config.WeiboCookies, output_manager.msg, special
+                            uid,
+                            config.WeiboCookies,
+                            output_manager.msg,
+                            special,
+                            cookies_check,
                         )
                         if weight is not False:
                             assert type(weight) is int
