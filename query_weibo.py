@@ -344,25 +344,20 @@ def query_weibodynamic(uid, cookie, msg, special, cookies_check) -> bool:
             Fore.LIGHTYELLOW_EX,
         )
         if not notified:
-            notify(
-                f"【{uname}】{action}",
-                content,
-                on_click=url,
-                image=image,
-                icon=icon_path,
-                pic_url=pic_url,
-            )
-            notified = True
+            if (datetime.now() - created_at).total_seconds() < 24 * 3600:
+                notify(
+                    f"【{uname}】{action}",
+                    content,
+                    on_click=url,
+                    image=image,
+                    icon=icon_path,
+                    pic_url=pic_url,
+                )
+                notified = True
         new_count += 1
         DYNAMIC_DICT[uid][mblog_id] = content, pic_url, created_at.timestamp()
         dyn_set("weibo", uid, mblog_id, content, pic_url, created_at.timestamp())
         logger.debug(str(DYNAMIC_DICT[uid]), prefix, Fore.LIGHTYELLOW_EX)
-    if new_count > 1:
-        logger.info(
-            f"【{uname}】本次共新增 {new_count} 条微博，仅推送最新一条",
-            prefix,
-            Fore.LIGHTYELLOW_EX,
-        )
 
     _total = USER_COUNT_DICT[uid]
     USER_COUNT_DICT[uid] = total

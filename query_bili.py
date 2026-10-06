@@ -443,25 +443,20 @@ def query_bilidynamic(uid, cookie, msg, special) -> bool:
             Fore.LIGHTBLUE_EX,
         )
         if not notified:
-            notify(
-                f"【{uname}】{action}",
-                content,
-                on_click=url,
-                image=image,
-                icon=icon_path,
-                pic_url=pic_url,
-            )
-            notified = True
+            if time.time() - timestamp <= 24 * 3600:
+                notify(
+                    f"【{uname}】{action}",
+                    content,
+                    on_click=url,
+                    image=image,
+                    icon=icon_path,
+                    pic_url=pic_url,
+                )
+                notified = True
         new_count += 1
         DYNAMIC_DICT[uid][dynamic_id] = content, pic_url, timestamp
         dyn_set("bili", uid, dynamic_id, content, pic_url, timestamp)
         logger.debug(str(DYNAMIC_DICT[uid]), prefix, Fore.LIGHTBLUE_EX)
-    if new_count > 1:
-        logger.info(
-            f"【{uname}】本次共新增 {new_count} 条动态，仅推送最新一条",
-            prefix,
-            Fore.LIGHTBLUE_EX,
-        )
 
     # 检测删除动态
     st = set([item["id_str"] for item in items])
