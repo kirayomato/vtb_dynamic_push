@@ -8,7 +8,7 @@ from logger import logger
 import requests
 from requests.exceptions import RequestException
 from config import general_headers
-from utils import check_diff, get_icon, get_image
+from utils import check_diff, fmt_pics, get_icon, get_image
 from storage import dyn_del, dyn_load, dyn_set, dyn_set_many, kv_load, kv_set
 
 # from PIL import Image
@@ -330,7 +330,7 @@ def query_weibodynamic(uid, cookie, msg, special, cookies_check) -> bool:
             DYNAMIC_DICT[uid][mblog_id] = content, pic_url, created_at.timestamp()
             dyn_set("weibo", uid, mblog_id, content, pic_url, created_at.timestamp())
             logger.info(
-                f"【{uname}】历史微博，不进行推送({total}) {display_time}: \n{content}，url: {url} \npic:{pic_url}",
+                f"【{uname}】历史微博，不进行推送({total}) {display_time}：\n{content}, url: {url}\npics: {fmt_pics(pic_url)}",
                 prefix,
                 Fore.LIGHTYELLOW_EX,
             )
@@ -339,7 +339,7 @@ def query_weibodynamic(uid, cookie, msg, special, cookies_check) -> bool:
             cnt += 1
         image = get_image(pic_url, headers, prefix, "weibo", uname, "dynamic")
         logger.info(
-            f"【{uname}】{action}({total}) {display_time}: \n{content}，url: {url} \npic:{pic_url}",
+            f"【{uname}】{action}({total}) {display_time}：\n{content}, url: {url}\npics: {fmt_pics(pic_url)}",
             prefix,
             Fore.LIGHTYELLOW_EX,
         )
@@ -386,7 +386,7 @@ def query_weibodynamic(uid, cookie, msg, special, cookies_check) -> bool:
                     )
 
                     logger.info(
-                        f"【{uname}】删除微博：\n{content}，url: {url} \npic:{pic_url}",
+                        f"【{uname}】删除微博：\n{content}, url: {url}\npics: {fmt_pics(pic_url)}",
                         prefix,
                         Fore.LIGHTYELLOW_EX,
                     )

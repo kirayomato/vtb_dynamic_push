@@ -5,7 +5,7 @@ from requests.exceptions import RequestException
 from push import notify
 from logger import logger
 from config import general_headers
-from utils import check_diff, get_icon, get_image
+from utils import check_diff, fmt_pics, get_icon, get_image
 from wbi import build_query, WBIKey
 from storage import dyn_del, dyn_load, dyn_set, dyn_set_many, kv_load, kv_set
 
@@ -438,7 +438,7 @@ def query_bilidynamic(uid, cookie, msg, special) -> bool:
         image = get_image(pic_url, headers, prefix, "bili", uname, "dynamic")
 
         logger.info(
-            f"【{uname}】{action} {dynamic_time}：\n{content}, url: {url} \npic:{pic_url}",
+            f"【{uname}】{action} {dynamic_time}：\n{content}, url: {url}\npics: {fmt_pics(pic_url)}",
             prefix,
             Fore.LIGHTBLUE_EX,
         )
@@ -469,7 +469,7 @@ def query_bilidynamic(uid, cookie, msg, special) -> bool:
 
             url = f"https://t.bilibili.com/{_id}"
             logger.info(
-                f"【{uname}】删除动态: \n{content}，url: {url} \npic:{pic_url}",
+                f"【{uname}】删除动态：\n{content}, url: {url}\npics: {fmt_pics(pic_url)}",
                 prefix,
                 Fore.LIGHTBLUE_EX,
             )

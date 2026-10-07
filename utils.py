@@ -65,6 +65,19 @@ def check_diff(
         _dict[uid] = ori
 
 
+def fmt_pics(pic_url):
+    """把图片地址格式化成单行日志字段。
+
+    None/空 -> "-"；列表/元组 -> 空格分隔；其它 -> 原样 str。
+    用于统一各平台动态日志里的 url/pics 字段写法（避免 None 与列表 repr 噪声）。
+    """
+    if not pic_url:
+        return "-"
+    if isinstance(pic_url, (list, tuple)):
+        return " ".join(str(i) for i in pic_url) or "-"
+    return str(pic_url)
+
+
 def get_image(pic_url, headers, prefix, platform, uname, _type):
     image = None
     opus_path = None
