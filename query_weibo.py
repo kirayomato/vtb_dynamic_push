@@ -4,6 +4,7 @@ import json
 import re
 import time
 from push import notify
+from push import global_config as config
 from logger import logger
 import requests
 from requests.exceptions import RequestException
@@ -102,7 +103,11 @@ def query_valid(uid, cookie):
         return True
 
 
-def query_weibodynamic(uid, cookie, msg, special, cookies_check) -> bool:
+def query_weibodynamic(uid, msg) -> bool:
+    cookie = config.WeiboCookies
+    cookies_check = config.get("weibo", "enable_cookie_check")
+    special = set((config.get("weibo", "special_list") or "").split(","))
+
     def sleep(t):
         msg[1] = (
             datetime.now().strftime("%Y-%m-%d %H:%M:%S")

@@ -3,6 +3,7 @@ import time
 import requests
 from requests.exceptions import RequestException
 from push import notify
+from push import global_config as config
 from logger import logger
 from config import general_headers
 from utils import check_diff, fmt_pics, get_icon, get_image
@@ -99,7 +100,10 @@ def _refresh_wbi(cookie, prefix, sleep):
     return False
 
 
-def query_bilidynamic(uid, cookie, msg, special) -> bool:
+def query_bilidynamic(uid, msg) -> bool:
+    cookie = config.BiliCookies
+    special = set((config.get("bili", "special_list") or "").split(","))
+
     def sleep(t):
         msg[0] = (
             datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -531,8 +535,10 @@ def query_bilidynamic(uid, cookie, msg, special) -> bool:
 #                         name, room_id, room_title, room_cover_url)
 
 
-def query_live_status_batch(uid_list, cookie, msg, special):
+def query_live_status_batch(uid_list, msg):
     prefix = "【查询B站直播】"
+    cookie = config.BiliCookies
+    special = set((config.get("bili", "special_list") or "").split(","))
 
     def sleep(t):
         msg[2] = (

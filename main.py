@@ -47,12 +47,9 @@ threading.excepthook = crash_handler
 def weibo():
     prefix = "【查询微博动态】"
     enable_dynamic_push = config.get("weibo", "enable_dynamic_push")
-    cookies_check = config.get("weibo", "enable_cookie_check")
     if enable_dynamic_push != "true":
         logger.warning("未开启微博推送功能", prefix)
         return
-    if cookies_check == "true":
-        check_uid = config.get("weibo", "cookie_check_uid")
     output_manager.inc_cnt()
     logger.info("开始检测微博", prefix, Fore.GREEN)
     test = 0
@@ -60,15 +57,17 @@ def weibo():
     sched = Scheduler("weibo")
     web.scheduler_registry["weibo"] = sched
     while True:
-        if cookies_check == "true" and not query_valid(check_uid, config.WeiboCookies):
-            test += 1
-            if test % 3 == 0:
-                logger.warning("微博Cookie无效", prefix)
-                notify("微博Cookie无效", "", on_click="https://m.weibo.cn/")
-        else:
-            test = 0
+        cookies_check = config.get("weibo", "enable_cookie_check")
+        if cookies_check == "true":
+            check_uid = config.get("weibo", "cookie_check_uid")
+            if not query_valid(check_uid, config.WeiboCookies):
+                test += 1
+                if test % 3 == 0:
+                    logger.warning("微博Cookie无效", prefix)
+                    notify("微博Cookie无效", "", on_click="https://m.weibo.cn/")
+            else:
+                test = 0
         uid_list = config.get("weibo", "uid_list")
-        special = set((config.get("weibo", "special_list") or "").split(","))
         if uid_list:
             uid_list = uid_list.split(",")
             sched.update_targets(uid_list)
@@ -76,13 +75,7 @@ def weibo():
                 uid = sched.next_target()
                 if uid:
                     try:
-                        weight = query_weibodynamic(
-                            uid,
-                            config.WeiboCookies,
-                            output_manager.msg,
-                            special,
-                            cookies_check,
-                        )
+                        weight = query_weibodynamic(uid, output_manager.msg)
                         if weight is not False:
                             assert type(weight) is int
                             sched.update(uid, weight)
@@ -117,7 +110,6 @@ def bili_dy():
     web.scheduler_registry["bili_dy"] = sched
     while True:
         uid_list = config.get("bili", "dynamic_uid_list")
-        special = set((config.get("bili", "special_list") or "").split(","))
         if uid_list:
             uid_list = uid_list.split(",")
             sched.update_targets(uid_list)
@@ -125,9 +117,7 @@ def bili_dy():
                 uid = sched.next_target()
                 if uid:
                     try:
-                        weight = query_bilidynamic(
-                            uid, config.BiliCookies, output_manager.msg, special
-                        )
+                        weight = query_bilidynamic(uid, output_manager.msg)
                         if weight is not False:
                             assert type(weight) is int
                             sched.update(uid, weight)
@@ -195,13 +185,10 @@ def bili_live():
     while True:
         intervals_second = int(config.get("bili", "live_intervals_second"))
         uid_list = config.get("bili", "live_uid_list")
-        special = set((config.get("bili", "special_list") or "").split(","))
         if uid_list:
             uid_list = set(uid_list.split(","))
             try:
-                query_live_status_batch(
-                    uid_list, config.BiliCookies, output_manager.msg, special
-                )
+                query_live_status_batch(uid_list, output_manager.msg)
             except BaseException as e:
                 logger.error(f"出错【{e}】：{traceback.format_exc()}", prefix)
         else:
