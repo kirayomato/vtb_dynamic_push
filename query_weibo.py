@@ -5,7 +5,7 @@ import re
 import time
 from push import notify
 from config import global_config as config
-from logger import logger
+from logger import logger, Slot
 import requests
 from requests.exceptions import RequestException
 from config import general_headers
@@ -103,18 +103,19 @@ def query_valid(uid, cookie):
         return True
 
 
-def query_weibodynamic(uid, msg) -> bool:
+def query_weibodynamic(uid, reporter) -> bool:
     cookie = config.WeiboCookies
     cookies_check = config.get("weibo", "enable_cookie_check")
     special = set((config.get("weibo", "special_list") or "").split(","))
 
     def sleep(t):
-        msg[1] = (
+        reporter.set_status(
+            Slot.WEIBO,
             datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             + " - "
             + Fore.LIGHTYELLOW_EX
             + "休眠中"
-            + Style.RESET_ALL
+            + Style.RESET_ALL,
         )
         time.sleep(t)
 
@@ -237,12 +238,13 @@ def query_weibodynamic(uid, msg) -> bool:
         )
         sleep(60)
         return False
-    msg[1] = (
+    reporter.set_status(
+        Slot.WEIBO,
         datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         + " - "
         + Fore.LIGHTYELLOW_EX
         + f"查询{uname}微博"
-        + Style.RESET_ALL
+        + Style.RESET_ALL,
     )
     # 特别关注图片兜底：本进程首次查询该用户时，把当前 feed 内全部图片落盘。
     # get_icon 内部有文件存在性短路，重复执行只做廉价 stat，不会重复下载。

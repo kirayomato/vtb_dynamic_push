@@ -4,7 +4,7 @@ import requests
 from requests.exceptions import RequestException
 from push import notify
 from config import global_config as config
-from logger import logger
+from logger import logger, Slot
 from config import general_headers
 from utils import check_diff, fmt_pics, get_icon, get_image
 from wbi import build_query, WBIKey
@@ -100,17 +100,18 @@ def _refresh_wbi(cookie, prefix, sleep):
     return False
 
 
-def query_bilidynamic(uid, msg) -> bool:
+def query_bilidynamic(uid, reporter) -> bool:
     cookie = config.BiliCookies
     special = set((config.get("bili", "special_list") or "").split(","))
 
     def sleep(t):
-        msg[0] = (
+        reporter.set_status(
+            Slot.BILI,
             datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             + " - "
             + Fore.LIGHTBLUE_EX
             + "休眠中"
-            + Style.RESET_ALL
+            + Style.RESET_ALL,
         )
         time.sleep(t)
 
@@ -331,12 +332,13 @@ def query_bilidynamic(uid, msg) -> bool:
             cookies_failed_count = 0
         sleep(300)
         return False
-    msg[0] = (
+    reporter.set_status(
+        Slot.BILI,
         datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         + " - "
         + Fore.LIGHTBLUE_EX
         + f"查询{uname}动态"
-        + Style.RESET_ALL
+        + Style.RESET_ALL,
     )
     # 特别关注图片兜底：本进程首次查询该用户时，把当前 feed 内全部图片落盘。
     # get_icon 内部有文件存在性短路，重复执行只做廉价 stat，不会重复下载。
@@ -533,18 +535,19 @@ def query_bilidynamic(uid, msg) -> bool:
 #                         name, room_id, room_title, room_cover_url)
 
 
-def query_live_status_batch(uid_list, msg):
+def query_live_status_batch(uid_list, reporter):
     prefix = "【查询B站直播】"
     cookie = config.BiliCookies
     special = set((config.get("bili", "special_list") or "").split(","))
 
     def sleep(t):
-        msg[2] = (
+        reporter.set_status(
+            Slot.LIVE,
             datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             + " - "
             + Fore.LIGHTBLUE_EX
             + "休眠中"
-            + Style.RESET_ALL
+            + Style.RESET_ALL,
         )
         time.sleep(t)
 
@@ -612,12 +615,13 @@ def query_live_status_batch(uid_list, msg):
                 sleep(60)
                 return
             live_url = f"https://live.bilibili.com/{room_id}"
-            msg[2] = (
+            reporter.set_status(
+                Slot.LIVE,
                 datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 + " - "
                 + Fore.CYAN
                 + f"查询{uname}直播状态"
-                + Style.RESET_ALL
+                + Style.RESET_ALL,
             )
             if LIVING_STATUS_DICT.get(uid) is None:
                 ROOM_TITLE_DICT[uid] = room_title

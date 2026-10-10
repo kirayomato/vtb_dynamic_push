@@ -1,4 +1,5 @@
 import io
+from enum import IntEnum
 import logging
 from logging.handlers import TimedRotatingFileHandler
 import sys
@@ -193,8 +194,20 @@ class mylogger:
         self._log_message("error", msg, prefix, color)
 
 
+class Slot(IntEnum):
+    """控制台面板的槽位，顺序即面板显示顺序。"""
+
+    BILI = 0  # B站动态
+    WEIBO = 1  # 微博动态
+    LIVE = 2  # B站直播
+    AFD = 3  # 爱发电动态
+
+
 class OutputManager:
-    """管理输出列表的状态刷新"""
+    """管理控制台面板的状态行与刷新节流。
+
+    对外按 Slot 寻址，调用方不依赖行号。
+    """
 
     def __init__(self, output_list):
         self.output_list = output_list
@@ -203,10 +216,17 @@ class OutputManager:
         self.swi = [0] * self.length
         self.cnt = 0
 
-    def set_swi(self, index):
-        """标记某个任务已完成初始化"""
-        if 0 <= index < self.length:
-            self.swi[index] = 1
+    def set_status(self, slot, text):
+        """写入某个槽位的状态行。"""
+        self.msg[slot] = text
+
+    def mark_ready(self, slot):
+        """标记某个槽位对应的任务已完成初始化。"""
+        self.swi[slot] = 1
+
+    def is_ready(self, slot):
+        """某个槽位对应的任务是否已完成初始化。"""
+        return bool(self.swi[slot])
 
     def inc_cnt(self):
         """增加已完成初始化的任务计数"""
@@ -227,6 +247,6 @@ class OutputManager:
 
 
 logger = mylogger()
-with output(output_type="list", initial_len=4, interval=0) as output_list:
+with output(output_type="list", initial_len=len(Slot), interval=0) as output_list:
     lock = threading.Lock()
     output_manager = OutputManager(output_list)

@@ -1,7 +1,7 @@
 import threading
 from time import sleep
 import traceback
-from logger import logger, output_manager
+from logger import logger, output_manager, Slot
 from web import app
 import web
 from query_weibo import (
@@ -75,7 +75,7 @@ def weibo():
                 uid = sched.next_target()
                 if uid:
                     try:
-                        weight = query_weibodynamic(uid, output_manager.msg)
+                        weight = query_weibodynamic(uid, output_manager)
                         if weight is not False:
                             assert type(weight) is int
                             sched.update(uid, weight)
@@ -88,8 +88,8 @@ def weibo():
         else:
             logger.warning("未填写UID", prefix)
             return
-        if not output_manager.swi[1]:
-            output_manager.set_swi(1)
+        if not output_manager.is_ready(Slot.WEIBO):
+            output_manager.mark_ready(Slot.WEIBO)
             logger.info(
                 f'监控列表({len(USER_NAME_DICT)}):{",".join(USER_NAME_DICT.values())}',
                 prefix,
@@ -117,7 +117,7 @@ def bili_dy():
                 uid = sched.next_target()
                 if uid:
                     try:
-                        weight = query_bilidynamic(uid, output_manager.msg)
+                        weight = query_bilidynamic(uid, output_manager)
                         if weight is not False:
                             assert type(weight) is int
                             sched.update(uid, weight)
@@ -130,8 +130,8 @@ def bili_dy():
         else:
             logger.warning("未填写UID", prefix)
             return
-        if not output_manager.swi[0]:
-            output_manager.set_swi(0)
+        if not output_manager.is_ready(Slot.BILI):
+            output_manager.mark_ready(Slot.BILI)
             logger.info(
                 f'监控列表({len(DYNAMIC_NAME_DICT)}):{",".join(DYNAMIC_NAME_DICT.values())}',
                 prefix,
@@ -155,7 +155,7 @@ def afd_dy():
             for uid in uid_list:
                 intervals_second = float(config.get("afd", "intervals_second")) / 2
                 try:
-                    query_afddynamic(uid, None, output_manager.msg, intervals_second)
+                    query_afddynamic(uid, None, output_manager, intervals_second)
                 except BaseException as e:
                     logger.error(
                         f"【{uid}】出错【{e}】：{traceback.format_exc()}", prefix
@@ -164,8 +164,8 @@ def afd_dy():
         else:
             logger.warning("未填写UID", prefix)
             return
-        if not output_manager.swi[3]:
-            output_manager.set_swi(3)
+        if not output_manager.is_ready(Slot.AFD):
+            output_manager.mark_ready(Slot.AFD)
             logger.info(
                 f'监控列表({len(AFD_NAME_DICT)}):{",".join(AFD_NAME_DICT.values())}',
                 prefix,
@@ -188,14 +188,14 @@ def bili_live():
         if uid_list:
             uid_list = set(uid_list.split(","))
             try:
-                query_live_status_batch(uid_list, output_manager.msg)
+                query_live_status_batch(uid_list, output_manager)
             except BaseException as e:
                 logger.error(f"出错【{e}】：{traceback.format_exc()}", prefix)
         else:
             logger.warning("未填写UID", prefix)
             return
-        if not output_manager.swi[2]:
-            output_manager.set_swi(2)
+        if not output_manager.is_ready(Slot.LIVE):
+            output_manager.mark_ready(Slot.LIVE)
             logger.info(
                 f'监控列表({len(LIVE_NAME_DICT)}):{",".join(LIVE_NAME_DICT.values())}',
                 prefix,

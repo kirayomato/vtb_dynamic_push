@@ -4,7 +4,7 @@ import json
 from random import random
 import time
 from push import notify
-from logger import logger
+from logger import logger, Slot
 import requests
 from requests.exceptions import RequestException
 from config import general_headers
@@ -90,14 +90,15 @@ def get_realid(uid):
         return None
 
 
-def query_afddynamic(uid, cookie, msg, intervals_second):
+def query_afddynamic(uid, cookie, reporter, intervals_second):
     def sleep(t):
-        msg[3] = (
+        reporter.set_status(
+            Slot.AFD,
             datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             + " - "
             + Fore.LIGHTCYAN_EX
             + "休眠中"
-            + Style.RESET_ALL
+            + Style.RESET_ALL,
         )
         time.sleep(t)
 
@@ -174,12 +175,13 @@ def query_afddynamic(uid, cookie, msg, intervals_second):
         )
         sleep(60)
         return
-    msg[3] = (
+    reporter.set_status(
+        Slot.AFD,
         datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         + " - "
         + Fore.LIGHTCYAN_EX
         + f"查询{uname}爱发电"
-        + Style.RESET_ALL
+        + Style.RESET_ALL,
     )
     if DYNAMIC_DICT.get(uid) is None:
         DYNAMIC_DICT[uid] = {}
