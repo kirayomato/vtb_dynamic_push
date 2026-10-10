@@ -1,3 +1,5 @@
+import json
+from dataclasses import dataclass
 from os import environ
 from os.path import realpath, isfile
 import re
@@ -25,6 +27,60 @@ def get_active(dynamics, uid, days=30):
     """权重：1 + 最近 days 天内的动态条数。"""
     threshold = time.time() - days * 24 * 3600
     return 1 + sum(1 for item in dynamics[uid].values() if item[2] > threshold)
+
+
+#: 抓取失败的环节，见 Fetch.kind
+NETWORK = "network"
+STATUS = "status"
+PARSE = "parse"
+
+
+@dataclass
+class Fetch:
+    """一次请求 + JSON 解析的结果。
+
+    ok 为真时 data 是解析后的对象；否则 kind 指出失败环节：
+    NETWORK（连接/超时）、STATUS（非 200）、PARSE（JSON 解析失败）。
+    失败的日志文案与退避时长因平台而异，由调用方自行处理。
+    """
+
+    kind: str = ""
+    data: object = None
+    content: str = ""
+    status: int = 0
+    reason: str = ""
+    error: object = None
+
+    @property
+    def ok(self):
+        return not self.kind
+
+
+def fetch_json(url, headers, cookie=None, data=None, timeout=10):
+    """请求 url 并解析 JSON，只负责传输与解析，不含日志与退避。
+
+    带 data 时走 POST，否则 GET。
+    """
+    kwargs = dict(headers=headers, cookies=cookie, proxies=proxies, timeout=timeout)
+    try:
+        if data is None:
+            response = requests.get(url, **kwargs)
+        else:
+            response = requests.post(url, data=data, **kwargs)
+    except RequestException as e:
+        return Fetch(kind=NETWORK, error=e)
+    content = response.content.decode("utf-8", errors="replace")
+    if response.status_code != 200:
+        return Fetch(
+            kind=STATUS,
+            content=content,
+            status=response.status_code,
+            reason=response.reason,
+        )
+    try:
+        return Fetch(data=json.loads(response.text), content=content)
+    except (UnicodeDecodeError, json.JSONDecodeError) as e:
+        return Fetch(kind=PARSE, content=content, error=e)
 
 
 #: 图片后缀白名单。URL 尾段命中其一才算"已带后缀"——

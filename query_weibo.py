@@ -7,10 +7,12 @@ from push import notify
 from config import global_config as config
 from logger import logger, Slot
 import requests
-from requests.exceptions import RequestException
 from config import general_headers
 from utils import (
+    NETWORK,
+    STATUS,
     check_diff,
+    fetch_json,
     fmt_pics,
     format_re,
     get_active,
@@ -143,41 +145,35 @@ def query_weibodynamic(uid, reporter) -> bool:
         return False
     query_url = f"https://m.weibo.cn/api/container/getIndex?type=uid&value={uid}&containerid=107603{uid}&count=25"
     headers = get_headers(uid)
-    try:
-        response = requests.get(
-            query_url, headers=headers, cookies=cookie, proxies=proxies, timeout=10
-        )
-    except RequestException as e:
-        logger.warning(f"网络错误, error:{e}, 休眠一分钟, url: {query_url} ", prefix)
-        sleep(60)
-        return False
-    content = response.content.decode("utf-8", errors="replace")
-    if response.status_code != 200:
-        error_text = (
-            f"status:{response.status_code}, {response.reason} url: {query_url}"
-        )
-        if response.status_code == 403:
-            logger.error(f"触发风控, 休眠五分钟, {error_text}", prefix)
-            sleep(300)
-        elif response.status_code == 432:
-            global cookies_valid
-            cookies_valid = False
-            logger.warning("微博Cookie无效", prefix)
-            notify("微博Cookie无效", "", on_click="https://m.weibo.cn/")
-            sleep(600)
+    resp = fetch_json(query_url, headers, cookie)
+    if not resp.ok:
+        if resp.kind == NETWORK:
+            logger.warning(
+                f"网络错误, error:{resp.error}, 休眠一分钟, url: {query_url} ", prefix
+            )
+            sleep(60)
+        elif resp.kind == STATUS:
+            error_text = f"status:{resp.status}, {resp.reason} url: {query_url}"
+            if resp.status == 403:
+                logger.error(f"触发风控, 休眠五分钟, {error_text}", prefix)
+                sleep(300)
+            elif resp.status == 432:
+                global cookies_valid
+                cookies_valid = False
+                logger.warning("微博Cookie无效", prefix)
+                notify("微博Cookie无效", "", on_click="https://m.weibo.cn/")
+                sleep(600)
+            else:
+                logger.warning(f"请求错误, 休眠一分钟, {error_text}", prefix)
+                sleep(60)
         else:
-            logger.warning(f"请求错误, 休眠一分钟, {error_text}", prefix)
+            logger.error(
+                f"【{uid}】解析content出错:{resp.error}, 休眠一分钟, url: {query_url} \ncontent:{resp.content}",
+                prefix,
+            )
             sleep(60)
         return False
-    try:
-        result = json.loads(response.text)
-    except (UnicodeDecodeError, json.JSONDecodeError) as e:
-        logger.error(
-            f"【{uid}】解析content出错:{e}, 休眠一分钟, url: {query_url} \ncontent:{content}",
-            prefix,
-        )
-        sleep(60)
-        return False
+    result = resp.data
     if result["ok"] not in (0, 1):
         if result["ok"] == -100:
             if "passport.weibo.com" in result["url"]:

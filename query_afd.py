@@ -6,9 +6,16 @@ import time
 from push import notify
 from logger import logger, Slot
 import requests
-from requests.exceptions import RequestException
 from config import general_headers
-from utils import check_diff, get_icon, get_image, proxies
+from utils import (
+    NETWORK,
+    STATUS,
+    check_diff,
+    fetch_json,
+    get_icon,
+    get_image,
+    proxies,
+)
 from storage import dyn_del, dyn_load, dyn_set, dyn_set_many, kv_load, kv_set
 
 # from PIL import Image
@@ -65,6 +72,32 @@ def _save_plans(uid):
     kv_set("afd.plan", uid, PLAN_DICT.get(uid))
 
 
+def _api_get(url, headers, cookie, uid, prefix, sleep):
+    """抓取爱发电接口并解析 JSON。
+
+    失败时记录日志并退避，返回 None 表示本轮放弃。
+    """
+    resp = fetch_json(url, headers, cookie)
+    if resp.ok:
+        return resp.data
+    if resp.kind == NETWORK:
+        logger.warning(f"网络错误 error:{resp.error}, url: {url} ,休眠三分钟", prefix)
+        sleep(180)
+    elif resp.kind == STATUS:
+        logger.warning(
+            f"请求错误 status:{resp.status}, msg:{resp.reason}, url: {url} ,休眠一分钟",
+            prefix,
+        )
+        sleep(60)
+    else:
+        logger.error(
+            f"【{uid}】解析content出错:{resp.error}, url: {url} ,休眠一分钟\ncontent:{resp.content}",
+            prefix,
+        )
+        sleep(60)
+    return None
+
+
 def get_realid(uid):
     if uid is None:
         return
@@ -116,31 +149,8 @@ def query_afddynamic(uid, cookie, reporter, intervals_second):
 
     query_url = f"https://afdian.com/api/post/get-list?user_id={real_uid}&type=old&publish_sn=&per_page=10&group_id=&all=1&is_public=&plan_id=&title=&name="
     headers = get_headers(uid)
-    try:
-        response = requests.get(
-            query_url, headers=headers, cookies=cookie, proxies=proxies, timeout=10
-        )
-    except RequestException as e:
-        logger.warning(f"网络错误 error:{e}, url: {query_url} ,休眠三分钟", prefix)
-        sleep(180)
-        return
-
-    content = response.content.decode("utf-8", errors="replace")
-    if response.status_code != 200:
-        logger.warning(
-            f"请求错误 status:{response.status_code}, msg:{response.reason}, url: {query_url} ,休眠一分钟",
-            prefix,
-        )
-        sleep(60)
-        return
-    try:
-        result = json.loads(response.text)
-    except (UnicodeDecodeError, json.JSONDecodeError) as e:
-        logger.error(
-            f"【{uid}】解析content出错:{e}, url: {query_url} ,休眠一分钟\ncontent:{content}",
-            prefix,
-        )
-        sleep(60)
+    result = _api_get(query_url, headers, cookie, uid, prefix, sleep)
+    if result is None:
         return
     if result["ec"] != 200:
         logger.error(
@@ -282,31 +292,8 @@ def query_afdplan(sleep, headers, cookie, uid, uname, real_uid, home_url, icon_p
         return content, pic_url, action, dynamic_time
 
     query_url = f"https://afdian.com/api/creator/get-plans?user_id={real_uid}&album_id=&unlock_plan_ids=&diy=&affiliate_code="
-    try:
-        response = requests.get(
-            query_url, headers=headers, cookies=cookie, proxies=proxies, timeout=10
-        )
-    except RequestException as e:
-        logger.warning(f"网络错误 error:{e}, url: {query_url} ,休眠三分钟", prefix)
-        sleep(180)
-        return
-
-    content = response.content.decode("utf-8", errors="replace")
-    if response.status_code != 200:
-        logger.warning(
-            f"请求错误 status:{response.status_code}, msg:{response.reason}, 休眠一分钟, url: {query_url}",
-            prefix,
-        )
-        sleep(60)
-        return
-    try:
-        result = json.loads(response.text)
-    except (UnicodeDecodeError, json.JSONDecodeError) as e:
-        logger.error(
-            f"【{uid}】解析content出错:{e}, 休眠一分钟, url: {query_url} \ncontent:{content}",
-            prefix,
-        )
-        sleep(60)
+    result = _api_get(query_url, headers, cookie, uid, prefix, sleep)
+    if result is None:
         return
     if result["ec"] != 200:
         logger.error(

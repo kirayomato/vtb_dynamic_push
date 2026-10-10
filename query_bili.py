@@ -1,19 +1,19 @@
 import json
 import time
-import requests
-from requests.exceptions import RequestException
 from push import notify
 from config import global_config as config
 from logger import logger, Slot
 from config import general_headers
 from utils import (
+    NETWORK,
+    STATUS,
     check_diff,
+    fetch_json,
     fmt_pics,
     format_re,
     get_active,
     get_icon,
     get_image,
-    proxies,
 )
 from wbi import build_query, WBIKey
 from storage import dyn_del, dyn_load, dyn_set, dyn_set_many, kv_load, kv_set
@@ -241,38 +241,32 @@ def query_bilidynamic(uid, reporter) -> bool:
     )
 
     headers = get_headers(uid)
-    try:
-        response = requests.get(
-            query_url, headers=headers, cookies=cookie, proxies=proxies, timeout=10
-        )
-    except RequestException as e:
-        logger.warning(f"网络错误, error:{e}, 休眠一分钟, url: {query_url} ", prefix)
-        sleep(60)
-        return False
-    content = response.content.decode("utf-8", errors="replace")
-    if response.status_code != 200:
-        error_text = (
-            f"status:{response.status_code}, {response.reason} url: {query_url}"
-        )
-        if response.status_code == 429:
-            logger.warning(f"触发风控, 休眠一分钟, {error_text}", prefix)
+    resp = fetch_json(query_url, headers, cookie)
+    if not resp.ok:
+        if resp.kind == NETWORK:
+            logger.warning(
+                f"网络错误, error:{resp.error}, 休眠一分钟, url: {query_url} ", prefix
+            )
             sleep(60)
-        elif response.status_code == 412:
-            logger.error(f"触发风控, 休眠十分钟, {error_text}", prefix)
-            sleep(600)
+        elif resp.kind == STATUS:
+            error_text = f"status:{resp.status}, {resp.reason} url: {query_url}"
+            if resp.status == 429:
+                logger.warning(f"触发风控, 休眠一分钟, {error_text}", prefix)
+                sleep(60)
+            elif resp.status == 412:
+                logger.error(f"触发风控, 休眠十分钟, {error_text}", prefix)
+                sleep(600)
+            else:
+                logger.warning(f"请求错误, 休眠一分钟, {error_text}", prefix)
+                sleep(60)
         else:
-            logger.warning(f"请求错误, 休眠一分钟, {error_text}", prefix)
-            sleep(60)
+            logger.error(
+                f"【{uid}】解析content出错:{resp.error}, 休眠三分钟, url: {query_url} \ncontent:{resp.content}",
+                prefix,
+            )
+            sleep(180)
         return False
-    try:
-        result = json.loads(response.text)
-    except (UnicodeDecodeError, json.JSONDecodeError) as e:
-        logger.error(
-            f"【{uid}】解析content出错:{e}, 休眠三分钟, url: {query_url} \ncontent:{content}",
-            prefix,
-        )
-        sleep(180)
-        return False
+    result = resp.data
     if result["code"] != 0:
         if result["code"] == -101:
             logger.warning("B站Cookie无效", prefix)
@@ -545,31 +539,27 @@ def query_live_status_batch(uid_list, reporter):
     query_url = "https://api.live.bilibili.com/room/v1/Room/get_status_info_by_uids"
     headers = get_headers(list(uid_list)[0])
     data = json.dumps({"uids": list(map(int, uid_list))})
-    try:
-        response = requests.post(
-            query_url, headers=headers, data=data, cookies=cookie, timeout=10
-        )
-    except RequestException as e:
-        logger.warning(f"网络错误, error:{e}, 休眠一分钟, url: {query_url} ", prefix)
-        sleep(60)
+    resp = fetch_json(query_url, headers, cookie, data=data)
+    if not resp.ok:
+        if resp.kind == NETWORK:
+            logger.warning(
+                f"网络错误, error:{resp.error}, 休眠一分钟, url: {query_url} ", prefix
+            )
+            sleep(60)
+        elif resp.kind == STATUS:
+            logger.warning(
+                f"请求错误 status:{resp.status}, 休眠一分钟, url: {query_url}",
+                prefix,
+            )
+            sleep(60)
+        else:
+            logger.error(
+                f"解析content出错:{resp.error}, 休眠一分钟, url: {query_url} \ncontent:{resp.content}",
+                prefix,
+            )
+            sleep(60)
         return
-    content = response.content.decode("utf-8", errors="replace")
-    if response.status_code != 200:
-        logger.warning(
-            f"请求错误 status:{response.status_code}, 休眠一分钟, url: {query_url}",
-            prefix,
-        )
-        sleep(60)
-        return
-    try:
-        result = json.loads(response.text)
-    except (UnicodeDecodeError, json.JSONDecodeError) as e:
-        logger.error(
-            f"解析content出错:{e}, 休眠一分钟, url: {query_url} \ncontent:{content}",
-            prefix,
-        )
-        sleep(60)
-        return
+    result = resp.data
     if result["code"] != 0:
         logger.error(
             f'请求返回数据code错误：{result["code"]}, 休眠一分钟, url: {query_url} \ndata:{result}',
