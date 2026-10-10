@@ -1,14 +1,30 @@
+from os import environ
 from os.path import realpath, exists
+import re
+import time
 import requests
 from requests.exceptions import RequestException
 from logger import logger
 from push import notify
 from pathlib import Path
 
+#: 显式空代理，绕过系统代理（写 None 会回落到环境变量里的代理）
 proxies = {
     "http": "",
     "https": "",
 }
+environ["NO_PROXY"] = "*"
+
+
+def format_re(text):
+    """把连续空行转成引用块（两个换行后加 '> '）。"""
+    return re.sub(r"(\n{2,})", r"\n\n> ", text)
+
+
+def get_active(dynamics, uid, days=30):
+    """权重：1 + 最近 days 天内的动态条数。"""
+    threshold = time.time() - days * 24 * 3600
+    return 1 + sum(1 for item in dynamics[uid].values() if item[2] > threshold)
 
 
 def get_icon(headers, image_url, prefix, platform, uname, _type):

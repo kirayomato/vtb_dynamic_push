@@ -9,23 +9,25 @@ from logger import logger, Slot
 import requests
 from requests.exceptions import RequestException
 from config import general_headers
-from utils import check_diff, fmt_pics, get_icon, get_image
+from utils import (
+    check_diff,
+    fmt_pics,
+    format_re,
+    get_active,
+    get_icon,
+    get_image,
+    proxies,
+)
 from storage import dyn_del, dyn_load, dyn_set, dyn_set_many, kv_load, kv_set
 
 # from PIL import Image
 from colorama import Fore, Style
-from os import environ
 
-environ["NO_PROXY"] = "*"
 DYNAMIC_DICT = {}
 USER_FACE_DICT = {}
 USER_SIGN_DICT = {}
 USER_NAME_DICT = {}
 USER_COUNT_DICT = {}
-proxies = {
-    "http": "",
-    "https": "",
-}
 prefix = "【查询微博状态】"
 
 _prefix = "【微博持久化】"
@@ -69,18 +71,6 @@ def _save_user_info(uid):
 
 
 cookies_valid = False
-
-
-def get_active(uid):
-    time_threshold = time.time() - 30 * 24 * 3600
-    return 1 + sum(1 for i in DYNAMIC_DICT[uid].values() if i[2] > time_threshold)
-
-
-def format_re(text):
-    # 匹配两个及以上连续换行符的位置
-    # 用两个换行符加 '> ' 来替换
-    result = re.sub(r"(\n{2,})", r"\n\n> ", text)
-    return result
 
 
 def query_valid(uid, cookie):
@@ -291,7 +281,7 @@ def query_weibodynamic(uid, reporter) -> bool:
         logger.debug(
             f"【{uname}】微博初始化 {DYNAMIC_DICT[uid]}", prefix, Fore.LIGHTYELLOW_EX
         )
-        return get_active(uid)
+        return get_active(DYNAMIC_DICT, uid)
 
     icon_path = get_icon(headers, face, prefix, "weibo", uname, "face")
 
@@ -368,7 +358,7 @@ def query_weibodynamic(uid, reporter) -> bool:
     USER_COUNT_DICT[uid] = total
     kv_set("weibo.count", uid, total)
     if total == _total + cnt:
-        return get_active(uid)
+        return get_active(DYNAMIC_DICT, uid)
 
     if total < _total + cnt:
         action = "删除了微博，但未能找到"
@@ -407,7 +397,7 @@ def query_weibodynamic(uid, reporter) -> bool:
                 del DYNAMIC_DICT[uid][_id]
                 dyn_del("weibo", uid, _id)
         if total == _total + cnt:
-            return get_active(uid)
+            return get_active(DYNAMIC_DICT, uid)
         elif total > _total + cnt:
             action = "检测到微博被隐藏"
     else:
@@ -421,7 +411,7 @@ def query_weibodynamic(uid, reporter) -> bool:
         icon=icon_path,
         on_click=f"https://m.weibo.cn/profile/{uid}",
     )
-    return get_active(uid)
+    return get_active(DYNAMIC_DICT, uid)
 
 
 def get_headers(uid):

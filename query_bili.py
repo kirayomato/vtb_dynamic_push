@@ -6,18 +6,23 @@ from push import notify
 from config import global_config as config
 from logger import logger, Slot
 from config import general_headers
-from utils import check_diff, fmt_pics, get_icon, get_image
+from utils import (
+    check_diff,
+    fmt_pics,
+    format_re,
+    get_active,
+    get_icon,
+    get_image,
+    proxies,
+)
 from wbi import build_query, WBIKey
 from storage import dyn_del, dyn_load, dyn_set, dyn_set_many, kv_load, kv_set
 
 # from PIL import Image
 from colorama import Fore, Style
-from os import environ
 from datetime import datetime
-import re
 from functools import partial
 
-environ["NO_PROXY"] = "*"
 DYNAMIC_DICT = {}
 LIVING_STATUS_DICT = {}
 ROOM_TITLE_DICT = {}
@@ -26,10 +31,6 @@ USER_SIGN_DICT = {}
 USER_FACE_DICT = {}
 DYNAMIC_NAME_DICT = {}
 LIVE_NAME_DICT = {}
-proxies = {
-    "http": "",
-    "https": "",
-}
 cookies_failed_count = 0
 _prefix = "【B站持久化】"
 
@@ -76,18 +77,6 @@ def _save_live_info(uid):
     # 避免用旧状态误判"新开播"推送或绕过直播中判定。
     kv_set("bili.room_title", uid, ROOM_TITLE_DICT.get(uid))
     kv_set("bili.room_cover", uid, ROOM_COVER_DICT.get(uid))
-
-
-def format_re(text):
-    # 匹配两个及以上连续换行符的位置
-    # 用两个换行符加 '> ' 来替换
-    result = re.sub(r"(\n{2,})", r"\n\n> ", text)
-    return result
-
-
-def get_active(uid):
-    time_threshold = time.time() - 30 * 24 * 3600
-    return 1 + sum(1 for i in DYNAMIC_DICT[uid].values() if i[2] > time_threshold)
 
 
 def _refresh_wbi(cookie, prefix, sleep):
@@ -391,7 +380,7 @@ def query_bilidynamic(uid, reporter) -> bool:
         logger.debug(
             f"【{uname}】动态初始化 {DYNAMIC_DICT[uid]}", prefix, Fore.LIGHTBLUE_EX
         )
-        return get_active(uid)
+        return get_active(DYNAMIC_DICT, uid)
     icon_path = get_icon(headers, face, prefix, "bili", uname, "face")
 
     chk_diff = partial(
@@ -490,7 +479,7 @@ def query_bilidynamic(uid, reporter) -> bool:
     for _id in del_list:
         del DYNAMIC_DICT[uid][_id]
         dyn_del("bili", uid, _id)
-    return get_active(uid)
+    return get_active(DYNAMIC_DICT, uid)
 
 
 # 此方法已废弃
