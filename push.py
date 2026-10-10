@@ -170,7 +170,8 @@ class Push(object):
         :url: 跳转地址
         :pic_url：图片地址
         """
-        content += f"<br/>[链接]({url})"
+        if url:
+            content += f"<br/>[链接]({url})"
         if pic_url:
             content += f"<br/><br/><img src='{pic_url}'/>"
         body = {
@@ -202,7 +203,8 @@ class Push(object):
         :content: 内容
         :url: 跳转地址
         """
-        content += f"\n\n[链接]({url})"
+        if url:
+            content += f"\n\n[链接]({url})"
         if pic_url:
             content += f"\n\n![Image]({pic_url})"
         body = {"title": f"{title}", "desp": f"{content}"}
@@ -317,9 +319,10 @@ def notify(
     **kwargs,
 ):
     if body:
+        body = str(body)
         body = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", body)
-    if len(body) > 200:
-        body = body[:200] + "..."
+        if len(body) > 200:
+            body = body[:200] + "..."
     priority = 6
     push = Push()
     if kwargs.get("audio"):
