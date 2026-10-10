@@ -1,5 +1,5 @@
 from os import environ
-from os.path import realpath, exists
+from os.path import realpath, isfile
 import re
 import time
 import requests
@@ -27,18 +27,29 @@ def get_active(dynamics, uid, days=30):
     return 1 + sum(1 for item in dynamics[uid].values() if item[2] > threshold)
 
 
+#: 图片后缀白名单。URL 尾段命中其一才算"已带后缀"——
+#: 不能只判"有没有点"：B 站图片 URL 带 `@` 尺寸后缀（如 `abc.jpg@1052w_1052h`），
+#: 其 `Path(name).suffix` 是 `.jpg@1052w_1052h` 这种假后缀。
+_IMAGE_EXTS = frozenset(
+    {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".avif", ".svg"}
+)
+
+
 def get_icon(headers, image_url, prefix, platform, uname, _type):
-    image_url = image_url.split("?")[0]
-    name = image_url.split("/")[-1]
+    url = image_url.split("?")[0].split("#")[0]
+    name = url.split("/")[-1] or "image"
+    if Path(name).suffix.lower() not in _IMAGE_EXTS:
+        name += ".jpg"
     dir_path = Path("image") / platform / uname / _type
     dir_path.mkdir(parents=True, exist_ok=True)
     icon = str(dir_path / name)
-    if exists(icon):
+    # 用 is_file 而非 exists：目录也满足 exists，URL 尾斜杠时会把目录当图片返回
+    if isfile(icon):
         return realpath(icon)
     try:
-        r = requests.get(image_url, headers=headers, proxies=proxies, timeout=10)
+        r = requests.get(url, headers=headers, proxies=proxies, timeout=10)
     except RequestException as e:
-        logger.warning(f"网络错误 error:{e}, url: {image_url} ", prefix)
+        logger.warning(f"网络错误 error:{e}, url: {url} ", prefix)
         return None
     if r.status_code != 200:
         return None
