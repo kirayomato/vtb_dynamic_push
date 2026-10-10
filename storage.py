@@ -21,6 +21,8 @@ import threading
 import time
 from datetime import datetime
 
+from logger import logger
+
 prefix = "【持久化存储】"
 
 #: 重启恢复时每个 uid 最多还原多少条动态，避免长期运行后把历史全量灌进内存
@@ -31,16 +33,11 @@ _lock = threading.RLock()
 
 
 def _log(level: str, msg: str) -> None:
-    """惰性载入项目 logger，避免 import storage 时连带拉起 web 服务依赖。
+    """统一日志出口。
 
     日志在拿锁之外调用，规避持锁调用外部组件的死锁风险。
     """
-    try:
-        from logger import logger
-
-        getattr(logger, level)(msg, prefix)
-    except Exception:
-        print(f"{prefix} {msg}")
+    getattr(logger, level)(msg, prefix)
 
 
 def _db_path() -> str:
@@ -545,9 +542,9 @@ def _sql_authorizer(action, arg1, arg2, db_name, source):
 def _get_read_conn() -> sqlite3.Connection:
     """惰性创建只读查询专用连接。
 
-    没有用 `mode=ro` 的 URI 打开：WAL 库在只读模式下仍要求 -shm 可写，
-    进程刚启动、-shm 尚未建立时会直接打开失败。这里改为普通连接 +
-    `PRAGMA query_only=ON` + authorizer，兼容性更好，写入同样被内核拒绝。
+    用普通连接 + `PRAGMA query_only=ON` + authorizer 实现只读：
+    WAL 库在 `mode=ro` 下仍要求 -shm 可写，进程刚启动、-shm 尚未建立时
+    会直接打开失败；该方案兼容性更好，写入同样被内核拒绝。
     """
     global _ro_conn
     with _sql_lock:

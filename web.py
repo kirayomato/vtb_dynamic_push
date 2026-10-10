@@ -1,7 +1,6 @@
 import json
 import os
 import re
-import io
 from collections import deque
 from datetime import datetime
 from dataclasses import dataclass, asdict
@@ -9,6 +8,9 @@ from fastapi import FastAPI, Request, Body
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
+
+# 日志转发：把 logger 的日志接入内存存储供面板展示
+from logger import output_stream
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
@@ -131,17 +133,11 @@ class LogStore:
 
 log_store = LogStore()
 
+# 把日志流接到内存存储，供 web 面板轮询展示
+output_stream.subscribe(log_store.add)
+
 # 调度器注册表：由 main.py 在运行时填充（键为线程名，值为 Scheduler 实例）
 scheduler_registry: dict = {}
-
-
-class LogCapture(io.StringIO):
-    def write(self, s):
-        log_store.add(s)
-        return super().write(s)
-
-
-output_stream = LogCapture()
 
 
 # 路由
@@ -231,7 +227,7 @@ async def write_cookies(
 async def get_config():
     """获取config.ini配置"""
     try:
-        from push import global_config
+        from config import global_config
 
         config = global_config._config
         result = {}
@@ -246,7 +242,7 @@ async def get_config():
 async def save_config(config_data: dict = Body(...)):
     """保存config.ini配置"""
     try:
-        from push import global_config
+        from config import global_config, config_path
 
         config = global_config._config
         for section, options in config_data.items():
@@ -255,7 +251,7 @@ async def save_config(config_data: dict = Body(...)):
             for key, value in options.items():
                 config.set(section, key, str(value))
 
-        with open("config.ini", "w", encoding="utf-8") as f:
+        with open(config_path(), "w", encoding="utf-8") as f:
             config.write(f)
 
         return {"message": "配置保存成功"}
@@ -366,7 +362,7 @@ ALLOWED_SCHEDULERS = ("weibo", "bili_dy")
 async def get_scheduler_info():
     """获取各调度器的实时状态（权重、访问次数、平均间隔等）"""
     try:
-        from push import global_config as config
+        from config import global_config as config
 
         sched_enable = config.get("scheduler", "enable") == "true"
         max_weight = int(config.get("scheduler", "max_weight") or 10)
@@ -397,7 +393,7 @@ async def set_static_weight(payload: dict = Body(...)):
     static_weight_{scheduler} 配置项中，互不干扰。
     """
     try:
-        from push import global_config as config
+        from config import global_config as config, config_path
 
         scheduler_name = payload.get("scheduler")
         if scheduler_name not in ALLOWED_SCHEDULERS:
@@ -432,7 +428,7 @@ async def set_static_weight(payload: dict = Body(...)):
 
             new_str = ",".join(f"{k}:{v}" for k, v in mapping.items())
             c.set("scheduler", cfg_key, new_str)
-            with open("config.ini", "w", encoding="utf-8") as f:
+            with open(config_path(), "w", encoding="utf-8") as f:
                 c.write(f)
 
         return {

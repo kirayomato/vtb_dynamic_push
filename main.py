@@ -20,7 +20,7 @@ from query_bili import (
 from query_afd import query_afddynamic, AFD_NAME_DICT, init_state as init_afd_state
 from colorama import Fore, init
 from push import notify
-from push import global_config as config
+from config import global_config as config
 import uvicorn
 from random import random
 from scheduler import Scheduler

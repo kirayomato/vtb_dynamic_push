@@ -2,7 +2,7 @@ from collections import defaultdict
 import time
 import threading
 from typing import Dict, List, Optional
-from push import global_config as config
+from config import global_config as config
 from math import sqrt
 
 

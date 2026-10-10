@@ -91,16 +91,25 @@ def load_cookie(path, ck, name, _prefix):
     return ck
 
 
+def config_path(config_file="config.ini") -> str:
+    """配置文件绝对路径。
+
+    以本文件所在目录为基准，换工作目录启动也能定位到同一份配置。
+    """
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), config_file)
+
+
 class Config(object):
     def __init__(self, config_file="config.ini"):
-        self._path = os.path.join(os.getcwd(), config_file)
+        self._path = config_path(config_file)
         self._config = configparser.ConfigParser(interpolation=None)
         self.WeiboCookies = {}
         self.BiliCookies = {}
-        if not os.path.exists(self._path):
-            logger.error("配置文件不存在: config.ini", prefix)
-            return
+        # 早于配置文件缺失的提前返回，否则 get() 会因 _lock 未初始化而抛 AttributeError
         self._lock = threading.Lock()
+        if not os.path.exists(self._path):
+            logger.error(f"配置文件不存在: {self._path}", prefix)
+            return
         self.update()
         thread = threading.Thread(target=update_config, args=[self], daemon=True)
         thread.start()
@@ -145,3 +154,6 @@ general_headers = {
     "sec-ch-ua-mobile": "?0",
     "sec-ch-ua-platform": '"Windows"',
 }
+
+#: 全局配置单例，各模块统一从这里取
+global_config = Config()

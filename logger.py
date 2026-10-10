@@ -1,3 +1,4 @@
+import io
 import logging
 from logging.handlers import TimedRotatingFileHandler
 import sys
@@ -7,13 +8,36 @@ from colorama import Fore, Style
 from time import time
 from collections import deque
 from reprint import output
-from web import output_stream
 import shutil
 from datetime import datetime, timedelta
 import unicodedata
 from apscheduler.schedulers.background import BackgroundScheduler
 
 prefix_dict = {}
+
+
+class LogSink(io.StringIO):
+    """日志转发流：把写入的文本分发给订阅者。
+
+    使用方通过 subscribe() 注册回调，写入时同步分发。
+    """
+
+    def __init__(self):
+        super().__init__()
+        self._subscribers = []
+
+    def subscribe(self, handler):
+        """注册订阅者，handler 接收写入的日志文本。"""
+        self._subscribers.append(handler)
+
+    def write(self, s):
+        for handler in self._subscribers:
+            handler(s)
+        return super().write(s)
+
+
+#: 供 web 等模块订阅的日志转发流
+output_stream = LogSink()
 
 
 def process_prefix(prefix):
@@ -71,6 +95,8 @@ class mylogger:
     def __init__(self, log_dir="log"):
         self.log_dir = log_dir
         self.error_count = deque(maxlen=10)  # 限制错误计数队列长度
+        #: "一小时内累计大量报错"时的告警回调，未注册则不告警
+        self.error_notifier = None
         os.makedirs(log_dir, exist_ok=True)
         self.log_level = logging.INFO
         self._setup_loggers()
@@ -79,6 +105,10 @@ class mylogger:
             move_old_logs, "cron", hour=0, minute=0, args=[log_dir]
         )
         self.move_old_task.start()
+
+    def set_error_notifier(self, handler):
+        """注册报错告警回调，签名同 notify(title, body)。"""
+        self.error_notifier = handler
 
     def _setup_loggers(self):
         """配置日志处理器"""
@@ -154,10 +184,8 @@ class mylogger:
         self.error_count.append(time())
         while len(self.error_count) and time() - self.error_count[0] > 3600:
             self.error_count.popleft()
-        if len(self.error_count) == 10:
-            from push import notify
-
-            notify(
+        if len(self.error_count) == 10 and self.error_notifier is not None:
+            self.error_notifier(
                 "检测到大量报错",
                 f"一小时内累计报错{len(self.error_count)}次，请检查运行状态",
             )

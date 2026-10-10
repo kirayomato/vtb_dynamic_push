@@ -2,7 +2,7 @@ import json
 import urllib
 from logger import logger
 import requests
-from config import Config, general_headers
+from config import general_headers, global_config
 import re
 
 try:
@@ -17,7 +17,6 @@ class PushException(Exception):
 
 
 prefix = "【消息推送】"
-global_config = Config()
 
 
 def requests_get(url, module_name="未指定", params=None, use_proxy=False):
@@ -357,3 +356,7 @@ def notify(
             app_id="vtb_dynamic",
             **kwargs,
         )
+
+
+# 报错告警接入推送
+logger.set_error_notifier(notify)
