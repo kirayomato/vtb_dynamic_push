@@ -301,18 +301,18 @@ def query_bilidynamic(uid, reporter) -> bool:
         face = module_author.get("face", USER_FACE_DICT.get(uid, ""))
         sign = module_author.get("sign", "")
         home_url = f"https://space.bilibili.com/{uid}"
+        # 抓取成功即清零，保证 except 里的计数只统计连续失败
+        global cookies_failed_count
+        cookies_failed_count = 0
     except (KeyError, TypeError):
         logger.error(
             f"【{uid}】返回数据不完整, 休眠五分钟, url: {query_url} \ndata:{result}",
             prefix,
         )
-        global cookies_failed_count
         cookies_failed_count += 1
         if cookies_failed_count % 3 == 0:
             logger.warning("B站Cookie无效", prefix)
             notify("B站Cookie无效", "", on_click="https://www.bilibili.com/")
-        else:
-            cookies_failed_count = 0
         sleep(300)
         return False
     reporter.set_status(
