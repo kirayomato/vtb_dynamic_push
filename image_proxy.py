@@ -3,6 +3,7 @@ from fastapi import FastAPI, Query, HTTPException, Request
 from fastapi.responses import StreamingResponse, HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from query_weibo import get_headers
+from push import is_proxyable
 from datetime import datetime
 import threading
 from typing import List, Dict, Any
@@ -52,12 +53,9 @@ async def proxy_image(
     request: Request, url: str = Query(..., description="Target image URL")
 ):
     """代理图片的核心函数"""
-    # 验证URL格式
+    # 验证URL格式：与推送侧共用同一判据，避免生成必然被拒的代理地址
     url = url.split("?", 1)[0]
-    if not (
-        url.endswith((".jpg", ".jpeg", ".png", ".gif", ".webp", ".mp4", ".mov", ".flv"))
-        and any(item in url for item in ("sina", "weibo"))
-    ):
+    if not is_proxyable(url):
         raise HTTPException(status_code=400, detail="Invalid URL format")
 
     headers = get_headers("0")

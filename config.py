@@ -99,6 +99,15 @@ def config_path(config_file="config.ini") -> str:
     return os.path.join(os.path.dirname(os.path.abspath(__file__)), config_file)
 
 
+def cookie_path(filename: str) -> str:
+    """Cookie 文件绝对路径，与配置同基准。
+
+    读端（Config.update）与写端（web 的 /write-cookies）都用它，
+    否则从不同工作目录启动会各读各的文件。
+    """
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), filename)
+
+
 class Config(object):
     def __init__(self, config_file="config.ini"):
         self._path = config_path(config_file)
@@ -134,11 +143,17 @@ class Config(object):
         with self._lock:
             self._config.read(self._path, encoding="utf-8-sig")
         self.WeiboCookies = load_cookie(
-            "WeiboCookies.json", self.WeiboCookies, "微博", "【查询微博状态】"
+            cookie_path("WeiboCookies.json"),
+            self.WeiboCookies,
+            "微博",
+            "【查询微博状态】",
         )
 
         self.BiliCookies = load_cookie(
-            "BiliCookies.json", self.BiliCookies, "B站", "【查询B站状态】"
+            cookie_path("BiliCookies.json"),
+            self.BiliCookies,
+            "B站",
+            "【查询B站状态】",
         )
 
 

@@ -1,5 +1,5 @@
 import json
-import urllib
+from urllib.parse import quote
 from logger import logger
 import requests
 from config import general_headers, global_config
@@ -60,6 +60,24 @@ def check_response_is_ok(response=None):
         )
         return False
     return True
+
+
+#: 可直接嵌入的媒体后缀（图片与短视频）
+_PROXYABLE_EXTS = (".jpg", ".jpeg", ".png", ".gif", ".webp", ".mp4", ".mov", ".flv")
+#: 反代只服务微博系图床
+_PROXY_HOSTS = ("sina", "weibo")
+
+
+def is_proxyable(url):
+    """判断 url 能否走图片反代：微博系域名 + 已知媒体后缀。
+
+    通知侧（生成代理地址）与代理服务侧（准入放行）必须用同一判据，
+    否则会产出必然被拒绝的代理地址。
+    """
+    if not url:
+        return False
+    path = url.split("?")[0].split("#")[0]
+    return any(h in url for h in _PROXY_HOSTS) and path.endswith(_PROXYABLE_EXTS)
 
 
 class Push(object):
@@ -182,6 +200,9 @@ class Push(object):
         }
         push_url = "http://www.pushplus.plus/send/"
         response = requests_post(push_url, data=body)
+        if response is None:
+            logger.error("pushplus推送失败, 请求失败", prefix)
+            raise PushException
         try:
             result = json.loads(response.text)
         except json.JSONDecodeError as e:
@@ -330,11 +351,11 @@ def notify(
     if isinstance(pic_url, list):
         pic_url = pic_url[0]
     # 反代微博图片
-    if pic_url and any(item in pic_url for item in ("sina", "weibo")):
+    if pic_url and is_proxyable(pic_url):
         if global_config.get("image_proxy", "enable") == "true":
             host = global_config.get("image_proxy", "proxy_host", "127.0.0.1")
             pic_url = pic_url.replace("/large/", "/bmiddle/")
-            pic_url = f"http://{host}/proxy?url={urllib.parse.quote(pic_url)}"
+            pic_url = f"http://{host}/proxy?url={quote(pic_url)}"
         else:
             pic_url = None
 

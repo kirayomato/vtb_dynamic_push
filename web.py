@@ -210,13 +210,13 @@ async def write_cookies(
         return {"error": "无效的类型"}
     try:
         # 同时支持浏览器导出的 JSON 数组/对象，与 `name=value; ...` 原始字符串
-        from config import parse_cookie
+        from config import parse_cookie, cookie_path
 
         if not parse_cookie(content):
             return {
                 "error": "Cookie格式无效：需为JSON数组/对象，或 `name=value; ...` 字符串"
             }
-        with open(filename, "w", encoding="utf-8") as f:
+        with open(cookie_path(filename), "w", encoding="utf-8") as f:
             f.write(content)
         return {"message": "保存成功"}
     except Exception as e:
