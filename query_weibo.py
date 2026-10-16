@@ -76,6 +76,9 @@ cookies_valid = False
 
 
 def query_valid(uid, cookie):
+    if not uid:
+        logger.warning("未配置微博cookie检测uid", prefix)
+        return True
     query_url = f"https://m.weibo.cn/api/container/getIndex?type=uid&value={uid}&containerid=107603{uid}&count=25"
     headers = get_headers(uid)
     global cookies_valid
@@ -160,8 +163,8 @@ def query_weibodynamic(uid, reporter) -> bool:
             elif resp.status == 432:
                 global cookies_valid
                 cookies_valid = False
-                logger.warning("微博Cookie无效", prefix)
-                notify("微博Cookie无效", "", on_click="https://m.weibo.cn/")
+                logger.warning("微博Cookie无效, code:432", prefix)
+                notify("微博Cookie无效", "code:432", on_click="https://m.weibo.cn/")
                 sleep(600)
             else:
                 logger.warning(f"请求错误, 休眠一分钟, {error_text}", prefix)
@@ -177,8 +180,12 @@ def query_weibodynamic(uid, reporter) -> bool:
     if result["ok"] not in (0, 1):
         if result["ok"] == -100:
             if "passport.weibo.com" in result["url"]:
-                logger.warning("微博Cookie无效", prefix)
-                notify("微博Cookie无效", "", on_click="https://m.weibo.cn/")
+                logger.warning('微博Cookie无效, result["ok"]: -100', prefix)
+                notify(
+                    "微博Cookie无效",
+                    'result["ok"]: -100',
+                    on_click="https://m.weibo.cn/",
+                )
             else:
                 logger.error(
                     f'触发风控，请完成验证码校验, 休眠五分钟\n{result["url"]} , url: {query_url} \ndata:{result}',
@@ -201,8 +208,13 @@ def query_weibodynamic(uid, reporter) -> bool:
         if len(cards) == 0:
             if DYNAMIC_DICT.get(uid):
                 if cookies_check == "true":
-                    logger.warning("微博Cookie无效", prefix)
-                    notify("微博Cookie无效", "", on_click="https://m.weibo.cn/")
+                    uname = USER_NAME_DICT.get(uid, uid)
+                    logger.warning(f"微博Cookie无效, {uname}主页为空", prefix)
+                    notify(
+                        "微博Cookie无效",
+                        f"{uname}主页为空",
+                        on_click="https://m.weibo.cn/",
+                    )
                     sleep(300)
             else:
                 logger.debug(f"【{uid}】微博列表为空", prefix)

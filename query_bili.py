@@ -269,8 +269,12 @@ def query_bilidynamic(uid, reporter) -> bool:
     result = resp.data
     if result["code"] != 0:
         if result["code"] == -101:
-            logger.warning("B站Cookie无效", prefix)
-            notify("B站Cookie无效", "", on_click="https://www.bilibili.com/")
+            logger.warning('B站Cookie无效, result["code"]: -101', prefix)
+            notify(
+                "B站Cookie无效",
+                'result["code"]: -101',
+                on_click="https://www.bilibili.com/",
+            )
         elif result["code"] == -352:
             # WBI签名失效，刷新key后重试
             logger.warning("WBI签名失效，正在刷新key", prefix)
@@ -311,8 +315,13 @@ def query_bilidynamic(uid, reporter) -> bool:
         )
         cookies_failed_count += 1
         if cookies_failed_count % 3 == 0:
-            logger.warning("B站Cookie无效", prefix)
-            notify("B站Cookie无效", "", on_click="https://www.bilibili.com/")
+            uname = DYNAMIC_NAME_DICT.get(uid, uid)
+            logger.warning(f"B站Cookie无效, 获取{uname}信息不全", prefix)
+            notify(
+                "B站Cookie无效",
+                f"获取{uname}信息不全",
+                on_click="https://www.bilibili.com/",
+            )
         sleep(300)
         return False
     reporter.set_status(

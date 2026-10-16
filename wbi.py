@@ -83,8 +83,8 @@ def _update_wbi_key(headers, cookie):
         sub_key = extract_key(sub_url)
         return make_key(img_key, sub_key)
     elif data["code"] == -101:
-        logger.warning("B站Cookie无效", prefix)
-        notify("B站Cookie无效", "", on_click="https://www.bilibili.com/")
+        logger.warning("B站Cookie无效, 更新wbi失败", prefix)
+        notify("B站Cookie无效", "更新wbi失败", on_click="https://www.bilibili.com/")
     else:
         logger.error(f"获取WBI keys失败:\n {data}", prefix)
     return None

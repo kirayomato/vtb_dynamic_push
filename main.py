@@ -155,8 +155,14 @@ def weibo_loop():
                 failures += 1
                 # 连续失败 3 次才告警一次，避开网络抖动造成的误报
                 if failures % 3 == 0:
-                    logger.warning("微博Cookie无效", prefix)
-                    notify("微博Cookie无效", "", on_click="https://m.weibo.cn/")
+                    logger.warning(
+                        f"微博Cookie无效, 无法查看{check_uid}的粉见内容", prefix
+                    )
+                    notify(
+                        "微博Cookie无效",
+                        f"无法查看{check_uid}的粉见内容",
+                        on_click="https://m.weibo.cn/",
+                    )
         sched.update_targets(uids)
         for _ in range(len(uids)):
             uid = sched.next_target()
