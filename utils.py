@@ -92,6 +92,9 @@ _IMAGE_EXTS = frozenset(
 
 
 def get_icon(headers, image_url, prefix, platform, uname, _type):
+    if not isinstance(image_url, str) or not image_url.strip():
+        logger.debug(f"图片地址为空, 跳过下载, uname: {uname}, type: {_type}", prefix)
+        return None
     url = image_url.split("?")[0].split("#")[0]
     name = url.split("/")[-1] or "image"
     if Path(name).suffix.lower() not in _IMAGE_EXTS:
