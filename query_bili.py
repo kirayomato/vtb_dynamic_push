@@ -7,6 +7,7 @@ from config import general_headers
 from utils import (
     NETWORK,
     STATUS,
+    CookieSuspend,
     check_diff,
     fetch_json,
     fmt_pics,
@@ -32,6 +33,8 @@ USER_FACE_DICT = {}
 DYNAMIC_NAME_DICT = {}
 LIVE_NAME_DICT = {}
 cookies_failed_count = 0
+#: Cookie 连续失效后暂停查询，等 Cookie 更新自动恢复。
+_cookie_guard = CookieSuspend("B站")
 _prefix = "【B站持久化】"
 
 #: 本进程内已完成"特别关注图片兜底"的用户，避免每个轮询周期重复扫描。
@@ -85,7 +88,8 @@ def _refresh_wbi(cookie, prefix, sleep):
         WBIKey.refresh(general_headers, cookie)
     except CookieExpired:
         # wbi 已记录并推送该故障，这里只退避，避免同一次失败打两条日志
-        sleep(300)
+        if not _cookie_guard.count_failure(cookie, prefix):
+            sleep(300)
     except Exception as e:
         logger.error(f"刷新WBI key失败: {e}", prefix)
         sleep(300)
@@ -93,7 +97,18 @@ def _refresh_wbi(cookie, prefix, sleep):
 
 
 def query_bilidynamic(uid, reporter) -> bool:
+    prefix = "【查询B站动态】"
     cookie = config.BiliCookies
+    if _cookie_guard.suspended(cookie, prefix):
+        reporter.set_status(
+            Slot.BILI,
+            datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            + " - "
+            + Fore.YELLOW
+            + "Cookie失效, 等待更新后恢复"
+            + Style.RESET_ALL,
+        )
+        return False
     special = set((config.get("bili", "special_list") or "").split(","))
 
     def sleep(t):
@@ -209,7 +224,6 @@ def query_bilidynamic(uid, reporter) -> bool:
                 logger.error(f"无法获取动态内容: {item}", prefix)
         return content, pic_url, action
 
-    prefix = "【查询B站动态】"
     if uid is None:
         return False
     uid = str(uid)
@@ -219,7 +233,8 @@ def query_bilidynamic(uid, reporter) -> bool:
         wbi_key = WBIKey.get(general_headers, cookie)
     except CookieExpired:
         # wbi 已记录并推送该故障，这里只退避，避免同一次失败打两条日志
-        sleep(300)
+        if not _cookie_guard.count_failure(cookie, prefix):
+            sleep(300)
         return False
     except Exception as e:
         logger.error(f"获取WBI签名key失败：{repr(e)}", prefix)
@@ -282,6 +297,8 @@ def query_bilidynamic(uid, reporter) -> bool:
                 'result["code"]: -101',
                 on_click="https://www.bilibili.com/",
             )
+            if _cookie_guard.count_failure(cookie, prefix):
+                return False
         elif result["code"] == -352:
             # WBI签名失效，刷新key后重试
             logger.warning("WBI签名失效，正在刷新key", prefix)
@@ -293,6 +310,7 @@ def query_bilidynamic(uid, reporter) -> bool:
             )
         sleep(300)
         return False
+    _cookie_guard.reset()
     try:
         items = result["data"]["items"]
         if len(items) == 0:

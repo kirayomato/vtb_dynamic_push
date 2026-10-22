@@ -11,6 +11,7 @@ from config import general_headers
 from utils import (
     NETWORK,
     STATUS,
+    CookieSuspend,
     check_diff,
     fetch_json,
     fmt_pics,
@@ -73,11 +74,16 @@ def _save_user_info(uid):
 
 
 cookies_valid = False
+#: Cookie 连续失效后暂停查询，等 Cookie 更新自动恢复。
+_cookie_guard = CookieSuspend("微博")
 
 
 def query_valid(uid, cookie):
     if not uid:
         logger.warning("未配置微博cookie检测uid", prefix)
+        return True
+    # 已挂起时不再发校验请求，挂起状态由 query_weibodynamic 的恢复检测解除
+    if _cookie_guard.suspended(cookie, prefix):
         return True
     query_url = f"https://m.weibo.cn/api/container/getIndex?type=uid&value={uid}&containerid=107603{uid}&count=25"
     headers = get_headers(uid)
@@ -100,6 +106,16 @@ def query_valid(uid, cookie):
 
 def query_weibodynamic(uid, reporter) -> bool:
     cookie = config.WeiboCookies
+    if _cookie_guard.suspended(cookie, prefix):
+        reporter.set_status(
+            Slot.WEIBO,
+            datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            + " - "
+            + Fore.YELLOW
+            + "Cookie失效, 等待更新后恢复"
+            + Style.RESET_ALL,
+        )
+        return False
     cookies_check = config.get("weibo", "enable_cookie_check")
     special = set((config.get("weibo", "special_list") or "").split(","))
 
@@ -165,7 +181,8 @@ def query_weibodynamic(uid, reporter) -> bool:
                 cookies_valid = False
                 logger.warning("微博Cookie无效, code:432", prefix)
                 notify("微博Cookie无效", "code:432", on_click="https://m.weibo.cn/")
-                sleep(300)
+                if not _cookie_guard.count_failure(cookie, prefix):
+                    sleep(300)
             else:
                 logger.warning(f"请求错误, 休眠一分钟, {error_text}", prefix)
                 sleep(60)
@@ -186,6 +203,8 @@ def query_weibodynamic(uid, reporter) -> bool:
                     'result["ok"]: -100',
                     on_click="https://m.weibo.cn/",
                 )
+                if _cookie_guard.count_failure(cookie, prefix):
+                    return False
             else:
                 logger.error(
                     f'触发风控，请完成验证码校验, 休眠五分钟\n{result["url"]} , url: {query_url} \ndata:{result}',
@@ -215,7 +234,8 @@ def query_weibodynamic(uid, reporter) -> bool:
                         f"{uname}主页为空",
                         on_click="https://m.weibo.cn/",
                     )
-                    sleep(300)
+                    if not _cookie_guard.count_failure(cookie, prefix):
+                        sleep(300)
             else:
                 logger.debug(f"【{uid}】微博列表为空", prefix)
                 DYNAMIC_DICT[uid] = {}
@@ -236,6 +256,7 @@ def query_weibodynamic(uid, reporter) -> bool:
         )
         sleep(60)
         return False
+    _cookie_guard.reset()
     reporter.set_status(
         Slot.WEIBO,
         datetime.now().strftime("%Y-%m-%d %H:%M:%S")

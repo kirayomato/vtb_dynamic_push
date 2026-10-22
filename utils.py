@@ -29,6 +29,59 @@ def get_active(dynamics, uid, days=30):
     return 1 + sum(1 for item in dynamics[uid].values() if item[2] > threshold)
 
 
+class CookieSuspend:
+    """Cookie 连续失效后暂停查询，Cookie 更新后自动恢复。
+
+    每个平台一个实例：失效判据、退避时长由各平台自己决定，这里只收敛
+    "连续失败计数 -> 挂起 -> Cookie 变化后恢复"这套状态流转。
+    """
+
+    def __init__(self, name, on_click="http://127.0.0.1:5000/", limit=3):
+        self.name = name
+        self.on_click = on_click
+        self.limit = limit
+        self._streak = 0
+        self._snapshot = None
+
+    def suspended(self, cookie, prefix):
+        """Cookie 未更新时保持挂起，检测到变化则恢复查询。
+
+        挂起期间调用方不应发起任何请求：Cookie 失效只能由用户修复，
+        继续请求只会把同一故障按用户数放大。
+        """
+        if self._snapshot is None:
+            return False
+        if cookie != self._snapshot:
+            self._snapshot = None
+            self._streak = 0
+            logger.info(f"{self.name}Cookie已更新, 恢复查询", prefix)
+            return False
+        return True
+
+    def count_failure(self, cookie, prefix):
+        """累计连续失效次数，达到上限后挂起查询。
+
+        返回本次是否刚进入挂起，调用方据此跳过一次退避。
+        """
+        self._streak += 1
+        if self._streak < self.limit:
+            return False
+        self._streak = 0
+        self._snapshot = dict(cookie or {})
+        logger.warning(
+            f"{self.name}Cookie连续失效{self.limit}次, 暂停查询, 等待Cookie更新", prefix
+        )
+        notify(
+            f"{self.name}查询已暂停",
+            f"Cookie连续失效{self.limit}次, 更新Cookie后自动恢复",
+            on_click=self.on_click,
+        )
+        return True
+
+    def reset(self):
+        self._streak = 0
+
+
 #: 抓取失败的环节，见 Fetch.kind
 NETWORK = "network"
 STATUS = "status"
