@@ -158,14 +158,14 @@ def query_weibodynamic(uid, reporter) -> bool:
         elif resp.kind == STATUS:
             error_text = f"status:{resp.status}, {resp.reason} url: {query_url}"
             if resp.status == 403:
-                logger.error(f"触发风控, 休眠五分钟, {error_text}", prefix)
-                sleep(300)
+                logger.error(f"触发风控, 休眠十分钟, {error_text}", prefix)
+                sleep(600)
             elif resp.status == 432:
                 global cookies_valid
                 cookies_valid = False
                 logger.warning("微博Cookie无效, code:432", prefix)
                 notify("微博Cookie无效", "code:432", on_click="https://m.weibo.cn/")
-                sleep(600)
+                sleep(300)
             else:
                 logger.warning(f"请求错误, 休眠一分钟, {error_text}", prefix)
                 sleep(60)

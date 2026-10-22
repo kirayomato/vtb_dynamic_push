@@ -15,7 +15,7 @@ from utils import (
     get_icon,
     get_image,
 )
-from wbi import build_query, WBIKey
+from wbi import CookieExpired, build_query, WBIKey
 from storage import dyn_del, dyn_load, dyn_set, dyn_set_many, kv_load, kv_set
 
 # from PIL import Image
@@ -83,9 +83,12 @@ def _refresh_wbi(cookie, prefix, sleep):
     """刷新 WBI 签名 key；刷新失败仅记录日志。始终返回 False 供调用方 return。"""
     try:
         WBIKey.refresh(general_headers, cookie)
+    except CookieExpired:
+        # wbi 已记录并推送该故障，这里只退避，避免同一次失败打两条日志
+        sleep(300)
     except Exception as e:
         logger.error(f"刷新WBI key失败: {e}", prefix)
-        sleep(600)
+        sleep(300)
     return False
 
 
@@ -214,9 +217,13 @@ def query_bilidynamic(uid, reporter) -> bool:
     # 获取WBI签名key（使用缓存）
     try:
         wbi_key = WBIKey.get(general_headers, cookie)
+    except CookieExpired:
+        # wbi 已记录并推送该故障，这里只退避，避免同一次失败打两条日志
+        sleep(300)
+        return False
     except Exception as e:
         logger.error(f"获取WBI签名key失败：{repr(e)}", prefix)
-        sleep(600)
+        sleep(300)
         return False
 
     # 构建请求参数

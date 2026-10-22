@@ -8,6 +8,13 @@ from push import notify
 prefix = "【查询B站动态】"
 
 
+class CookieExpired(Exception):
+    """nav 接口返回 -101：Cookie 失效，取不到 wbi_img。
+
+    由本模块统一记录日志并推送告警，调用方捕获后不要再重复记一条。
+    """
+
+
 class WBIKey:
     """WBI 签名 key 的进程内缓存，按需获取并在失效时刷新。"""
 
@@ -72,7 +79,11 @@ def build_query(key: str, ts: int, params: List[Tuple[str, Any]]) -> str:
 
 
 def _update_wbi_key(headers, cookie):
-    """更新WBI签名key"""
+    """更新WBI签名key
+
+    Cookie 失效时在这里记录并推送，然后抛 CookieExpired：本函数是唯一
+    能确定失败原因的地方，调用方只负责退避。
+    """
     url = "https://api.bilibili.com/x/web-interface/nav"
     response = requests.get(url, headers=headers, cookies=cookie, timeout=10)
     data = response.json()
@@ -85,6 +96,7 @@ def _update_wbi_key(headers, cookie):
     elif data["code"] == -101:
         logger.warning("B站Cookie无效, 更新wbi失败", prefix)
         notify("B站Cookie无效", "更新wbi失败", on_click="https://www.bilibili.com/")
+        raise CookieExpired("nav 返回 -101")
     else:
         logger.error(f"获取WBI keys失败:\n {data}", prefix)
     return None
