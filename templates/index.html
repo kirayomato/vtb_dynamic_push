@@ -596,10 +596,83 @@
             padding: 5px 10px;
             border-bottom: 1px solid var(--border);
             vertical-align: top;
-            max-width: 360px;
+            min-width: 100px;
+            max-width: 520px;
+        }
+
+        /* 行号列保持紧凑：上面的 min-width 不能套在 # 上 */
+        .sql-table td.sql-row-num {
+            min-width: 0;
+            width: 5%;
+            padding: 5px 10px 5px 4px;
+        }
+
+        /* 单元格正文：保留原始换行，默认折叠到 3 行，点开弹窗看全文 */
+        .sql-cell-text {
+            white-space: pre-wrap;
+            word-break: break-word;
+            line-height: 1.5;
+            display: -webkit-box;
+            -webkit-box-orient: vertical;
+            -webkit-line-clamp: 3;
+            line-clamp: 3;
             overflow: hidden;
-            text-overflow: ellipsis;
+        }
+
+        /* 勾选「展开长文本」后不再折叠 */
+        .sql-wrap-all .sql-cell-text {
+            display: block;
+            -webkit-line-clamp: unset;
+            line-clamp: unset;
+            overflow: visible;
+        }
+
+        .sql-table td.sql-cell-long {
+            cursor: zoom-in;
+            min-width: 320px;
+        }
+
+        .sql-table td.sql-cell-long:hover {
+            background: rgba(74, 158, 255, 0.08);
+        }
+
+        .sql-cell-badge {
+            display: inline-block;
+            margin-top: 3px;
+            font-size: 11px;
+            color: var(--accent);
+            opacity: 0.75;
+        }
+
+        /* 时间戳单元格：可读时间为主，原始值作为副行 */
+        .sql-cell-time {
             white-space: nowrap;
+        }
+
+        .sql-time-readable {
+            font-family: Consolas, Monaco, monospace;
+        }
+
+        .sql-time-raw {
+            display: block;
+            font-size: 11px;
+            color: var(--text-secondary);
+            font-family: Consolas, Monaco, monospace;
+        }
+
+        .sql-cell-full {
+            margin: 0;
+            white-space: pre-wrap;
+            word-break: break-word;
+            font-family: Consolas, Monaco, monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            max-height: 60vh;
+            overflow: auto;
+        }
+
+        .sql-cell-modal-content {
+            max-width: 1000px;
         }
 
         .sql-table tbody tr:hover {
@@ -730,10 +803,17 @@
                     </div>
                 </div>
                 <div class="sql-main">
-                    <textarea id="sqlInput" spellcheck="false" placeholder="在此输入只读 SQL，Ctrl+Enter 执行（点左侧表名可快速查看数据）"></textarea>
+                    <textarea id="sqlInput" spellcheck="false"
+                        placeholder="在此输入只读 SQL，Ctrl+Enter 执行（点左侧表名可快速查看数据）"></textarea>
                     <div class="sql-toolbar">
                         <button onclick="runSql()">执行</button>
                         <button onclick="clearSql()">清空</button>
+                        <label class="raw-toggle" title="把 ts / *_at / *_time 等列里的 Unix 时间戳显示为本地时间">
+                            <input type="checkbox" id="sqlTimeToggle" checked> 时间戳转可读
+                        </label>
+                        <label class="raw-toggle" title="表格里直接展开长文本，不再折叠成 3 行">
+                            <input type="checkbox" id="sqlWrapToggle"> 展开长文本
+                        </label>
                         <div class="sql-status" id="sqlStatus"></div>
                     </div>
                     <div class="sql-schema" id="sqlSchema">点击左侧表名可查看字段结构并预览数据</div>
@@ -743,8 +823,27 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <span class="stats">只读模式：仅支持 SELECT / WITH / VALUES / EXPLAIN / PRAGMA 单条语句，最多返回 1000 行，超时 5 秒自动中断</span>
+                <span class="stats">只读模式：仅支持 SELECT / WITH / VALUES / EXPLAIN / PRAGMA 单条语句，最多返回 1000 行，超时 5
+                    秒自动中断；点单元格可看全文</span>
                 <button onclick="closeSqlBrowser()">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SQL 单元格全文弹窗 -->
+    <div class="modal" id="sqlCellModal">
+        <div class="modal-content sql-cell-modal-content">
+            <div class="modal-header">
+                <h2 id="sqlCellTitle">单元格内容</h2>
+                <span class="scheduler-meta" id="sqlCellMeta"></span>
+                <button onclick="closeSqlCell()">×</button>
+            </div>
+            <div class="modal-body">
+                <pre class="sql-cell-full" id="sqlCellBody"></pre>
+            </div>
+            <div class="modal-footer">
+                <button id="sqlCellCopyBtn" onclick="copySqlCell()">复制</button>
+                <button onclick="closeSqlCell()">关闭</button>
             </div>
         </div>
     </div>
@@ -788,6 +887,34 @@
                 if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
                     e.preventDefault();
                     runSql();
+                }
+            });
+
+            // SQL 浏览器：时间戳可读 / 长文本展开（状态记在 localStorage）
+            const savedReadableTime = localStorage.getItem('sqlReadableTime');
+            const savedWrapAll = localStorage.getItem('sqlWrapAll');
+            if (savedReadableTime !== null) $('sqlTimeToggle').checked = savedReadableTime === '1';
+            if (savedWrapAll !== null) $('sqlWrapToggle').checked = savedWrapAll === '1';
+            sqlState.readableTime = $('sqlTimeToggle').checked;
+            sqlState.wrapAll = $('sqlWrapToggle').checked;
+            $('sqlTimeToggle').addEventListener('change', e => {
+                sqlState.readableTime = e.target.checked;
+                localStorage.setItem('sqlReadableTime', e.target.checked ? '1' : '0');
+                if (sqlState.lastResult) renderSqlResult(sqlState.lastResult);
+            });
+            $('sqlWrapToggle').addEventListener('change', e => {
+                sqlState.wrapAll = e.target.checked;
+                localStorage.setItem('sqlWrapAll', e.target.checked ? '1' : '0');
+                applySqlWrapMode();
+            });
+
+            // 单元格全文弹窗：Esc 或点遮罩关闭
+            $('sqlCellModal').addEventListener('click', e => {
+                if (e.target === $('sqlCellModal')) closeSqlCell();
+            });
+            document.addEventListener('keydown', e => {
+                if (e.key === 'Escape' && $('sqlCellModal').classList.contains('active')) {
+                    closeSqlCell();
                 }
             });
         });
@@ -1317,7 +1444,14 @@
         }
 
         // ===== 只读 SQL 浏览器 =====
-        const sqlState = { open: false, tables: [], running: false };
+        const sqlState = {
+            open: false,
+            tables: [],
+            running: false,
+            lastResult: null,
+            readableTime: true,
+            wrapAll: false
+        };
 
         function openSqlBrowser() {
             sqlState.open = true;
@@ -1328,6 +1462,7 @@
         function closeSqlBrowser() {
             sqlState.open = false;
             $('sqlModal').classList.remove('active');
+            closeSqlCell();
         }
 
         // 加载数据表列表（名称 + 行数）
@@ -1413,6 +1548,7 @@
                     body: JSON.stringify({ sql })
                 }).then(r => r.json());
                 if (res.error) {
+                    sqlState.lastResult = null;
                     setSqlStatus(res.error, 'error');
                     $('sqlResult').innerHTML = '<div class="loading">查询未执行</div>';
                     return;
@@ -1430,6 +1566,7 @@
             $('sqlStatus').className = 'sql-status';
             $('sqlStatus').textContent = '';
             $('sqlResult').innerHTML = '<div class="loading">输入 SQL 后点击执行</div>';
+            sqlState.lastResult = null;
         }
 
         function setSqlStatus(text, cls) {
@@ -1440,6 +1577,7 @@
 
         // 渲染结果表格
         function renderSqlResult(res) {
+            sqlState.lastResult = res;
             const cols = res.columns || [];
             if (!cols.length) {
                 $('sqlResult').innerHTML = '<div class="loading">该语句没有返回结果集</div>';
@@ -1450,23 +1588,110 @@
                 cols.map(c => `<th>${escapeHtml(String(c))}</th>`).join('') + '</tr>';
             const body = (res.rows || []).map((row, i) =>
                 `<tr><td class="sql-row-num">${i + 1}</td>` +
-                row.map(renderSqlCell).join('') + '</tr>').join('');
+                row.map((v, ci) => renderSqlCell(v, cols[ci])).join('') + '</tr>').join('');
             $('sqlResult').innerHTML =
                 `<table class="sql-table"><thead>${head}</thead><tbody>${body}</tbody></table>`;
+            applySqlWrapMode();
 
             let msg = `返回 ${res.row_count} 行 · ${cols.length} 列 · 用时 ${res.elapsed_ms} ms`;
             if (res.truncated) msg += ` · 已达上限 ${res.limit} 行，结果被截断`;
             setSqlStatus(msg, res.truncated ? '' : 'ok');
         }
 
-        function renderSqlCell(v) {
+        // 列名像不像时间列：ts / *_at / *_time / date / created / updated ...
+        const SQL_TIME_COL_RE = /(^|_)(ts|time|timestamp|at|date|datetime|day|mtime|ctime|expire|expires|created|updated|deleted|changed|start|end|begin|finish|since|until)($|_)/i;
+        const TS_SEC_MIN = 946684800;   // 2000-01-01 00:00:00 UTC
+        const TS_SEC_MAX = 4102444800;  // 2100-01-01 00:00:00 UTC
+
+        // 把 Unix 时间戳（秒或毫秒，数字或纯数字字符串）解析成毫秒；不像时间返回 null
+        function parseUnixTs(v) {
+            let num;
+            if (typeof v === 'number') {
+                num = v;
+            } else if (typeof v === 'string' && /^\d{10}(\.\d+)?$|^\d{13}$/.test(v.trim())) {
+                num = Number(v.trim());
+            } else {
+                return null;
+            }
+            if (!Number.isFinite(num) || Math.abs(num - Math.round(num)) > 1e-6) return null;
+            if (num >= TS_SEC_MIN && num <= TS_SEC_MAX) return num * 1000;
+            if (num >= TS_SEC_MIN * 1000 && num <= TS_SEC_MAX * 1000) return num;
+            return null;
+        }
+
+        // 毫秒时间戳 -> 浏览器本地时区的 YYYY-MM-DD HH:mm:ss
+        function formatLocalTime(ms) {
+            const d = new Date(ms);
+            const p = n => String(n).padStart(2, '0');
+            return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} `
+                + `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+        }
+
+        function renderSqlCell(v, colName) {
+            const col = String(colName ?? '');
             if (v === null || v === undefined) {
                 return '<td><span class="sql-cell-null">NULL</span></td>';
             }
+            // 时间列里的 Unix 时间戳：主显可读时间，副行留原始值
+            if (sqlState.readableTime && SQL_TIME_COL_RE.test(col)) {
+                const ms = parseUnixTs(v);
+                if (ms !== null) {
+                    return `<td class="sql-cell-time" title="原始值 ${escapeHtml(String(v))}">`
+                        + `<span class="sql-time-readable">${formatLocalTime(ms)}</span>`
+                        + `<span class="sql-time-raw">${escapeHtml(String(v))}</span></td>`;
+                }
+            }
             if (typeof v === 'number') return `<td class="sql-cell-num">${v}</td>`;
             const text = String(v);
-            const shown = text.length > 200 ? text.slice(0, 200) + '…' : text;
-            return `<td title="${escapeHtml(text)}">${escapeHtml(shown)}</td>`;
+            const box = `<div class="sql-cell-text">${escapeHtml(text)}</div>`;
+            const lines = text.split('\n').length;
+            if (lines <= 3 && text.length <= 60) return `<td>${box}</td>`;
+            // 长文本：表格里折叠，点开弹窗看全文
+            return `<td class="sql-cell-long" data-col="${escapeHtml(col)}" `
+                + `onclick="openSqlCell(this)" title="点击查看全文">${box}`
+                + `<span class="sql-cell-badge">${text.length} 字 · ${lines} 行 · 点击查看全文</span></td>`;
+        }
+
+        // 「展开长文本」开关：控制表格内是否折叠
+        function applySqlWrapMode() {
+            const box = $('sqlResult');
+            if (box) box.classList.toggle('sql-wrap-all', !!sqlState.wrapAll);
+        }
+
+        function openSqlCell(td) {
+            const box = td.querySelector('.sql-cell-text');
+            if (!box) return;
+            const text = box.textContent;
+            $('sqlCellTitle').textContent = td.dataset.col || '单元格内容';
+            $('sqlCellMeta').textContent =
+                `${text.length} 字符 · ${text.split('\n').length} 行`;
+            $('sqlCellBody').textContent = text;
+            $('sqlCellModal').classList.add('active');
+        }
+
+        function closeSqlCell() {
+            $('sqlCellModal').classList.remove('active');
+        }
+
+        async function copySqlCell() {
+            const text = $('sqlCellBody').textContent;
+            if (!text) return;
+            const btn = $('sqlCellCopyBtn');
+            try {
+                await navigator.clipboard.writeText(text);
+            } catch (e) {
+                // 非安全上下文（http + 非 localhost）没有 clipboard API，退回 execCommand
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.style.position = 'fixed';
+                ta.style.opacity = '0';
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                ta.remove();
+            }
+            btn.textContent = '已复制';
+            setTimeout(() => { btn.textContent = '复制'; }, 1200);
         }
     </script>
 </body>

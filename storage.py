@@ -455,8 +455,6 @@ def dyn_query(
 SQL_BROWSE_MAX_ROWS = 1000
 #: 单次查询最长执行时间（秒），超时由 progress_handler 中断
 SQL_BROWSE_TIMEOUT = 5.0
-#: 单个单元格文本超过该长度就截断，避免超大 JSON 撑爆响应体
-SQL_CELL_MAX_CHARS = 4000
 #: 白名单：只有这些关键字开头的语句才允许执行
 _SQL_READ_KEYWORDS = ("select", "with", "values", "explain", "pragma")
 #: 各表的日期列（库是手写的，直接写明即可）——默认查询按它对结果倒序（新的在前）。
@@ -613,11 +611,12 @@ def _sql_pragma_name(sql: str) -> str:
 
 
 def _json_cell(value):
-    """把 sqlite 返回值规整成可 JSON 序列化的形式，超长文本截断。"""
+    """把 sqlite 返回值规整成可 JSON 序列化的形式。
+
+    文本原样返回，不按长度截断；只有二进制没法进 JSON，替换成占位描述。
+    """
     if isinstance(value, (bytes, bytearray, memoryview)):
         return f"<BLOB {len(bytes(value))} bytes>"
-    if isinstance(value, str) and len(value) > SQL_CELL_MAX_CHARS:
-        return value[:SQL_CELL_MAX_CHARS] + f"…（已截断，共 {len(value)} 字符）"
     return value
 
 
