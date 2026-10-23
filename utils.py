@@ -36,12 +36,17 @@ class CookieSuspend:
     "连续失败计数 -> 挂起 -> Cookie 变化后恢复"这套状态流转。
     """
 
+    #: 挂起期间重复提醒的最短间隔。挂起时每个用户每轮都会调 suspended，
+    #: 不节流会变成按用户数刷屏。
+    REMIND_INTERVAL = 3600
+
     def __init__(self, name, on_click="http://127.0.0.1:5000/", limit=3):
         self.name = name
         self.on_click = on_click
         self.limit = limit
         self._streak = 0
         self._snapshot = None
+        self._alerted_at = 0.0
 
     def suspended(self, cookie, prefix):
         """Cookie 未更新时保持挂起，检测到变化则恢复查询。
@@ -54,8 +59,18 @@ class CookieSuspend:
         if cookie != self._snapshot:
             self._snapshot = None
             self._streak = 0
+            self._alerted_at = 0.0
             logger.info(f"{self.name}Cookie已更新, 恢复查询", prefix)
             return False
+        now = time.time()
+        if now - self._alerted_at >= self.REMIND_INTERVAL:
+            self._alerted_at = now
+            logger.warning(f"{self.name}Cookie仍未更新, 查询保持挂起", prefix)
+            notify(
+                f"{self.name}查询已暂停",
+                "Cookie仍未更新, 更新后自动恢复",
+                on_click=self.on_click,
+            )
         return True
 
     def count_failure(self, cookie, prefix):
@@ -68,6 +83,7 @@ class CookieSuspend:
             return False
         self._streak = 0
         self._snapshot = dict(cookie or {})
+        self._alerted_at = time.time()
         logger.warning(
             f"{self.name}Cookie连续失效{self.limit}次, 暂停查询, 等待Cookie更新", prefix
         )
