@@ -54,6 +54,7 @@ def get_video_urls(mblog):
          按清晰度从高到低取第一个可保存的地址。
       2. 实况照片：pics[].videoSrc，微博把每张 live photo 的视频挂在对应图片上，
          地址形如 .../media/play?livephoto=xxx.mov，路径固定没有文件名，只能用 pid。
+         type=gifvideos 是 GIF 动图转成的 mp4（label=gif_mp4），不是视频，跳过。
     自身没有视频时回落到被转发的原微博。
     """
     urls = []
@@ -75,6 +76,8 @@ def get_video_urls(mblog):
             urls.append((url, None))
             break
     for pic in mblog.get("pics") or []:
+        if pic.get("type") == "gifvideos":
+            continue
         src = pic.get("videoSrc")
         if src:
             urls.append((src, pic.get("pid")))
