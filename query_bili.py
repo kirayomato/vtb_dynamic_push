@@ -17,7 +17,15 @@ from utils import (
     get_image,
 )
 from wbi import CookieExpired, build_query, WBIKey
-from storage import dyn_del, dyn_load, dyn_set, dyn_set_many, kv_load, kv_set
+from storage import (
+    dyn_del,
+    dyn_load,
+    dyn_set,
+    dyn_set_many,
+    kv_del,
+    kv_load,
+    kv_set,
+)
 
 # from PIL import Image
 from colorama import Fore, Style
@@ -28,10 +36,11 @@ DYNAMIC_DICT = {}
 LIVING_STATUS_DICT = {}
 ROOM_TITLE_DICT = {}
 ROOM_COVER_DICT = {}
-USER_SIGN_DICT = {}
+#: 用户信息（昵称/头像/签名）直播与动态共用一份，落库也只写 bili.name /
+#: bili.face / bili.sign，同一个 uid 在 kv 里不会再有第二行昵称。
+USER_NAME_DICT = {}
 USER_FACE_DICT = {}
-DYNAMIC_NAME_DICT = {}
-LIVE_NAME_DICT = {}
+USER_SIGN_DICT = {}
 cookies_failed_count = 0
 #: Cookie 连续失效后暂停查询，等 Cookie 更新自动恢复。
 _cookie_guard = CookieSuspend("B站")
@@ -51,8 +60,7 @@ def init_state():
     try:
         DYNAMIC_DICT.update(dyn_load("bili"))
         for store, target in (
-            ("bili.name", DYNAMIC_NAME_DICT),
-            ("bili.live_name", LIVE_NAME_DICT),
+            ("bili.name", USER_NAME_DICT),
             ("bili.face", USER_FACE_DICT),
             ("bili.sign", USER_SIGN_DICT),
             ("bili.room_title", ROOM_TITLE_DICT),
@@ -70,9 +78,17 @@ def init_state():
 
 
 def _save_user_info(uid):
-    kv_set("bili.name", uid, DYNAMIC_NAME_DICT.get(uid))
-    kv_set("bili.face", uid, USER_FACE_DICT.get(uid))
-    kv_set("bili.sign", uid, USER_SIGN_DICT.get(uid))
+    """把共用用户信息落库（直播、动态都走这里）。
+
+    缺失的字段直接跳过不写：直播接口没有签名，写 None 会在 kv 里留一行空值。
+    """
+    for store, value in (
+        ("bili.name", USER_NAME_DICT.get(uid)),
+        ("bili.face", USER_FACE_DICT.get(uid)),
+        ("bili.sign", USER_SIGN_DICT.get(uid)),
+    ):
+        if value is not None:
+            kv_set(store, uid, value)
 
 
 def _save_live_info(uid):
@@ -80,6 +96,18 @@ def _save_live_info(uid):
     # 避免用旧状态误判"新开播"推送或绕过直播中判定。
     kv_set("bili.room_title", uid, ROOM_TITLE_DICT.get(uid))
     kv_set("bili.room_cover", uid, ROOM_COVER_DICT.get(uid))
+
+
+def _face_key(url):
+    """头像地址归一化成图片路径：丢掉协议/主机/尺寸后缀/查询参数。
+
+    直播与动态返回的同一张头像可能落在不同 CDN 主机（i0/i1）或带 `@100w` 后缀，
+    比原串会反复误判成"换了头像"。
+    """
+    if not isinstance(url, str) or not url.strip():
+        return ""
+    path = url.split("?")[0].split("#")[0].split("@")[0]
+    return path.split("://", 1)[-1].split("/", 1)[-1]
 
 
 def _refresh_wbi(cookie, prefix, sleep):
@@ -326,8 +354,9 @@ def query_bilidynamic(uid, reporter) -> bool:
         first_item = items[0]
         modules = first_item.get("modules", {})
         module_author = modules.get("module_author", {})
-        uname = module_author.get("name", DYNAMIC_NAME_DICT.get(uid, uid))
-        face = module_author.get("face", USER_FACE_DICT.get(uid, ""))
+        # 用 or 而非 .get 默认值：接口偶尔返回空串，直接取会把共用昵称/头像清空
+        uname = module_author.get("name") or USER_NAME_DICT.get(uid, uid)
+        face = module_author.get("face") or USER_FACE_DICT.get(uid, "")
         sign = module_author.get("sign", "")
         home_url = f"https://space.bilibili.com/{uid}"
         # 抓取成功即清零，保证 except 里的计数只统计连续失败
@@ -340,7 +369,7 @@ def query_bilidynamic(uid, reporter) -> bool:
         )
         cookies_failed_count += 1
         if cookies_failed_count % 3 == 0:
-            uname = DYNAMIC_NAME_DICT.get(uid, uid)
+            uname = USER_NAME_DICT.get(uid, uid)
             logger.warning(f"B站Cookie无效, 获取{uname}信息不全", prefix)
             notify(
                 "B站Cookie无效",
@@ -374,7 +403,7 @@ def query_bilidynamic(uid, reporter) -> bool:
             get_image(_pic, headers, prefix, "bili", uname, "dynamic")
     if not DYNAMIC_DICT.get(uid):
         DYNAMIC_DICT[uid] = {}
-        DYNAMIC_NAME_DICT[uid] = uname
+        USER_NAME_DICT[uid] = uname
         USER_FACE_DICT[uid] = face
         USER_SIGN_DICT[uid] = sign
         for item in items:
@@ -419,9 +448,11 @@ def query_bilidynamic(uid, reporter) -> bool:
         on_click=home_url,
         icon_path=icon_path,
     )
-    chk_diff(face, USER_FACE_DICT, "B站头像", pic=face)
+    # 同一张头像（_face_key 相同）只换了 URL 形式就静默更新，真换图才推送
+    if _face_key(face) != _face_key(USER_FACE_DICT.get(uid)):
+        chk_diff(face, USER_FACE_DICT, "B站头像", pic=face)
     chk_diff(sign, USER_SIGN_DICT, "B站签名")
-    chk_diff(uname, DYNAMIC_NAME_DICT, "B站昵称")
+    chk_diff(uname, USER_NAME_DICT, "B站昵称")
     _save_user_info(uid)
 
     last_id = min(DYNAMIC_DICT[uid])
@@ -609,10 +640,8 @@ def query_live_status_batch(uid_list, reporter):
             return
         for uid, item_info in live_status_list.items():
             try:
-                uname = item_info["uname"] or LIVE_NAME_DICT.get(uid, uid)
+                uname = item_info["uname"] or USER_NAME_DICT.get(uid, uid)
                 area = item_info["area_v2_name"]
-                LIVE_NAME_DICT[uid] = uname
-                kv_set("bili.live_name", uid, uname)
                 face = item_info["face"]
                 live_status = item_info["live_status"]
                 room_id = item_info["room_id"]
@@ -635,7 +664,14 @@ def query_live_status_batch(uid_list, reporter):
                 + f"查询{uname}直播状态"
                 + Style.RESET_ALL,
             )
+            # 头像与动态侧共用 bili.face：同一张图只是 URL 形式不同就不改写
+            if face and _face_key(face) != _face_key(USER_FACE_DICT.get(uid)):
+                USER_FACE_DICT[uid] = face
+
             if LIVING_STATUS_DICT.get(uid) is None:
+                # 首次见到该用户：昵称/头像直接写入共用的用户信息，不做变更推送
+                USER_NAME_DICT[uid] = uname
+                _save_user_info(uid)
                 ROOM_TITLE_DICT[uid] = room_title
                 LIVING_STATUS_DICT[uid] = live_status
                 if room_cover_url == "":
@@ -665,6 +701,9 @@ def query_live_status_batch(uid_list, reporter):
                 on_click=live_url,
                 icon_path=icon_path,
             )
+            # 昵称与动态侧共用同一份状态：改名由先看到的一侧推送，另一侧就是"无变化"
+            chk_diff(uname, USER_NAME_DICT, "B站昵称")
+            _save_user_info(uid)
             chk_diff(room_title, ROOM_TITLE_DICT, "直播间标题")
 
             if room_cover_url:

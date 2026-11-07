@@ -14,8 +14,7 @@ from query_afd import query_afddynamic, AFD_NAME_DICT, init_state as init_afd_st
 from query_bili import (
     query_bilidynamic,
     query_live_status_batch,
-    DYNAMIC_NAME_DICT,
-    LIVE_NAME_DICT,
+    USER_NAME_DICT,
     init_state as init_bili_state,
 )
 from query_weibo import (
@@ -106,7 +105,7 @@ def bili_dynamic_loop():
                 run_user(sched, uid, query_bilidynamic, prefix)
             seconds = float(config.get("bili", "dynamic_intervals_second"))
             sleep(max(1, seconds) * (1 + random() / 10))
-        report_ready(Slot.BILI, DYNAMIC_NAME_DICT, prefix, Fore.LIGHTBLUE_EX)
+        report_ready(Slot.BILI, USER_NAME_DICT, prefix, Fore.LIGHTBLUE_EX)
 
 
 def bili_live_loop():
@@ -127,7 +126,7 @@ def bili_live_loop():
             query_live_status_batch(set(uids), output_manager)
         except BaseException as e:
             logger.error(f"出错【{e}】：{traceback.format_exc()}", prefix)
-        report_ready(Slot.LIVE, LIVE_NAME_DICT, prefix, Fore.CYAN)
+        report_ready(Slot.LIVE, USER_NAME_DICT, prefix, Fore.CYAN)
         sleep(seconds * (1 + random() / 10))
 
 

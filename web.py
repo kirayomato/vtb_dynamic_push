@@ -263,7 +263,7 @@ async def save_config(config_data: dict = Body(...)):
 async def get_bili_user_info_batch(uids: str):
     """批量获取B站用户信息，uids为逗号分隔"""
     try:
-        from query_bili import DYNAMIC_NAME_DICT, LIVE_NAME_DICT
+        from query_bili import USER_NAME_DICT
 
         uid_list = uids.split(",")
         result = {}
@@ -273,11 +273,8 @@ async def get_bili_user_info_batch(uids: str):
             if not uid:
                 continue
 
-            name = DYNAMIC_NAME_DICT.get(uid)
-            if not name:
-                name = LIVE_NAME_DICT.get(uid)
-
-            result[uid] = name
+            # 直播与动态共用同一份昵称
+            result[uid] = USER_NAME_DICT.get(uid)
 
         return result
     except Exception as e:
