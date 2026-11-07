@@ -1,4 +1,5 @@
 import json
+import os
 from dataclasses import dataclass
 from os import environ
 from os.path import realpath, isfile
@@ -6,6 +7,7 @@ import re
 import time
 import requests
 from requests.exceptions import RequestException
+from urllib.parse import parse_qs, unquote, urlsplit
 from logger import logger
 from push import notify
 from pathlib import Path
@@ -159,6 +161,10 @@ _IMAGE_EXTS = frozenset(
     {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".avif", ".svg"}
 )
 
+#: 媒体落盘根目录。图片与视频共用一棵树，按 平台/昵称/用途 分层；
+#: 视频落在 用途 为 video 的叶子目录下（如 image/weibo/昵称/video）。
+MEDIA_ROOT = "image"
+
 
 def get_icon(headers, image_url, prefix, platform, uname, _type):
     if not isinstance(image_url, str) or not image_url.strip():
@@ -168,7 +174,7 @@ def get_icon(headers, image_url, prefix, platform, uname, _type):
     name = url.split("/")[-1] or "image"
     if Path(name).suffix.lower() not in _IMAGE_EXTS:
         name += ".jpg"
-    dir_path = Path("image") / platform / uname / _type
+    dir_path = Path(MEDIA_ROOT) / platform / uname / _type
     dir_path.mkdir(parents=True, exist_ok=True)
     icon = str(dir_path / name)
     # 用 is_file 而非 exists：目录也满足 exists，URL 尾斜杠时会把目录当图片返回
@@ -249,3 +255,111 @@ def get_image(pic_url, headers, prefix, platform, uname, _type):
         else:
             image = {"src": opus_path, "placement": "hero"}
     return image
+
+
+#: 视频后缀白名单。与图片分开维护：视频不能靠后缀不存在就补 .jpg。
+_VIDEO_EXTS = frozenset({".mp4", ".mov", ".m4v", ".flv", ".ts", ".webm"})
+
+#: 视频 URL 分片下载的块大小
+_CHUNK_SIZE = 1 << 16
+
+
+def _media_ext(url, exts, default):
+    """从 URL 推断媒体后缀，推断不出时返回 default。
+
+    微博实况照片的地址形如
+    `https://video.weibo.com/media/play?livephoto=https%3A%2F%2F...mov`，
+    真实后缀藏在 query 里而不是路径上，直接取 Path(url).suffix 只会得到空串。
+    所以先看 query 里的候选路径，再看 URL 自身路径。
+    """
+    parts = urlsplit(url)
+    candidates = [unquote(v) for v in parse_qs(parts.query).get("livephoto", [])]
+    candidates.append(parts.path)
+    for candidate in candidates:
+        ext = Path(urlsplit(candidate).path).suffix.lower()
+        if ext in exts:
+            return ext
+    return default
+
+
+def _safe_name(name):
+    """把 URL/pid 里的文件名片段收敛成合法文件名，避免路径穿越。"""
+    name = re.sub(r'[\\/:*?"<>|\s]+', "_", str(name or "")).strip("._")
+    return name or "video"
+
+
+def is_video_file(url):
+    """URL 的路径部分是否带可保存的视频后缀。
+
+    m3u8 分片清单不算：它需要另外合并分片，不能当单个文件直接下载。
+    """
+    if not isinstance(url, str) or not url.strip():
+        return False
+    return Path(urlsplit(url).path).suffix.lower() in _VIDEO_EXTS
+
+
+def _download_stream(url, path, headers, prefix, timeout=60):
+    """流式下载到 `<path>.part`，完整落盘后再原子改名。
+
+    视频动辄几十上百 MB，不能像图片那样整块塞进内存；同时必须避免中断时
+    留下半截文件——get_video 用 isfile 做重复下载短路，半截文件会被误认成
+    已下载完成，之后永远拿不到完整视频。
+    """
+    tmp = f"{path}.part"
+    try:
+        r = requests.get(
+            url, headers=headers, proxies=proxies, timeout=timeout, stream=True
+        )
+        if r.status_code != 200:
+            logger.warning(f"视频下载失败 status:{r.status_code}, url: {url}", prefix)
+            return None
+        with open(tmp, "wb") as f:
+            for chunk in r.iter_content(chunk_size=_CHUNK_SIZE):
+                if chunk:
+                    f.write(chunk)
+        os.replace(tmp, path)
+        return realpath(path)
+    except RequestException as e:
+        logger.warning(f"网络错误 error:{e}, url: {url}", prefix)
+        return None
+    except OSError as e:
+        logger.warning(f"写入视频失败 error:{e}, path: {path}", prefix)
+        return None
+    finally:
+        if isfile(tmp):
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
+
+
+def get_video(
+    video_url,
+    headers,
+    prefix,
+    platform,
+    uname,
+    _type="video",
+    name=None,
+    timeout=60,
+):
+    """下载视频到 image/<platform>/<uname>/<_type>/，返回本地绝对路径。
+
+    与图片共用同一棵树（MEDIA_ROOT），靠叶子目录 video 区分，方便按博主
+    一处翻看图片和视频。已存在同名文件时直接复用（只做一次 stat），
+    重复轮询不会重复下载。
+    name 用于指定基础文件名：实况照片的地址路径固定是 /media/play，
+    只能靠调用方传入 pid 之类的唯一标识。
+    """
+    if not isinstance(video_url, str) or not video_url.strip():
+        logger.debug(f"视频地址为空, 跳过下载, uname: {uname}, type: {_type}", prefix)
+        return None
+    url = video_url.strip()
+    suffix = _media_ext(url, _VIDEO_EXTS, ".mp4")
+    base = _safe_name(name or Path(urlsplit(url).path).stem)
+    dir_path = Path(MEDIA_ROOT) / platform / uname / _type
+    dir_path.mkdir(parents=True, exist_ok=True)
+    path = dir_path / f"{base}{suffix}"
+    if isfile(path):
+        return realpath(str(path))
+    return _download_stream(url, path, headers, prefix, timeout)

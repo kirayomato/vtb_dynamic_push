@@ -19,6 +19,8 @@ enable_dynamic_push = true
 uid_list = 7842913991
 # 特别关注列表，保存所有图片
 special_list = 7842913991
+# 是否保存微博视频（含视频微博和实况照片），保存到 image/微博昵称/video/
+save_video = true
 # 是否启用cookies检测功能
 enable_cookie_check = false
 # 检测cookies使用的账号

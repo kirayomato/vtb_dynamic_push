@@ -19,6 +19,8 @@ from utils import (
     get_active,
     get_icon,
     get_image,
+    get_video,
+    is_video_file,
     proxies,
 )
 from storage import dyn_del, dyn_load, dyn_set, dyn_set_many, kv_load, kv_set
@@ -38,6 +40,47 @@ _prefix = "【微博持久化】"
 #: 本进程内已完成"特别关注图片兜底"的用户，避免每个轮询周期重复扫描。
 #: 进程重启即清空，会重新兜底。
 _SPECIAL_BACKFILLED = set()
+
+
+def get_video_urls(mblog):
+    """提取微博里可下载的视频地址，返回 [(url, 文件名提示)]。
+
+    两个来源：
+      1. 视频微博：page_info。实测同一条视频会给出三套地址，清晰度不同：
+         - page_info.urls（mp4_720p_mp4 / mp4_hd_mp4 / mp4_ld_mp4）：720p 是这里
+           独占的更高清版本，和 media_info 的 stream_url_hd 是两个不同文件；
+         - media_info.stream_url / stream_url_hd：手机端默认播放用的 mp4 直链（约 540p）；
+         - media_info.mp4_720p_mp4 / mp4_hd_url / mp4_sd_url：桌面端老字段。
+         按清晰度从高到低取第一个可保存的地址。
+      2. 实况照片：pics[].videoSrc，微博把每张 live photo 的视频挂在对应图片上，
+         地址形如 .../media/play?livephoto=xxx.mov，路径固定没有文件名，只能用 pid。
+    自身没有视频时回落到被转发的原微博。
+    """
+    urls = []
+    page = mblog.get("page_info") or {}
+    media = page.get("media_info") or {}
+    qualities = page.get("urls") or {}
+    candidates = [
+        qualities.get("mp4_720p_mp4"),
+        qualities.get("mp4_hd_mp4"),
+        media.get("mp4_720p_mp4"),
+        media.get("mp4_hd_url"),
+        qualities.get("mp4_ld_mp4"),
+        media.get("mp4_sd_url"),
+        media.get("stream_url_hd"),
+        media.get("stream_url"),
+    ]
+    for url in candidates:
+        if is_video_file(url):
+            urls.append((url, None))
+            break
+    for pic in mblog.get("pics") or []:
+        src = pic.get("videoSrc")
+        if src:
+            urls.append((src, pic.get("pid")))
+    if not urls and mblog.get("retweeted_status"):
+        return get_video_urls(mblog["retweeted_status"])
+    return urls
 
 
 def init_state():
@@ -118,6 +161,8 @@ def query_weibodynamic(uid, reporter) -> bool:
         return False
     cookies_check = config.get("weibo", "enable_cookie_check")
     special = set((config.get("weibo", "special_list") or "").split(","))
+    # 视频体积远大于图片，留个总开关；未配置时按开启处理，不改变原有行为预期
+    save_video = str(config.get("weibo", "save_video") or "true").lower() != "false"
 
     def sleep(t):
         reporter.set_status(
@@ -159,6 +204,21 @@ def query_weibodynamic(uid, reporter) -> bool:
                 re.sub(r"<[^>]+>", "", mblog["retweeted_status"]["text"])
             )
         return content, pic_url, action
+
+    def save_videos(mblog, uname):
+        """下载该微博的全部视频（正片 + 实况照片），返回本地路径列表。"""
+        paths = []
+        for url, name in get_video_urls(mblog):
+            path = get_video(url, headers, prefix, "weibo", uname, "video", name=name)
+            if path:
+                paths.append(path)
+        if paths:
+            logger.info(
+                f"【{uname}】保存视频 {len(paths)} 个: {fmt_pics(paths)}",
+                prefix,
+                Fore.LIGHTYELLOW_EX,
+            )
+        return paths
 
     if uid is None:
         return False
@@ -276,6 +336,8 @@ def query_weibodynamic(uid, reporter) -> bool:
                 _content, pic_url, _action = get_content(mblog)
                 if pic_url:
                     get_image(pic_url, headers, prefix, "weibo", uname, "dynamic")
+                if save_video:
+                    save_videos(mblog, uname)
     if not DYNAMIC_DICT.get(uid):
         DYNAMIC_DICT[uid] = {}
         USER_FACE_DICT[uid] = face
@@ -378,6 +440,9 @@ def query_weibodynamic(uid, reporter) -> bool:
                     pic_url=pic_url,
                 )
                 notified = True
+        # 视频放在推送之后下载：几十上百 MB 的下载不该挡住通知的时效
+        if save_video:
+            save_videos(mblog, uname)
         new_count += 1
         DYNAMIC_DICT[uid][mblog_id] = content, pic_url, created_at.timestamp()
         dyn_set("weibo", uid, mblog_id, content, pic_url, created_at.timestamp())

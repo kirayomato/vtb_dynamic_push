@@ -50,6 +50,7 @@
 - `enable_cookie_check`是否启用cookie检测功能，默认关闭
 - `cookie_check_uid`检测cookie使用的账号，默认为[Hitomi浅川瞳poi](https://weibo.com/u/1794972577)，需要关注，检测原理为判断是否获取到粉见微博，要求最近25条微博中包含粉见微博。
 - `special_list`特别关注列表，使用英文逗号分隔。其中的博主动态会保存所有图片。
+- `save_video`是否保存微博视频（含视频微博与实况照片），默认开启。文件保存到`image/{微博昵称}/video/`下，实况照片存为`.mov`，视频微博存为`.mp4`（优先720p直链）。
 
 `bili`下的参数
 - `enable_dynamic_push`是否启用B站动态推送
