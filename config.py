@@ -129,7 +129,9 @@ class Config(object):
             with self._lock:
                 return self._config.get(section, name)
         except (configparser.NoSectionError, configparser.NoOptionError):
-            logger.error(f"配置文件缺少: [{section}]:{name}", prefix)
+            # 传了 default 的属于可选配置，缺键按默认值走，不算报错
+            if default is None:
+                logger.error(f"配置文件缺少: [{section}]:{name}", prefix)
             return default
         except BaseException as e:
             logger.error(

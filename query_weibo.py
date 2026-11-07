@@ -83,6 +83,25 @@ def get_video_urls(mblog):
     return urls
 
 
+def save_videos(mblog, headers, uname):
+    """下载该微博的全部视频（正片 + 实况照片）。失败只告警，不影响状态入库。"""
+    try:
+        paths = []
+        for url, name in get_video_urls(mblog):
+            path = get_video(url, headers, prefix, "weibo", uname, "video", name=name)
+            if path:
+                paths.append(path)
+    except Exception as e:
+        logger.warning(f"保存视频失败: {e}", prefix)
+        return
+    if paths:
+        logger.info(
+            f"【{uname}】保存视频 {len(paths)} 个: {fmt_pics(paths)}",
+            prefix,
+            Fore.LIGHTYELLOW_EX,
+        )
+
+
 def init_state():
     """从本地数据库恢复上次运行的状态，避免重新初始化。
 
@@ -161,8 +180,8 @@ def query_weibodynamic(uid, reporter) -> bool:
         return False
     cookies_check = config.get("weibo", "enable_cookie_check")
     special = set((config.get("weibo", "special_list") or "").split(","))
-    # 视频体积远大于图片，留个总开关；未配置时按开启处理，不改变原有行为预期
-    save_video = str(config.get("weibo", "save_video") or "true").lower() != "false"
+    # 视频体积远大于图片，留个总开关；缺省开启，缺配置时静默走默认值
+    save_video = config.get("weibo", "save_video", "true").lower() != "false"
 
     def sleep(t):
         reporter.set_status(
@@ -204,21 +223,6 @@ def query_weibodynamic(uid, reporter) -> bool:
                 re.sub(r"<[^>]+>", "", mblog["retweeted_status"]["text"])
             )
         return content, pic_url, action
-
-    def save_videos(mblog, uname):
-        """下载该微博的全部视频（正片 + 实况照片），返回本地路径列表。"""
-        paths = []
-        for url, name in get_video_urls(mblog):
-            path = get_video(url, headers, prefix, "weibo", uname, "video", name=name)
-            if path:
-                paths.append(path)
-        if paths:
-            logger.info(
-                f"【{uname}】保存视频 {len(paths)} 个: {fmt_pics(paths)}",
-                prefix,
-                Fore.LIGHTYELLOW_EX,
-            )
-        return paths
 
     if uid is None:
         return False
@@ -337,7 +341,7 @@ def query_weibodynamic(uid, reporter) -> bool:
                 if pic_url:
                     get_image(pic_url, headers, prefix, "weibo", uname, "dynamic")
                 if save_video:
-                    save_videos(mblog, uname)
+                    save_videos(mblog, headers, uname)
     if not DYNAMIC_DICT.get(uid):
         DYNAMIC_DICT[uid] = {}
         USER_FACE_DICT[uid] = face
@@ -440,13 +444,13 @@ def query_weibodynamic(uid, reporter) -> bool:
                     pic_url=pic_url,
                 )
                 notified = True
-        # 视频放在推送之后下载：几十上百 MB 的下载不该挡住通知的时效
-        if save_video:
-            save_videos(mblog, uname)
         new_count += 1
         DYNAMIC_DICT[uid][mblog_id] = content, pic_url, created_at.timestamp()
         dyn_set("weibo", uid, mblog_id, content, pic_url, created_at.timestamp())
         logger.debug(str(DYNAMIC_DICT[uid]), prefix, Fore.LIGHTYELLOW_EX)
+        # 视频下载放最后：失败或耗时都不影响入库与通知
+        if save_video:
+            save_videos(mblog, headers, uname)
 
     _total = USER_COUNT_DICT[uid]
     USER_COUNT_DICT[uid] = total

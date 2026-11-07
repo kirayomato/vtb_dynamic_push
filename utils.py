@@ -161,9 +161,23 @@ _IMAGE_EXTS = frozenset(
     {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".avif", ".svg"}
 )
 
+#: 图片文件头。只判状态码不够：200 也可能是风控/错误页，一旦落盘就会被
+#: isfile 当成已下载而永远不再重试。本地 1.3w 张样本只有 jpeg/png/gif/webp，
+#: 后缀白名单里其余格式也一并认下（avif 的 ftyp 盒在偏移 4）。
+_IMAGE_MAGIC = (
+    b"\xff\xd8\xff", b"\x89PNG", b"GIF8", b"BM", b"RIFF",
+    b"<svg", b"<?xml",
+)
+
+
+def _is_image_content(data):
+    return data.startswith(_IMAGE_MAGIC) or data[4:8] == b"ftyp"
+
+
 #: 媒体落盘根目录。图片与视频共用一棵树，按 平台/昵称/用途 分层；
 #: 视频落在 用途 为 video 的叶子目录下（如 image/weibo/昵称/video）。
-MEDIA_ROOT = "image"
+#: 以本文件为基准，换工作目录启动也不会把图片视频写到别处。
+MEDIA_ROOT = Path(__file__).resolve().parent / "image"
 
 
 def get_icon(headers, image_url, prefix, platform, uname, _type):
@@ -185,10 +199,15 @@ def get_icon(headers, image_url, prefix, platform, uname, _type):
     except RequestException as e:
         logger.warning(f"网络错误 error:{e}, url: {url} ", prefix)
         return None
-    if r.status_code != 200:
+    data = r.content
+    if r.status_code != 200 or not _is_image_content(data):
+        logger.warning(
+            f"图片下载失败 status:{r.status_code}, type:{r.headers.get('Content-Type', '')}, url: {url}",
+            prefix,
+        )
         return None
     with open(icon, "wb") as f:
-        f.write(r.content)
+        f.write(data)
     return realpath(icon)
 
 
@@ -310,8 +329,12 @@ def _download_stream(url, path, headers, prefix, timeout=60):
         r = requests.get(
             url, headers=headers, proxies=proxies, timeout=timeout, stream=True
         )
-        if r.status_code != 200:
-            logger.warning(f"视频下载失败 status:{r.status_code}, url: {url}", prefix)
+        ctype = r.headers.get("Content-Type", "")
+        # 200 也可能是风控/错误页，落盘后被 isfile 当成已下载就再也不会重试
+        if r.status_code != 200 or ctype.startswith("text/"):
+            logger.warning(
+                f"视频下载失败 status:{r.status_code}, type:{ctype}, url: {url}", prefix
+            )
             return None
         with open(tmp, "wb") as f:
             for chunk in r.iter_content(chunk_size=_CHUNK_SIZE):
