@@ -14,13 +14,13 @@ from query_afd import query_afddynamic, AFD_NAME_DICT, init_state as init_afd_st
 from query_bili import (
     query_bilidynamic,
     query_live_status_batch,
-    USER_NAME_DICT,
+    USER_NAME_DICT as BILI_NAME_DICT,
     init_state as init_bili_state,
 )
 from query_weibo import (
     query_weibodynamic,
     query_valid,
-    USER_NAME_DICT,
+    USER_NAME_DICT as WEIBO_NAME_DICT,
     init_state as init_weibo_state,
 )
 from scheduler import Scheduler
@@ -57,15 +57,23 @@ def read_uids(section, key, prefix):
     return uid_list.split(",")
 
 
-def report_ready(slot, names, prefix, color):
+def report_ready(slot, uids, names, prefix, color):
     """首轮抓取完成后上报控制台就绪，并打印一次监控列表。
 
+    uids 是本槽位实际监控的用户，names 是昵称表：B 站直播与动态共用同一份
+    昵称，所以不能直接打印整张表，必须按本槽位的 uid 取。
     幂等：已经就绪的槽位直接返回，因此每个线程只在首轮打印一次。
     """
     if output_manager.is_ready(slot):
         return
     output_manager.mark_ready(slot)
-    logger.info(f'监控列表({len(names)}):{",".join(names.values())}', prefix, color)
+    # 去空、去首尾空格、去重：配置里重复写同一 uid 不该让监控列表重复计数
+    uids = list(dict.fromkeys(uid.strip() for uid in uids if uid.strip()))
+    logger.info(
+        f'监控列表({len(uids)}):{",".join(names.get(uid, uid) for uid in uids)}',
+        prefix,
+        color,
+    )
 
 
 def run_user(sched, uid, query, prefix):
@@ -105,7 +113,7 @@ def bili_dynamic_loop():
                 run_user(sched, uid, query_bilidynamic, prefix)
             seconds = float(config.get("bili", "dynamic_intervals_second"))
             sleep(max(1, seconds) * (1 + random() / 10))
-        report_ready(Slot.BILI, USER_NAME_DICT, prefix, Fore.LIGHTBLUE_EX)
+        report_ready(Slot.BILI, uids, BILI_NAME_DICT, prefix, Fore.LIGHTBLUE_EX)
 
 
 def bili_live_loop():
@@ -126,7 +134,7 @@ def bili_live_loop():
             query_live_status_batch(set(uids), output_manager)
         except BaseException as e:
             logger.error(f"出错【{e}】：{traceback.format_exc()}", prefix)
-        report_ready(Slot.LIVE, USER_NAME_DICT, prefix, Fore.CYAN)
+        report_ready(Slot.LIVE, uids, BILI_NAME_DICT, prefix, Fore.CYAN)
         sleep(seconds * (1 + random() / 10))
 
 
@@ -169,7 +177,7 @@ def weibo_loop():
                 run_user(sched, uid, query_weibodynamic, prefix)
             seconds = float(config.get("weibo", "intervals_second"))
             sleep(max(1, seconds) * (1 + random() / 10))
-        report_ready(Slot.WEIBO, USER_NAME_DICT, prefix, Fore.LIGHTYELLOW_EX)
+        report_ready(Slot.WEIBO, uids, WEIBO_NAME_DICT, prefix, Fore.LIGHTYELLOW_EX)
 
 
 def afd_loop():
@@ -193,7 +201,7 @@ def afd_loop():
             except BaseException as e:
                 logger.error(f"【{uid}】出错【{e}】：{traceback.format_exc()}", prefix)
             sleep(max(1, seconds) * (1 + random() / 10))
-        report_ready(Slot.AFD, AFD_NAME_DICT, prefix, Fore.LIGHTCYAN_EX)
+        report_ready(Slot.AFD, uids, AFD_NAME_DICT, prefix, Fore.LIGHTCYAN_EX)
 
 
 def run_server():
