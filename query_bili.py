@@ -326,7 +326,7 @@ def query_bilidynamic(uid, reporter) -> bool:
         first_item = items[0]
         modules = first_item.get("modules", {})
         module_author = modules.get("module_author", {})
-        uname = module_author.get("name", DYNAMIC_NAME_DICT.get(uid, ""))
+        uname = module_author.get("name", DYNAMIC_NAME_DICT.get(uid, uid))
         face = module_author.get("face", USER_FACE_DICT.get(uid, ""))
         sign = module_author.get("sign", "")
         home_url = f"https://space.bilibili.com/{uid}"
@@ -410,7 +410,6 @@ def query_bilidynamic(uid, reporter) -> bool:
         )
         return get_active(DYNAMIC_DICT, uid)
     icon_path = get_icon(headers, face, prefix, "bili", uname, "face")
-
     chk_diff = partial(
         check_diff,
         uid=uid,
@@ -610,7 +609,7 @@ def query_live_status_batch(uid_list, reporter):
             return
         for uid, item_info in live_status_list.items():
             try:
-                uname = item_info["uname"]
+                uname = item_info["uname"] or LIVE_NAME_DICT.get(uid, uid)
                 area = item_info["area_v2_name"]
                 LIVE_NAME_DICT[uid] = uname
                 kv_set("bili.live_name", uid, uname)
