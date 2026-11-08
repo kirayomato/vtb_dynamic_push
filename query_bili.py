@@ -22,7 +22,6 @@ from storage import (
     dyn_load,
     dyn_set,
     dyn_set_many,
-    kv_del,
     kv_load,
     kv_set,
 )

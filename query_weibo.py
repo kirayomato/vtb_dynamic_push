@@ -97,12 +97,6 @@ def save_videos(mblog, headers, uname):
     except Exception as e:
         logger.warning(f"保存视频失败: {e}", prefix)
         return
-    if paths:
-        logger.info(
-            f"【{uname}】保存视频 {len(paths)} 个: {fmt_pics(paths)}",
-            prefix,
-            Fore.LIGHTYELLOW_EX,
-        )
 
 
 def init_state():

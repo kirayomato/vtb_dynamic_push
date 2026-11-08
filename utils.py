@@ -165,8 +165,13 @@ _IMAGE_EXTS = frozenset(
 #: isfile 当成已下载而永远不再重试。本地 1.3w 张样本只有 jpeg/png/gif/webp，
 #: 后缀白名单里其余格式也一并认下（avif 的 ftyp 盒在偏移 4）。
 _IMAGE_MAGIC = (
-    b"\xff\xd8\xff", b"\x89PNG", b"GIF8", b"BM", b"RIFF",
-    b"<svg", b"<?xml",
+    b"\xff\xd8\xff",
+    b"\x89PNG",
+    b"GIF8",
+    b"BM",
+    b"RIFF",
+    b"<svg",
+    b"<?xml",
 )
 
 
@@ -341,6 +346,7 @@ def _download_stream(url, path, headers, prefix, timeout=60):
                 if chunk:
                     f.write(chunk)
         os.replace(tmp, path)
+        logger.info(f"保存视频: {realpath(path)}", prefix)
         return realpath(path)
     except RequestException as e:
         logger.warning(f"网络错误 error:{e}, url: {url}", prefix)
