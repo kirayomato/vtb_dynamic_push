@@ -4,7 +4,9 @@
 必须重新从头初始化的问题，同时支持离线查询历史数据。
 
 - kv 表: 存储 uid -> 任意JSON值 的键值状态（昵称/头像/签名/直播状态/计数等）
-- dynamics 表: 存储各平台的动态/微博/文章 (platform, uid, item_id, content, pic_url, ts)
+- dynamics 表: 存储各平台的动态/微博/文章，主键 (platform, uid, item_id, revision)。
+  revision=0 是首次抓到的版本；作者编辑内容后追加 revision+1 的新行，旧行保留，
+  因此同一个 item_id 会有多行，整张表本身就是编辑记录。dyn_load 只还原最新版。
 
 线程安全（RLock + WAL 模式），所有写入失败仅记录日志，不影响查询主流程。
 
@@ -21,6 +23,7 @@ import threading
 import time
 from datetime import datetime
 
+from content import same_content
 from logger import logger
 
 prefix = "【持久化存储】"
@@ -52,55 +55,122 @@ def db_path() -> str:
     return _db_path()
 
 
+#: dynamics 表结构。主键含 revision：同一个 item_id 可以有多行版本。
+#: 建表与旧库迁移共用这份 DDL，避免两处结构漂移。
+_DYNAMICS_DDL = """CREATE TABLE IF NOT EXISTS {table} (
+        platform TEXT NOT NULL,
+        uid TEXT NOT NULL,
+        item_id TEXT NOT NULL,
+        revision INTEGER NOT NULL DEFAULT 0,
+        content TEXT,
+        pic_url TEXT,
+        ts REAL,
+        deleted INTEGER NOT NULL DEFAULT 0,
+        deleted_at REAL,
+        edited_at REAL,
+        updated_at REAL NOT NULL DEFAULT (strftime('%s','now')),
+        PRIMARY KEY (platform, uid, item_id, revision)
+    )"""
+
+
+def _migrate_dynamics_to_versions(conn) -> int:
+    """把旧版 dynamics 表升级为「同 item_id 多版本行」结构，返回迁移行数。
+
+    SQLite 不能直接改主键，只能建新表 -> 拷贝 -> 删旧表 -> 改名 -> 重建索引。
+    全程单个事务：任一步失败都回滚到旧表，不会留下半迁移状态。
+    """
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(dynamics)")}
+    try:
+        conn.commit()  # 结束可能残留的隐式事务，避免 BEGIN 嵌套
+        conn.execute("BEGIN IMMEDIATE")
+        # 早期版本可能连 deleted / deleted_at / updated_at 都没有，先补齐，
+        # 拷贝时就能用固定列名。
+        # updated_at 必须声明为可空无默认值：SQLite 不允许 ALTER TABLE ADD COLUMN
+        # 带非恒定默认值（默认值是 (strftime('%s','now'))），在非空老库上会直接
+        # 抛 "Cannot add a column with non-constant default"，整个迁移回滚 ->
+        # 连接不被缓存 -> 此后每次读写都重试并失败，持久化彻底瘫痪。
+        # 空值在拷贝时用 COALESCE 补成当前时间。
+        for col, decl in (
+            ("deleted", "INTEGER NOT NULL DEFAULT 0"),
+            ("deleted_at", "REAL"),
+            ("updated_at", "REAL"),
+        ):
+            if col not in cols:
+                conn.execute(f"ALTER TABLE dynamics ADD COLUMN {col} {decl}")
+        conn.execute(_DYNAMICS_DDL.format(table="dynamics_versions_new"))
+        conn.execute(
+            "INSERT INTO dynamics_versions_new "
+            "(platform, uid, item_id, revision, content, pic_url, ts, "
+            "deleted, deleted_at, edited_at, updated_at) "
+            "SELECT platform, uid, item_id, 0, content, pic_url, ts, "
+            "deleted, deleted_at, NULL, "
+            "COALESCE(updated_at, strftime('%s','now')) FROM dynamics"
+        )
+        count = conn.execute(
+            "SELECT COUNT(*) FROM dynamics_versions_new"
+        ).fetchone()[0]
+        conn.execute("DROP TABLE dynamics")
+        conn.execute("ALTER TABLE dynamics_versions_new RENAME TO dynamics")
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_dynamics_lookup "
+            "ON dynamics (platform, uid, ts)"
+        )
+        conn.commit()
+        return count
+    except Exception:
+        conn.rollback()
+        raise
+
+
 def _get_conn() -> sqlite3.Connection:
     global _conn
+    migrated = None
     with _lock:
         if _conn is not None:
             return _conn
         path = _db_path()
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        _conn = sqlite3.connect(path, check_same_thread=False)
-        _conn.execute("PRAGMA journal_mode=WAL")
-        _conn.execute("PRAGMA synchronous=NORMAL")
-        _conn.execute("""CREATE TABLE IF NOT EXISTS kv (
-                store TEXT NOT NULL,
-                key TEXT NOT NULL,
-                value TEXT,
-                updated_at REAL NOT NULL DEFAULT (strftime('%s','now')),
-                PRIMARY KEY (store, key)
-            )""")
-        _conn.execute("""CREATE TABLE IF NOT EXISTS dynamics (
-                platform TEXT NOT NULL,
-                uid TEXT NOT NULL,
-                item_id TEXT NOT NULL,
-                content TEXT,
-                pic_url TEXT,
-                ts REAL,
-                deleted INTEGER NOT NULL DEFAULT 0,
-                deleted_at REAL,
-                updated_at REAL NOT NULL DEFAULT (strftime('%s','now')),
-                PRIMARY KEY (platform, uid, item_id)
-            )""")
-        _conn.execute("""CREATE TABLE IF NOT EXISTS kv_history (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                store TEXT NOT NULL,
-                key TEXT NOT NULL,
-                value TEXT,
-                changed_at REAL NOT NULL DEFAULT (strftime('%s','now'))
-            )""")
-        _conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_dynamics_lookup "
-            "ON dynamics (platform, uid, ts)"
-        )
-        # 旧版本库迁移：dynamics 补充软删除列
-        cols = [r[1] for r in _conn.execute("PRAGMA table_info(dynamics)")]
-        if "deleted" not in cols:
-            _conn.execute(
-                "ALTER TABLE dynamics ADD COLUMN deleted INTEGER NOT NULL DEFAULT 0"
+        # 建表/迁移全在局部 conn 上完成，成功后才交给 _conn。否则迁移失败会留下
+        # 一个旧结构的缓存连接：迁移不再重试，此后所有读写都只是 error 日志。
+        conn = sqlite3.connect(path, check_same_thread=False)
+        try:
+            conn.execute("PRAGMA journal_mode=WAL")
+            conn.execute("PRAGMA synchronous=NORMAL")
+            conn.execute("""CREATE TABLE IF NOT EXISTS kv (
+                    store TEXT NOT NULL,
+                    key TEXT NOT NULL,
+                    value TEXT,
+                    updated_at REAL NOT NULL DEFAULT (strftime('%s','now')),
+                    PRIMARY KEY (store, key)
+                )""")
+            conn.execute(_DYNAMICS_DDL.format(table="dynamics"))
+            conn.execute("""CREATE TABLE IF NOT EXISTS kv_history (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    store TEXT NOT NULL,
+                    key TEXT NOT NULL,
+                    value TEXT,
+                    changed_at REAL NOT NULL DEFAULT (strftime('%s','now'))
+                )""")
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_dynamics_lookup "
+                "ON dynamics (platform, uid, ts)"
             )
-        if "deleted_at" not in cols:
-            _conn.execute("ALTER TABLE dynamics ADD COLUMN deleted_at REAL")
-        _conn.commit()
+            # 旧版本库迁移：单主键表升级为多版本表。
+            # 早期版本可能连 deleted / deleted_at / updated_at 都没有，迁移时一并补齐。
+            cols = [r[1] for r in conn.execute("PRAGMA table_info(dynamics)")]
+            if "revision" not in cols:
+                migrated = _migrate_dynamics_to_versions(conn)
+            conn.commit()
+        except BaseException:
+            # 关掉半初始化的连接，保持 _conn 为空，下次调用可重试迁移
+            try:
+                conn.close()
+            except Exception:
+                pass
+            raise
+        _conn = conn
+    if migrated is not None:
+        _log("info", f"dynamics 表已升级为多版本结构, 迁移 {migrated} 行")
     _log("info", f"持久化存储已连接: {path}")
     return _conn
 
@@ -235,15 +305,40 @@ def kv_history(store: str, key=None, limit: int = 500) -> list:
 # ---------------- dynamics 动态数据 ----------------
 
 
-_DYN_UPSERT_SQL = (
+_DYN_INSERT_SQL = (
     "INSERT INTO dynamics "
-    "(platform, uid, item_id, content, pic_url, ts, deleted, deleted_at, updated_at) "
-    "VALUES (?, ?, ?, ?, ?, ?, 0, NULL, strftime('%s','now')) "
-    "ON CONFLICT(platform, uid, item_id) DO UPDATE SET "
+    "(platform, uid, item_id, revision, content, pic_url, ts, "
+    "deleted, deleted_at, edited_at, updated_at) "
+    "VALUES (?, ?, ?, ?, ?, ?, ?, 0, NULL, ?, strftime('%s','now'))"
+)
+
+_DYN_UPSERT_SQL = _DYN_INSERT_SQL + (
+    " ON CONFLICT(platform, uid, item_id, revision) DO UPDATE SET "
     "content = excluded.content, pic_url = excluded.pic_url, "
     "ts = excluded.ts, deleted = 0, deleted_at = NULL, "
+    # 未显式给 edited_at 时保留原值，避免覆盖时把编辑时间抹掉
+    "edited_at = COALESCE(excluded.edited_at, dynamics.edited_at), "
     "updated_at = excluded.updated_at"
 )
+
+#: 初始化批量写入只补缺失行，不覆盖已有版本（否则会抹掉 rev0 原始内容）
+_DYN_INSERT_DO_NOTHING_SQL = _DYN_INSERT_SQL + (
+    " ON CONFLICT(platform, uid, item_id, revision) DO NOTHING"
+)
+
+
+def _dyn_row(platform, uid, item_id, revision, content, pic_url, ts, edited_at):
+    """组装一条 dynamics 写入参数，统一 uid/item_id 字符串化与 pic/ts 归一化。"""
+    return (
+        platform,
+        str(uid),
+        str(item_id),
+        revision,
+        content,
+        _pack_pic(pic_url),
+        _coerce_ts(ts),
+        edited_at,
+    )
 
 
 def _pack_pic(pic_url):
@@ -280,23 +375,42 @@ def _coerce_ts(ts):
         return 0.0
 
 
-def dyn_set(platform: str, uid, item_id, content, pic_url, ts) -> None:
-    """写入/更新一条动态记录。pic_url 可为 str/list/None。
+def dyn_set(
+    platform: str,
+    uid,
+    item_id,
+    content,
+    pic_url,
+    ts,
+    revision=None,
+    edited_at=None,
+) -> None:
+    """写入/更新一条动态的当前版本。pic_url 可为 str/list/None。
 
-    若该记录此前被标记删除（软删除），重新写入时自动恢复为未删除。
+    revision 缺省时写到该 item 当前的最大版本行（首次写入即 0），保证
+    「刚写入的内容就是最新版本」，不会出现 rev0 比 revN 新、dyn_load 却取
+    revN 旧内容的错位。要保留历史版本请用 dyn_add_revision。
+    若该版本行此前被标记删除（软删除），重新写入时自动恢复为未删除。
+
+    注意：本函数是**覆盖**语义，会抹掉被覆盖行的编辑历史，且只恢复当前
+    这一行的删除标记（同一 item 的其它版本行仍标记为已删除）。常规的
+    「这条动态现在是什么样」写入请用 dyn_sync，它会先比对再决定写还是
+    追加，并统一复活该 item 的所有版本行。
     """
     try:
         conn = _get_conn()
+        key = (platform, str(uid), str(item_id))
         with _lock:
+            if revision is None:
+                revision = conn.execute(
+                    "SELECT COALESCE(MAX(revision), 0) FROM dynamics "
+                    "WHERE platform = ? AND uid = ? AND item_id = ?",
+                    key,
+                ).fetchone()[0]
             conn.execute(
                 _DYN_UPSERT_SQL,
-                (
-                    platform,
-                    str(uid),
-                    str(item_id),
-                    content,
-                    _pack_pic(pic_url),
-                    _coerce_ts(ts),
+                _dyn_row(
+                    platform, uid, item_id, revision, content, pic_url, ts, edited_at
                 ),
             )
             conn.commit()
@@ -307,29 +421,203 @@ def dyn_set(platform: str, uid, item_id, content, pic_url, ts) -> None:
         )
 
 
+def _sync_row(
+    platform: str,
+    uid,
+    item_id,
+    content,
+    pic_url,
+    ts,
+    edited_at=None,
+):
+    """同步一条动态到表，返回 (revision, 实际落库的 ts)。
+
+    判定基准是**表里该 item 的最新版本行**，而不是调用方手里的旧值：
+      - 表里没有行           -> 写 rev0（首次入库）
+      - 内容与最新版本相同   -> 不写（幂等，不产生虚假版本），仅恢复软删除标记
+      - 内容与最新版本不同   -> 追加 MAX(revision)+1（作者改过），并沿用旧 ts
+
+    比较口径与 utils.content_diff 同源（图片 URL 去掉 ?query/#fragment 后
+    再比），所以「换了签名参数」不会被当成「换了图」而刷出一串版本行。
+
+    软删除的 item 重新出现时，该 item 的所有版本行一并恢复为未删除——
+    动态被误判删除后又回到 feed（删除检测只看 feed 内容，平台少返回几条
+    就会误判）时，靠这条把它救回来。
+
+    返回的 ts 是**表里实际的发布时间**：编辑不改变发布时间，ts 沿用旧值，
+    旧值为空（历史脏数据）时才用传入的 ts。调用方要同步内存的话必须用它，
+    而不是直接用传入的 ts，否则内存与表会在 ts 上错位。
+
+    失败时返回 (-1, 传入的 ts)。
+    """
+    try:
+        conn = _get_conn()
+        key = (platform, str(uid), str(item_id))
+        with _lock:
+            # 不过滤 deleted：软删除的行正是要复活的对象，得读出来比对
+            row = conn.execute(
+                "SELECT revision, content, pic_url, ts FROM dynamics "
+                "WHERE platform = ? AND uid = ? AND item_id = ? "
+                "ORDER BY revision DESC LIMIT 1",
+                key,
+            ).fetchone()
+            if row is None:
+                conn.execute(
+                    _DYN_UPSERT_SQL,
+                    _dyn_row(
+                        platform, uid, item_id, 0, content, pic_url, ts, edited_at
+                    ),
+                )
+                conn.commit()
+                return 0, ts
+
+            revision, old_content, old_pic, old_ts = row
+            # 编辑不改发布时间：表里的 ts 才是权威值
+            effective_ts = old_ts if old_ts else ts
+            old_pics = json.loads(old_pic) if old_pic is not None else None
+            if same_content((old_content, old_pics), (content, pic_url)):
+                # 内容没变：不产生新版本，只把软删除标记撤回来
+                conn.execute(
+                    "UPDATE dynamics SET deleted = 0, deleted_at = NULL, "
+                    "updated_at = strftime('%s','now') "
+                    "WHERE platform = ? AND uid = ? AND item_id = ? AND deleted = 1",
+                    key,
+                )
+                conn.commit()
+                return revision, effective_ts
+
+            # 内容变了：追加一个新版本
+            new_revision = conn.execute(
+                "SELECT COALESCE(MAX(revision), 0) + 1 FROM dynamics "
+                "WHERE platform = ? AND uid = ? AND item_id = ?",
+                key,
+            ).fetchone()[0]
+            conn.execute(
+                "UPDATE dynamics SET deleted = 0, deleted_at = NULL "
+                "WHERE platform = ? AND uid = ? AND item_id = ? AND deleted = 1",
+                key,
+            )
+            conn.execute(
+                _DYN_UPSERT_SQL,
+                _dyn_row(
+                    platform,
+                    uid,
+                    item_id,
+                    new_revision,
+                    content,
+                    pic_url,
+                    effective_ts,
+                    edited_at if edited_at is not None else time.time(),
+                ),
+            )
+            conn.commit()
+            return new_revision, effective_ts
+    except Exception as e:
+        _log(
+            "error",
+            f"同步动态失败 platform={platform} uid={uid} id={item_id}: {e}",
+        )
+        return -1, ts
+
+
+def dyn_sync(
+    platform: str,
+    uid,
+    item_id,
+    content,
+    pic_url,
+    ts,
+    edited_at=None,
+) -> int:
+    """把一条动态的当前状态同步进表，返回落库的 revision 号（失败返回 -1）。
+
+    判定与落库语义见 _sync_row。与相邻几个 API 的分工：
+        dyn_set           覆盖最新版本行（会抹掉编辑历史），仅用于强制对齐
+        dyn_add_revision  无条件追加一个版本（不比对，可能产生重复版本）
+        dyn_sync          先比对再决定写还是追加，常规写入走这条
+        dyn_commit        dyn_sync + 同步更新内存字典，查询层用这条
+    """
+    revision, _ = _sync_row(platform, uid, item_id, content, pic_url, ts, edited_at)
+    return revision
+
+
+def dyn_commit(platform: str, uid, item_id, content, pic_url, ts, memory: dict) -> int:
+    """把一条动态写进内存字典并同步落库，返回落库的 revision（失败 -1）。
+
+    memory 是该平台的 DYNAMIC_DICT[uid]，值形如 (content, pic_url, ts)。
+    内存与表必须一起更新：内存存的是「当前看到的样子」，表存的是版本历史，
+    两者错位会让下一轮的变更比对失去基准。
+
+    内存里的 ts 用**表里实际的发布时间**（编辑不改发布时间，沿用旧 ts），
+    而不是传入的 ts —— 传入的 ts 是本轮 feed 里的值，与表里的权威值可能不同。
+    """
+    revision, effective_ts = _sync_row(
+        platform, uid, item_id, content, pic_url, ts
+    )
+    memory[item_id] = content, pic_url, effective_ts
+    return revision
+
+
+def dyn_add_revision(
+    platform: str, uid, item_id, content, pic_url, ts, edited_at=None
+) -> int:
+    """为一条动态追加编辑版本行，返回新的 revision 号（失败返回 -1）。
+
+    旧版本行原样保留在表里，即编辑记录本身。revision 取该 item_id 当前
+    最大值 +1；MAX 与 INSERT 在同一把锁内完成，多线程轮询不会撞号。
+    若这条动态此前被软删除过（删后又回到 feed），顺带把它的所有版本恢复为
+    未删除，避免 dyn_load 仍把它排除。
+    """
+    try:
+        conn = _get_conn()
+        key = (platform, str(uid), str(item_id))
+        if edited_at is None:
+            edited_at = time.time()
+        with _lock:
+            revision = conn.execute(
+                "SELECT COALESCE(MAX(revision), -1) + 1 FROM dynamics "
+                "WHERE platform = ? AND uid = ? AND item_id = ?",
+                key,
+            ).fetchone()[0]
+            conn.execute(
+                "UPDATE dynamics SET deleted = 0, deleted_at = NULL "
+                "WHERE platform = ? AND uid = ? AND item_id = ? AND deleted = 1",
+                key,
+            )
+            conn.execute(
+                _DYN_UPSERT_SQL,
+                _dyn_row(
+                    platform, uid, item_id, revision, content, pic_url, ts, edited_at
+                ),
+            )
+            conn.commit()
+        return revision
+    except Exception as e:
+        _log(
+            "error",
+            f"追加编辑版本失败 platform={platform} uid={uid} id={item_id}: {e}",
+        )
+        return -1
+
+
 def dyn_set_many(platform: str, uid, items: dict) -> None:
     """单事务批量写入同一 uid 的多条动态，供初始化等成批写入场景使用。
 
-    items 形如 {item_id: (content, pic_url, ts)}。相比循环调用 dyn_set，
-    这里只提交一次事务，避免 N 次 commit 带来的 WAL 写入放大。
+    items 形如 {item_id: (content, pic_url, ts)}，一律写成 revision=0。
+    只补缺失行：已存在的 item_id 直接跳过，避免初始化重入时把 rev0 原始
+    版本或已有编辑历史覆盖掉。相比循环调用 dyn_set，这里只提交一次事务，
+    避免 N 次 commit 带来的 WAL 写入放大。
     """
     if not items:
         return
     try:
         conn = _get_conn()
         rows = [
-            (
-                platform,
-                str(uid),
-                str(item_id),
-                content,
-                _pack_pic(pic_url),
-                _coerce_ts(ts),
-            )
+            _dyn_row(platform, uid, item_id, 0, content, pic_url, ts, None)
             for item_id, (content, pic_url, ts) in items.items()
         ]
         with _lock:
-            conn.executemany(_DYN_UPSERT_SQL, rows)
+            conn.executemany(_DYN_INSERT_DO_NOTHING_SQL, rows)
             conn.commit()
     except Exception as e:
         _log(
@@ -339,7 +627,10 @@ def dyn_set_many(platform: str, uid, items: dict) -> None:
 
 
 def dyn_del(platform: str, uid, item_id) -> None:
-    """软删除：仅打删除标记，不物理移除，保留历史可离线查询。"""
+    """软删除：按三元组打删除标记，该 item_id 的所有版本行一起标记。
+
+    不物理移除，编辑记录与删除记录都留在表里，可供离线/SQL 浏览器查询。
+    """
     try:
         conn = _get_conn()
         with _lock:
@@ -357,18 +648,23 @@ def dyn_del(platform: str, uid, item_id) -> None:
 _DYN_LOAD_SQL = (
     "SELECT uid, item_id, content, pic_url, ts FROM ("
     " SELECT uid, item_id, content, pic_url, ts,"
-    " ROW_NUMBER() OVER (PARTITION BY uid ORDER BY COALESCE(ts, 0) DESC) AS rn"
-    " FROM dynamics WHERE platform = ?{uid_filter} AND deleted = 0"
+    " ROW_NUMBER() OVER (PARTITION BY uid ORDER BY COALESCE(ts, 0) DESC, item_id DESC) AS rn"
+    " FROM ("
+    "  SELECT uid, item_id, content, pic_url, ts,"
+    "  ROW_NUMBER() OVER (PARTITION BY uid, item_id ORDER BY revision DESC) AS rev_rn"
+    "  FROM dynamics WHERE platform = ?{uid_filter} AND deleted = 0"
+    " ) WHERE rev_rn = 1"
     ") WHERE rn <= ?"
 )
 
 
 def dyn_load(platform: str, uid=None, limit: int = RESTORE_LIMIT) -> dict:
-    """加载未删除的动态数据（用于重启恢复内存状态）。
+    """加载未删除的动态数据（用于重启恢复内存状态），每个 item_id 只取最新版本。
 
     返回 {uid: {item_id: (content, pic_url, ts)}}；指定 uid 时只返回该用户。
-    每个 uid 默认只还原最近 limit 条（按 ts 倒序），避免长期运行后重启时把
-    历史全量灌进内存。已软删除的记录不返回。pic_url 反序列化回 str/list。
+    内层 ROW_NUMBER 先按 (uid, item_id) 取 revision 最大的那一行，外层再按
+    ts 倒序限流，保证多版本行不会占掉 RESTORE_LIMIT 的名额、也不会让同一条
+    动态在内存里出现多次。已软删除的记录不返回。pic_url 反序列化回 str/list。
     """
     limit = RESTORE_LIMIT if limit is None else limit
     try:
@@ -395,25 +691,34 @@ def dyn_load(platform: str, uid=None, limit: int = RESTORE_LIMIT) -> dict:
 
 
 def dyn_query(
-    platform: str, uid=None, include_deleted: bool = False, limit: int = None
+    platform: str,
+    uid=None,
+    item_id=None,
+    include_deleted: bool = False,
+    limit: int = None,
 ) -> list:
-    """平铺查询动态记录（供离线查询接口使用），按 ts 倒序。
+    """平铺查询动态的所有版本（供离线查询接口使用），按 ts 倒序、同条内最新版在前。
 
-    返回 [{uid, id, content, pic_url, ts, deleted, deleted_at}]；
+    返回 [{uid, id, revision, content, pic_url, ts, edited_at, updated_at,
+    deleted, deleted_at}]；指定 item_id 即可查看该条动态的完整编辑记录。
     include_deleted=True 时包含已软删除的历史记录。
     """
     try:
         sql = (
-            "SELECT uid, item_id, content, pic_url, ts, deleted, deleted_at "
+            "SELECT uid, item_id, revision, content, pic_url, ts, "
+            "edited_at, updated_at, deleted, deleted_at "
             "FROM dynamics WHERE platform = ?"
         )
         params = [platform]
         if uid is not None:
             sql += " AND uid = ?"
             params.append(str(uid))
+        if item_id is not None:
+            sql += " AND item_id = ?"
+            params.append(str(item_id))
         if not include_deleted:
             sql += " AND deleted = 0"
-        sql += " ORDER BY ts DESC"
+        sql += " ORDER BY ts DESC, revision DESC"
         if limit:
             sql += " LIMIT ?"
             params.append(limit)
@@ -423,14 +728,28 @@ def dyn_query(
         return [
             {
                 "uid": _uid,
-                "id": item_id,
+                "id": _item_id,
+                "revision": revision,
                 "content": content,
                 "pic_url": json.loads(pic) if pic is not None else None,
                 "ts": ts,
+                "edited_at": edited_at,
+                "updated_at": updated_at,
                 "deleted": bool(deleted),
                 "deleted_at": deleted_at,
             }
-            for _uid, item_id, content, pic, ts, deleted, deleted_at in rows
+            for (
+                _uid,
+                _item_id,
+                revision,
+                content,
+                pic,
+                ts,
+                edited_at,
+                updated_at,
+                deleted,
+                deleted_at,
+            ) in rows
         ]
     except Exception as e:
         _log("error", f"查询动态失败 platform={platform}: {e}")

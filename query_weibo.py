@@ -9,10 +9,15 @@ from logger import logger, Slot
 import requests
 from config import general_headers
 from utils import (
+    CHANGED,
     NETWORK,
+    NEW,
+    OLD_NEW,
     STATUS,
+    UNCHANGED,
     CookieSuspend,
     check_diff,
+    classify_item,
     fetch_json,
     fmt_pics,
     format_re,
@@ -20,10 +25,18 @@ from utils import (
     get_icon,
     get_image,
     get_video,
+    id_key,
     is_video_file,
     proxies,
 )
-from storage import dyn_del, dyn_load, dyn_set, dyn_set_many, kv_load, kv_set
+from storage import (
+    dyn_commit,
+    dyn_del,
+    dyn_load,
+    dyn_set_many,
+    kv_load,
+    kv_set,
+)
 
 # from PIL import Image
 from colorama import Fore, Style
@@ -330,10 +343,11 @@ def query_weibodynamic(uid, reporter) -> bool:
     # get_icon 内部有文件存在性短路，重复执行只做廉价 stat，不会重复下载。
     if uid in special and uid not in _SPECIAL_BACKFILLED:
         _SPECIAL_BACKFILLED.add(uid)
-        weibo_last = cards[-1]["mblog"]["id"]
+        weibo_last = str(cards[-1]["mblog"]["id"])
+        weibo_last_key = id_key(weibo_last)
         for card in cards:
             mblog = card["mblog"]
-            if mblog["id"] >= weibo_last:
+            if id_key(mblog["id"]) >= weibo_last_key:
                 _content, pic_url, _action = get_content(mblog)
                 if pic_url:
                     get_image(pic_url, headers, prefix, "weibo", uname, "dynamic")
@@ -346,12 +360,13 @@ def query_weibodynamic(uid, reporter) -> bool:
         USER_NAME_DICT[uid] = uname
         USER_COUNT_DICT[uid] = total
         kv_set("weibo.count", uid, total)
-        LAST_ID = cards[-1]["mblog"]["id"]
+        LAST_ID = str(cards[-1]["mblog"]["id"])
+        last_id_key = id_key(LAST_ID)
         for card in cards:
             mblog = card["mblog"]
-            mblog_id = mblog["id"]
+            mblog_id = str(mblog["id"])
             url = card["scheme"]
-            if mblog_id >= LAST_ID:
+            if id_key(mblog_id) >= last_id_key:
                 created_at = datetime.strptime(
                     mblog["created_at"], "%a %b %d %H:%M:%S +0800 %Y"
                 ).timestamp()
@@ -392,45 +407,73 @@ def query_weibodynamic(uid, reporter) -> bool:
     _save_user_info(uid)
 
     cnt = 0
-    max_id = max(DYNAMIC_DICT[uid])
-    min_id = min(DYNAMIC_DICT[uid])
+    # 本轮开始前记录的最大 id 作为"新微博"分界线，循环内固定不变。
+    # id_key 按数值比较，避免不同位数的 id 被字符串序错判。
+    max_id = max(DYNAMIC_DICT[uid], key=id_key)
     notified = False
-    new_count = 0
-    # cards 按时间倒序(最新在前)：扫描到每条新微博就地下载图片+打日志（与改动前一致），
-    # 仅对第一条新微博(即最新)触发 notify，其余只入库不推送
+    # cards 按时间倒序(最新在前)：不再按旧 id 过滤，feed 内每条都重新解析比对。
+    # NEW/OLD_NEW/CHANGED 才走完整流程，UNCHANGED 静默跳过（轻量比对）。
     for card in cards:
         mblog = card["mblog"]
-        mblog_id = mblog["id"]
+        mblog_id = str(mblog["id"])
+        try:
+            content, pic_url, action = get_content(mblog)
+        except (KeyError, TypeError) as e:
+            # 单张卡片结构异常不该中断整轮：已入库的保留旧值，未入库的下轮再来
+            logger.error(f"【{uname}】微博解析错误: {e}", prefix)
+            continue
+        if not content and mblog_id in DYNAMIC_DICT[uid]:
+            # 解析失败不能当成"内容被清空"，保留旧值等下一轮再比
+            continue
 
-        if mblog_id in DYNAMIC_DICT[uid] or mblog_id < min_id:
+        status, diff = classify_item(
+            mblog_id, content, pic_url, DYNAMIC_DICT[uid], max_id
+        )
+        if status == UNCHANGED:
             continue
 
         created_at = datetime.strptime(
             mblog["created_at"], "%a %b %d %H:%M:%S +0800 %Y"
         )
         display_time = created_at.strftime("%Y-%m-%d %H:%M:%S")
-        content, pic_url, action = get_content(mblog)
         url = card["scheme"]
+        image = get_image(pic_url, headers, prefix, "weibo", uname, "dynamic")
 
-        if mblog_id < max_id:
-            # 比已记录的最新微博更旧，仅作为历史入库，不推送也不计入 cnt
-            DYNAMIC_DICT[uid][mblog_id] = content, pic_url, created_at.timestamp()
-            dyn_set("weibo", uid, mblog_id, content, pic_url, created_at.timestamp())
+        if status == CHANGED:
+            # 编辑不改发布时间：沿用旧 ts，只往表里追加一个新版本行
+            old_ts = DYNAMIC_DICT[uid][mblog_id][2]
             logger.info(
-                f"【{uname}】历史微博，不进行推送({total}) {display_time}：\n{content}, url: {url}\npics: {fmt_pics(pic_url)}",
+                f"【{uname}】修改了微博（{diff.fields}）({total}) {display_time}：\n"
+                f"{diff.summary()}, url: {url}\npics: {fmt_pics(pic_url)}",
                 prefix,
                 Fore.LIGHTYELLOW_EX,
             )
+            notify(
+                f"【{uname}】修改了微博",
+                diff.push_summary(),
+                on_click=url,
+                image=image,
+                icon=icon_path,
+                pic_url=pic_url,
+            )
+            dyn_commit(
+                "weibo", uid, mblog_id, content, pic_url, old_ts, DYNAMIC_DICT[uid]
+            )
+            # 视频下载放最后：失败或耗时都不影响入库与通知
+            if save_video:
+                save_videos(mblog, headers, uname)
             continue
-        if action in ["微博更新", "转发微博"]:
+
+        # NEW / OLD_NEW：都入库、下图、下视频、打日志；OLD_NEW 是旧 id，只不做通知
+        if status == NEW and action in ["微博更新", "转发微博"]:
             cnt += 1
-        image = get_image(pic_url, headers, prefix, "weibo", uname, "dynamic")
         logger.info(
-            f"【{uname}】{action}({total}) {display_time}：\n{content}, url: {url}\npics: {fmt_pics(pic_url)}",
+            f"【{uname}】{action}({total}) {display_time}：\n{content}, url: {url}\npics: {fmt_pics(pic_url)}"
+            + ("（历史微博，不进行推送）" if status == OLD_NEW else ""),
             prefix,
             Fore.LIGHTYELLOW_EX,
         )
-        if not notified:
+        if status == NEW and not notified:
             if (datetime.now() - created_at).total_seconds() < 24 * 3600:
                 notify(
                     f"【{uname}】{action}",
@@ -441,9 +484,15 @@ def query_weibodynamic(uid, reporter) -> bool:
                     pic_url=pic_url,
                 )
                 notified = True
-        new_count += 1
-        DYNAMIC_DICT[uid][mblog_id] = content, pic_url, created_at.timestamp()
-        dyn_set("weibo", uid, mblog_id, content, pic_url, created_at.timestamp())
+        dyn_commit(
+            "weibo",
+            uid,
+            mblog_id,
+            content,
+            pic_url,
+            created_at.timestamp(),
+            DYNAMIC_DICT[uid],
+        )
         logger.debug(str(DYNAMIC_DICT[uid]), prefix, Fore.LIGHTYELLOW_EX)
         # 视频下载放最后：失败或耗时都不影响入库与通知
         if save_video:
@@ -458,14 +507,15 @@ def query_weibodynamic(uid, reporter) -> bool:
     if total < _total + cnt:
         action = "删除了微博，但未能找到"
         # 尝试检测被删除的微博
-        st = [card["mblog"]["id"] for card in cards]
+        st = [str(card["mblog"]["id"]) for card in cards]
         last_id = st[-1]
         st = set(st)
+        last_key = id_key(last_id)
         del_list = []
         # cookies失效时不进行检测
         if cookies_valid:
             for _id in DYNAMIC_DICT[uid]:
-                if _id >= last_id and _id not in st:
+                if id_key(_id) >= last_key and _id not in st:
                     cnt -= 1
                     del_list.append(_id)
                     content, pic_url, timestamp = DYNAMIC_DICT[uid][_id]

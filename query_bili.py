@@ -5,22 +5,28 @@ from config import global_config as config
 from logger import logger, Slot
 from config import general_headers
 from utils import (
+    CHANGED,
     NETWORK,
+    NEW,
+    OLD_NEW,
     STATUS,
+    UNCHANGED,
     CookieSuspend,
     check_diff,
+    classify_item,
     fetch_json,
     fmt_pics,
     format_re,
     get_active,
     get_icon,
     get_image,
+    id_key,
 )
 from wbi import CookieExpired, build_query, WBIKey
 from storage import (
+    dyn_commit,
     dyn_del,
     dyn_load,
-    dyn_set,
     dyn_set_many,
     kv_load,
     kv_set,
@@ -48,6 +54,10 @@ _prefix = "【B站持久化】"
 #: 本进程内已完成"特别关注图片兜底"的用户，避免每个轮询周期重复扫描。
 #: 进程重启即清空，会重新兜底。
 _SPECIAL_BACKFILLED = set()
+
+#: 解析降级时 get_content 会吐出的占位文案。这些不是作者改的内容，
+#: 已入库的条目碰到它们要保留旧值，否则会误推「修改了动态」。
+_DEGRADED_TEXT = ("充电动态，获取内容失败", "源动态已被作者删除")
 
 
 def init_state():
@@ -406,7 +416,7 @@ def query_bilidynamic(uid, reporter) -> bool:
         USER_FACE_DICT[uid] = face
         USER_SIGN_DICT[uid] = sign
         for item in items:
-            dynamic_id = item["id_str"]
+            dynamic_id = str(item["id_str"])
             modules = item.get("modules", {})
             if (
                 modules.get("module_tag", {})
@@ -454,45 +464,79 @@ def query_bilidynamic(uid, reporter) -> bool:
     chk_diff(uname, USER_NAME_DICT, "B站昵称")
     _save_user_info(uid)
 
-    last_id = min(DYNAMIC_DICT[uid])
+    # 本轮开始前记录的最大 id 作为"新动态"分界线，循环内固定不变，
+    # 否则同批多条新动态只有第一条会被认成新。id_key 按数值比较，避开
+    # B 站 18/19 位 id 混排时字符串比较错序。
+    max_id = max(DYNAMIC_DICT[uid], key=id_key)
     notified = False
-    new_count = 0
-    # items 按时间倒序(最新在前)：扫描到每条新动态就地下载图片+打日志（与改动前一致），
-    # 仅对第一条新动态(即最新)触发 notify，其余只入库不推送
+    # items 按时间倒序(最新在前)：不再按旧 id 过滤，feed 内每条都重新解析比对。
+    # NEW/OLD_NEW/CHANGED 才走完整流程，UNCHANGED 静默跳过（轻量比对）。
     for item in items:
-        dynamic_id = item["id_str"]
-        if dynamic_id in DYNAMIC_DICT[uid] or dynamic_id < last_id:
-            continue
-
+        dynamic_id = str(item["id_str"])
         modules = item.get("modules", {})
         if (
             modules.get("module_tag", {})
             and modules["module_tag"].get("text") == "置顶"
         ):
             continue
+
+        content, pic_url, action = get_content(item)
+        if action == "skip":
+            continue
+        if not content:
+            if dynamic_id in DYNAMIC_DICT[uid]:
+                # 解析失败不能当成"内容被清空"，保留旧值等下一轮再比
+                continue
+            logger.error(
+                f"【{uname}】动态解析错误:\n {item}",
+                prefix,
+            )
+        if content in _DEGRADED_TEXT and dynamic_id in DYNAMIC_DICT[uid]:
+            # 充电动态/源动态被删是解析降级，不是作者编辑：已入库的保留旧值
+            continue
+
+        status, diff = classify_item(
+            dynamic_id, content, pic_url, DYNAMIC_DICT[uid], max_id
+        )
+        if status == UNCHANGED:
+            continue
+
         module_author = modules.get("module_author", {})
         timestamp = int(module_author.get("pub_ts", 0))
         dynamic_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(timestamp))
-
-        content, pic_url, action = get_content(item)
-        if not content:
-            if action == "skip":
-                continue
-            else:
-                logger.error(
-                    f"【{uname}】动态解析错误:\n {item}",
-                    prefix,
-                )
         url = f"https://t.bilibili.com/{dynamic_id}"
-
         image = get_image(pic_url, headers, prefix, "bili", uname, "dynamic")
 
+        if status == CHANGED:
+            # 编辑不改发布时间：沿用旧 ts，只往表里追加一个新版本行
+            old_ts = DYNAMIC_DICT[uid][dynamic_id][2]
+            logger.info(
+                f"【{uname}】修改了动态（{diff.fields}） {dynamic_time}：\n"
+                f"{diff.summary()}, url: {url}\npics: {fmt_pics(pic_url)}",
+                prefix,
+                Fore.LIGHTBLUE_EX,
+            )
+            notify(
+                f"【{uname}】修改了动态",
+                diff.push_summary(),
+                on_click=url,
+                image=image,
+                icon=icon_path,
+                pic_url=pic_url,
+            )
+            dyn_commit(
+                "bili", uid, dynamic_id, content, pic_url, old_ts, DYNAMIC_DICT[uid]
+            )
+            continue
+
+        # NEW / OLD_NEW：都入库、下图、打日志；OLD_NEW 是旧 id，只不做通知
         logger.info(
-            f"【{uname}】{action} {dynamic_time}：\n{content}, url: {url}\npics: {fmt_pics(pic_url)}",
+            f"【{uname}】{action} {dynamic_time}：\n{content}, url: {url}\npics: {fmt_pics(pic_url)}"
+            + ("（历史动态，不进行推送）" if status == OLD_NEW else ""),
             prefix,
             Fore.LIGHTBLUE_EX,
         )
-        if not notified:
+        if status == NEW and not notified:
             if time.time() - timestamp <= 24 * 3600:
                 notify(
                     f"【{uname}】{action}",
@@ -503,17 +547,17 @@ def query_bilidynamic(uid, reporter) -> bool:
                     pic_url=pic_url,
                 )
                 notified = True
-        new_count += 1
-        DYNAMIC_DICT[uid][dynamic_id] = content, pic_url, timestamp
-        dyn_set("bili", uid, dynamic_id, content, pic_url, timestamp)
+        dyn_commit(
+            "bili", uid, dynamic_id, content, pic_url, timestamp, DYNAMIC_DICT[uid]
+        )
         logger.debug(str(DYNAMIC_DICT[uid]), prefix, Fore.LIGHTBLUE_EX)
 
     # 检测删除动态
-    st = set([item["id_str"] for item in items])
-    last_id = items[-1]["id_str"]
+    st = {str(item["id_str"]) for item in items}
+    last_key = id_key(items[-1]["id_str"])
     del_list = []
     for _id in DYNAMIC_DICT[uid]:
-        if _id >= last_id and _id not in st:
+        if id_key(_id) >= last_key and _id not in st:
             content, pic_url, timestamp = DYNAMIC_DICT[uid][_id]
             image = get_image(pic_url, headers, prefix, "bili", uname, "dynamic")
 

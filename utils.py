@@ -31,6 +31,55 @@ def get_active(dynamics, uid, days=30):
     return 1 + sum(1 for item in dynamics[uid].values() if item[2] > threshold)
 
 
+# ---------------- 内容变化检测 ----------------
+#
+# 这几段是纯逻辑（无网络、无数据库、无日志），便于回归测试直接覆盖口径：
+#   - 以本轮开始前记录的最大 id 为界，id 更大的才算新动态、才允许推送；
+#   - 其余 id 不再被过滤：首次见到的照常入库/下图/打日志，只是不推送；
+#   - 已入库的 id 每轮重新比对内容，变化才走完整流程，无变化静默跳过。
+
+#: feed 条目分类结果
+NEW = "new"                # id 大于已记录最大 id 且未入库：完整处理 + 可能推送
+OLD_NEW = "old_new"        # id 不大于最大 id 且未入库：完整处理，不推送
+CHANGED = "changed"        # 已入库且内容变化：完整处理 + 内容变化推送
+UNCHANGED = "unchanged"    # 已入库且无变化：静默跳过
+
+
+# 内容比较的实现已抽到 content.py（供 storage 共用同一套口径），此处只 re-export
+# content_diff 保持对外 API 不变；ContentDiff 类本身没有调用方，需要时从 content 导入。
+from content import content_diff
+
+
+def id_key(value):
+    """把动态 id 规范化成可比较的键。
+
+    B 站 id_str 会同时存在 18 位与 19 位（实测库里字符串序的
+    min=1000092794261340169、max=582979018019395013，其实是两代 id 混在一起）。
+    纯字符串比较会把 19 位的新动态判成比 18 位旧动态更"小"，导致漏推新动态
+    甚至把旧动态误判成被删除。纯数字 id 一律按数值比较；非数字 id（爱发电的
+    hex）回退字典序，并统一排在数字 id 之前。
+    """
+    s = str(value)
+    if s.isascii() and s.isdigit():
+        return (1, int(s))
+    return (0, s)
+
+
+def classify_item(item_id, content, pic_url, known, max_id):
+    """判断 feed 中一条记录该如何处理，返回 (status, diff)。
+
+    known 为 {item_id: (content, pic_url, ts)}；max_id 必须是本轮开始前的最大 id
+    且循环内保持不变，否则同批多条新动态只有第一条会被认成"新"。
+    diff 仅在 status == CHANGED 时非 None。
+    """
+    old = known.get(item_id)
+    if old is not None:
+        diff = content_diff(old, (content, pic_url))
+        return (CHANGED, diff) if diff.changed else (UNCHANGED, None)
+    status = NEW if id_key(item_id) > id_key(max_id) else OLD_NEW
+    return status, None
+
+
 class CookieSuspend:
     """Cookie 连续失效后暂停查询，Cookie 更新后自动恢复。
 

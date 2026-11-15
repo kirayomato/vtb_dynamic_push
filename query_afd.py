@@ -16,7 +16,7 @@ from utils import (
     get_image,
     proxies,
 )
-from storage import dyn_del, dyn_load, dyn_set, dyn_set_many, kv_load, kv_set
+from storage import dyn_commit, dyn_del, dyn_load, dyn_set_many, kv_load, kv_set
 
 # from PIL import Image
 from colorama import Fore, Style
@@ -248,8 +248,9 @@ def query_afddynamic(uid, cookie, reporter, intervals_second):
             icon=icon_path,
             pic_url=pic_url,
         )
-        DYNAMIC_DICT[uid][dynamic_id] = content, pic_url, dynamic_time
-        dyn_set("afd", uid, dynamic_id, content, pic_url, dynamic_time)
+        dyn_commit(
+            "afd", uid, dynamic_id, content, pic_url, dynamic_time, DYNAMIC_DICT[uid]
+        )
         logger.debug(str(DYNAMIC_DICT[uid]), prefix, Fore.LIGHTCYAN_EX)
 
     # 检测删除动态
