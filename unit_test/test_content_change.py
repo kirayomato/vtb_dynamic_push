@@ -107,6 +107,23 @@ class ContentDiffTests(unittest.TestCase):
         self.assertTrue(diff.text_changed)
         self.assertFalse(diff.pics_changed)
 
+    def test_forward_name_change_is_not_a_content_change(self):
+        # 转发人改名不该算作者改了正文；正文里其余差异仍要检出
+        head = "你听我说吨吨桶真的很治愈呀....\n\n"
+        tail = "**的动态：\n> 吨吨桶🫵🏻‼️"
+        diff = content_diff(
+            (head + "转发**-吃饭高手-" + tail, ["a.png"]),
+            (head + "转发**雨纪家的吃饭低手" + tail, ["a.png"]),
+        )
+        self.assertFalse(diff.text_changed)
+        self.assertFalse(diff.changed)
+
+        diff = content_diff(
+            ("你听我说吨吨桶真的很治愈呀....\n\n转发**-吃饭高手-**的动态：", None),
+            ("你听我说吨吨桶真的很治愈呀....\n\n转发**-吃饭高手-**的转发：", None),
+        )
+        self.assertTrue(diff.text_changed)
+
 
 class ClassifyItemTests(unittest.TestCase):
     def setUp(self):

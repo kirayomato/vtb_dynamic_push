@@ -18,6 +18,10 @@ from dataclasses import dataclass
 #: 仍能完整露出，长文只丢细节不丢结论。
 _PUSH_CLIP = 80
 
+#: 转发正文里由平台自己拼进去的「转发**昵称**的动态：」。
+#: 昵称跟着账号走、与动态内容无关，改个名就会被判成作者改了正文，比较时抹掉。
+_FORWARD_NAME_RE = re.compile(r"(转发\*\*).*?(\*\*的)")
+
 
 def norm_pics(pic_url):
     """把 pic_url 归一化成可比较的元组：None/空 -> ()，str/list/tuple -> URL 元组。
@@ -37,6 +41,14 @@ def _clip(text, limit=_PUSH_CLIP):
     """压缩空白并截断，供推送正文使用（长换行会吃掉推送的行宽）。"""
     s = re.sub(r"\s+", " ", str(text)).strip()
     return s if len(s) <= limit else s[:limit] + "…"
+
+
+def _cmp_text(text):
+    """比较用的正文：抹掉转发人昵称，其余原样。
+
+    只影响「算不算变了」，不影响展示与入库 —— 正文里该显示谁还是谁。
+    """
+    return _FORWARD_NAME_RE.sub(r"\1\2", text)
 
 
 @dataclass(frozen=True)
@@ -106,7 +118,7 @@ def content_diff(old, new):
     old_pics = norm_pics(old[1] if len(old) > 1 else None)
     new_pics = norm_pics(new[1] if len(new) > 1 else None)
     return ContentDiff(
-        text_changed=str(old_text) != str(new_text),
+        text_changed=_cmp_text(str(old_text)) != _cmp_text(str(new_text)),
         pics_changed=old_pics != new_pics,
         old_text=str(old_text),
         new_text=str(new_text),

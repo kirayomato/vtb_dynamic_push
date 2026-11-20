@@ -11,3 +11,4 @@ config.ini
 /icon
 /test
 /tmp
+*.pyc
