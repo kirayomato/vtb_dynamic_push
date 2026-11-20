@@ -3,7 +3,7 @@
 零网络请求；所有数据库操作都落在 tempfile 临时目录，不触碰真实 data/state.db。
 
 运行（用装了 requirements.txt 的解释器，项目根目录执行）：
-    python -m unittest discover -s test -p "test_content_change.py" -v
+    python -m unittest discover -s unit_test -p "test_content_change.py" -v
 """
 
 import calendar
@@ -258,13 +258,14 @@ class StorageVersionTests(unittest.TestCase):
         )
         self.assertEqual(storage.dyn_load("weibo")["2"]["w1"][0], "老数据")
 
-    def test_add_revision_keeps_history_and_load_only_latest(self):
-        storage.dyn_set("bili", "1", "a1", "v0", ["a.jpg"], 100.0)
+    def test_commit_keeps_history_and_load_only_latest(self):
+        memory = {}
+        storage.dyn_commit("bili", "1", "a1", "v0", ["a.jpg"], 100.0, memory)
         self.assertEqual(
-            storage.dyn_add_revision("bili", "1", "a1", "v1", ["b.jpg"], 100.0), 1
+            storage.dyn_commit("bili", "1", "a1", "v1", ["b.jpg"], 100.0, memory), 1
         )
         self.assertEqual(
-            storage.dyn_add_revision("bili", "1", "a1", "v2", None, 100.0), 2
+            storage.dyn_commit("bili", "1", "a1", "v2", None, 100.0, memory), 2
         )
         loaded = storage.dyn_load("bili")
         self.assertEqual(len(loaded["1"]), 1)
@@ -278,17 +279,19 @@ class StorageVersionTests(unittest.TestCase):
         self.assertEqual(rows[-1]["pic_url"], ["a.jpg"])
 
     def test_restore_limit_counts_items_not_versions(self):
-        storage.dyn_set("bili", "1", "a1", "v0", None, 100.0)
-        storage.dyn_add_revision("bili", "1", "a1", "v1", None, 100.0)
-        storage.dyn_add_revision("bili", "1", "a1", "v2", None, 100.0)
-        storage.dyn_set("bili", "1", "a2", "另一条", None, 200.0)
+        memory = {}
+        storage.dyn_commit("bili", "1", "a1", "v0", None, 100.0, memory)
+        storage.dyn_commit("bili", "1", "a1", "v1", None, 100.0, memory)
+        storage.dyn_commit("bili", "1", "a1", "v2", None, 100.0, memory)
+        storage.dyn_commit("bili", "1", "a2", "另一条", None, 200.0, memory)
         loaded = storage.dyn_load("bili", limit=2)
         self.assertEqual(set(loaded["1"]), {"a1", "a2"})
         self.assertEqual(loaded["1"]["a1"][0], "v2")
 
     def test_del_marks_every_version(self):
-        storage.dyn_set("weibo", "2", "w1", "v0", None, 10.0)
-        storage.dyn_add_revision("weibo", "2", "w1", "v1", None, 10.0)
+        memory = {}
+        storage.dyn_commit("weibo", "2", "w1", "v0", None, 10.0, memory)
+        storage.dyn_commit("weibo", "2", "w1", "v1", None, 10.0, memory)
         storage.dyn_del("weibo", "2", "w1")
         self.assertEqual(storage.dyn_load("weibo"), {})
         rows = storage.dyn_query("weibo", item_id="w1", include_deleted=True)
@@ -309,8 +312,9 @@ class StorageVersionTests(unittest.TestCase):
     def test_set_many_never_overwrites_existing_versions(self):
         # 回归：初始化重入（内存为空但库里已有编辑历史）不能把 rev0 原始版本
         # 覆盖成当前 feed，也不能改变 dyn_load 取到的最新版本。
-        storage.dyn_set("weibo", "2", "w1", "v0", None, 10.0)
-        storage.dyn_add_revision("weibo", "2", "w1", "v1", None, 10.0)
+        memory = {}
+        storage.dyn_commit("weibo", "2", "w1", "v0", None, 10.0, memory)
+        storage.dyn_commit("weibo", "2", "w1", "v1", None, 10.0, memory)
         storage.dyn_set_many(
             "weibo",
             "2",
@@ -321,30 +325,18 @@ class StorageVersionTests(unittest.TestCase):
         self.assertEqual(storage.dyn_load("weibo")["2"]["w1"][0], "v1")
         self.assertIn("w2", storage.dyn_load("weibo")["2"])
 
-    def test_set_after_delete_uses_current_content(self):
-        storage.dyn_set("bili", "1", "a1", "v0", None, 100.0)
-        storage.dyn_add_revision("bili", "1", "a1", "v1", None, 100.0)
+    def test_commit_after_delete_revives_and_appends(self):
+        # 动态被误删后又改过：软删除后写回新内容，追加版本 + 复活所有版本行
+        memory = {}
+        storage.dyn_commit("bili", "1", "a1", "v0", None, 100.0, memory)
+        storage.dyn_commit("bili", "1", "a1", "v1", None, 100.0, memory)
         storage.dyn_del("bili", "1", "a1")
-        storage.dyn_set("bili", "1", "a1", "again", None, 100.0)
-        # dyn_set 写当前最大 revision 行：本次写入即最新版本，dyn_load 必须拿到它，
-        # 不能像「固定写 rev0」那样被更大 revision 的旧版本盖回去。
+        storage.dyn_commit("bili", "1", "a1", "again", None, 100.0, memory)
         rows = storage.dyn_query("bili", item_id="a1", include_deleted=True)
-        self.assertEqual([r["revision"] for r in rows], [1, 0])
-        self.assertFalse(rows[0]["deleted"])
+        self.assertEqual([r["revision"] for r in rows], [2, 1, 0])
+        self.assertTrue(all(not r["deleted"] for r in rows))
         self.assertEqual(rows[0]["content"], "again")
         self.assertEqual(storage.dyn_load("bili")["1"]["a1"][0], "again")
-
-    def test_set_on_edited_item_wins_over_older_revision(self):
-        # 回归：rev0/rev1 都在且未软删时，dyn_set 不能只写 rev0 而让 dyn_load 取到 rev1
-        storage.dyn_set("bili", "1", "a1", "v0", None, 100.0)
-        storage.dyn_add_revision("bili", "1", "a1", "v1", None, 100.0)
-        storage.dyn_set("bili", "1", "a1", "current", None, 100.0)
-        self.assertEqual(storage.dyn_load("bili")["1"]["a1"][0], "current")
-        rows = storage.dyn_query("bili", item_id="a1")
-        self.assertEqual([r["revision"] for r in rows], [1, 0])
-        self.assertEqual([r["content"] for r in rows], ["current", "v0"])
-        # 覆盖当前版本行时保留原有的编辑时间
-        self.assertIsNotNone(rows[0]["edited_at"])
 
     def test_failed_migration_does_not_cache_broken_conn(self):
         # 回归：迁移失败若把连接缓存下来，之后迁移永不重试、所有读写只剩 error 日志
@@ -402,134 +394,6 @@ class StorageVersionTests(unittest.TestCase):
         self.assertEqual(nulls, 0)
 
 
-class DynSyncTests(unittest.TestCase):
-    """dyn_sync：以「表内最新版本行」为唯一比较基准的写入语义。
-
-    与 dyn_set（覆盖最新版本行）、dyn_add_revision（无条件追加）的分工，
-    由这里的用例固定下来。
-    """
-
-    def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory(prefix="vtb_sync_")
-        self.db_path = os.path.join(self.tmp.name, "state.db")
-        self._orig_db_path = storage._db_path
-        self._orig_log = storage._log
-        storage._db_path = lambda: self.db_path
-        storage._log = lambda *a, **k: None
-        storage.close()
-        storage._close_read_conn()
-
-    def tearDown(self):
-        storage.close()
-        storage._close_read_conn()
-        storage._db_path = self._orig_db_path
-        storage._log = self._orig_log
-        self.tmp.cleanup()
-
-    def _rows(self, platform="bili", uid="1", item_id="a1"):
-        return storage.dyn_query(
-            platform, uid=uid, item_id=item_id, include_deleted=True
-        )
-
-    def test_sync_writes_revision_zero_for_new_item(self):
-        self.assertEqual(storage.dyn_sync("bili", "1", "a1", "v0", None, 100.0), 0)
-        rows = self._rows()
-        self.assertEqual([r["revision"] for r in rows], [0])
-        self.assertEqual(rows[0]["content"], "v0")
-        # rev0 是「首次抓到的版本」，不是一次编辑，不该有编辑时间
-        self.assertIsNone(rows[0]["edited_at"])
-
-    def test_sync_is_idempotent_when_content_unchanged(self):
-        storage.dyn_sync("bili", "1", "a1", "v0", None, 100.0)
-        self.assertEqual(storage.dyn_sync("bili", "1", "a1", "v0", None, 100.0), 0)
-        rows = self._rows()
-        self.assertEqual(len(rows), 1)
-        self.assertEqual(rows[0]["revision"], 0)
-
-    def test_sync_appends_revision_when_content_changed(self):
-        storage.dyn_sync("bili", "1", "a1", "v0", None, 100.0)
-        self.assertEqual(storage.dyn_sync("bili", "1", "a1", "v1", None, 100.0), 1)
-        rows = self._rows()
-        self.assertEqual([r["revision"] for r in rows], [1, 0])
-        self.assertEqual([r["content"] for r in rows], ["v1", "v0"])
-        self.assertIsNotNone(rows[0]["edited_at"])
-
-    def test_sync_keeps_original_ts_on_edit(self):
-        # 编辑不改变发布时间：追加的新版本要沿用旧 ts
-        storage.dyn_sync("bili", "1", "a1", "v0", None, 100.0)
-        storage.dyn_sync("bili", "1", "a1", "v1", None, 999.0)
-        rows = self._rows()
-        self.assertEqual(rows[0]["ts"], 100.0)
-        self.assertEqual(rows[1]["ts"], 100.0)
-
-    def test_sync_never_overwrites_edit_history(self):
-        # 核心回归：连改三次，中间版本必须都在
-        storage.dyn_sync("bili", "1", "a1", "原文", None, 100.0)
-        storage.dyn_sync("bili", "1", "a1", "改过一次", None, 100.0)
-        storage.dyn_sync("bili", "1", "a1", "改了两次", None, 100.0)
-        rows = self._rows()
-        self.assertEqual([r["revision"] for r in rows], [2, 1, 0])
-        self.assertEqual(
-            [r["content"] for r in rows], ["改了两次", "改过一次", "原文"]
-        )
-
-    def test_sync_preserves_history_across_restart(self):
-        # 回归：进程重启（内存清空）后再看到被改过的动态，中间版本不能丢
-        storage.dyn_sync("bili", "1", "a1", "原文", None, 100.0)
-        storage.dyn_sync("bili", "1", "a1", "改过一次", None, 100.0)
-        storage.close()  # 模拟重启：连接关掉，内存状态全丢
-        storage.dyn_sync("bili", "1", "a1", "改了两次", None, 100.0)
-        rows = self._rows()
-        self.assertEqual(
-            [r["content"] for r in rows], ["改了两次", "改过一次", "原文"]
-        )
-
-    def test_sync_revives_deleted_item_without_new_version(self):
-        # 回归：动态被误判删除后又回到 feed（删除检测只看 feed 内容，
-        # 平台少返回几条就会误判）——必须复活，且不能凭空多出一个版本
-        storage.dyn_sync("bili", "1", "a1", "v0", None, 100.0)
-        storage.dyn_del("bili", "1", "a1")
-        self.assertEqual(storage.dyn_load("bili"), {})
-        self.assertEqual(storage.dyn_sync("bili", "1", "a1", "v0", None, 100.0), 0)
-        rows = self._rows()
-        self.assertEqual(len(rows), 1)
-        self.assertFalse(rows[0]["deleted"])
-        self.assertEqual(rows[0]["content"], "v0")
-        self.assertEqual(storage.dyn_load("bili")["1"]["a1"][0], "v0")
-
-    def test_sync_revives_all_versions_of_deleted_item(self):
-        storage.dyn_sync("bili", "1", "a1", "v0", None, 100.0)
-        storage.dyn_sync("bili", "1", "a1", "v1", None, 100.0)
-        storage.dyn_del("bili", "1", "a1")
-        self.assertEqual(storage.dyn_sync("bili", "1", "a1", "v2", None, 100.0), 2)
-        rows = self._rows()
-        self.assertEqual(len(rows), 3)
-        # 该 item 的所有版本行都要复活，不能只复活最新那一行
-        self.assertTrue(all(not r["deleted"] for r in rows))
-
-    def test_sync_ignores_image_signature_change(self):
-        # 图床换签名参数不是「换了图」，不该刷出版本行
-        storage.dyn_sync("bili", "1", "a1", "带图", ["https://x/a.jpg?sign=aaa"], 100.0)
-        rev = storage.dyn_sync(
-            "bili", "1", "a1", "带图", ["https://x/a.jpg?sign=bbb"], 100.0
-        )
-        self.assertEqual(rev, 0)
-        self.assertEqual(len(self._rows()), 1)
-
-    def test_sync_detects_real_image_change(self):
-        storage.dyn_sync("bili", "1", "a1", "带图", ["https://x/a.jpg"], 100.0)
-        rev = storage.dyn_sync("bili", "1", "a1", "带图", ["https://x/b.jpg"], 100.0)
-        self.assertEqual(rev, 1)
-        self.assertEqual(len(self._rows()), 2)
-
-    def test_sync_failure_returns_minus_one_without_raising(self):
-        boom = mock.patch.object(
-            storage, "_get_conn", side_effect=RuntimeError("模拟连库失败")
-        )
-        with boom:
-            self.assertEqual(storage.dyn_sync("bili", "1", "a1", "v0", None, 1.0), -1)
-
-
 class DynCommitTests(unittest.TestCase):
     """dyn_commit：内存字典与表一起更新的组合语义。
 
@@ -554,6 +418,103 @@ class DynCommitTests(unittest.TestCase):
         storage._log = self._orig_log
         self.tmp.cleanup()
 
+    def _rows(self, platform="bili", uid="1", item_id="a1"):
+        return storage.dyn_query(
+            platform, uid=uid, item_id=item_id, include_deleted=True
+        )
+
+    def test_commit_writes_revision_zero_for_new_item(self):
+        memory = {}
+        rev = storage.dyn_commit("bili", "1", "a1", "v0", None, 100.0, memory)
+        self.assertEqual(rev, 0)
+        rows = self._rows()
+        self.assertEqual([r["revision"] for r in rows], [0])
+        self.assertEqual(rows[0]["content"], "v0")
+        # rev0 是「首次抓到的版本」，不是一次编辑，不该有编辑时间
+        self.assertIsNone(rows[0]["edited_at"])
+
+    def test_commit_is_idempotent_when_content_unchanged(self):
+        memory = {}
+        storage.dyn_commit("bili", "1", "a1", "v0", None, 100.0, memory)
+        self.assertEqual(
+            storage.dyn_commit("bili", "1", "a1", "v0", None, 100.0, memory), 0
+        )
+        rows = self._rows()
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["revision"], 0)
+
+    def test_commit_appends_revision_when_content_changed(self):
+        memory = {}
+        storage.dyn_commit("bili", "1", "a1", "v0", None, 100.0, memory)
+        self.assertEqual(
+            storage.dyn_commit("bili", "1", "a1", "v1", None, 100.0, memory), 1
+        )
+        rows = self._rows()
+        self.assertEqual([r["revision"] for r in rows], [1, 0])
+        self.assertEqual([r["content"] for r in rows], ["v1", "v0"])
+        self.assertIsNotNone(rows[0]["edited_at"])
+
+    def test_commit_never_overwrites_edit_history(self):
+        # 核心回归：连改三次，中间版本必须都在
+        memory = {}
+        storage.dyn_commit("bili", "1", "a1", "原文", None, 100.0, memory)
+        storage.dyn_commit("bili", "1", "a1", "改过一次", None, 100.0, memory)
+        storage.dyn_commit("bili", "1", "a1", "改了两次", None, 100.0, memory)
+        rows = self._rows()
+        self.assertEqual([r["revision"] for r in rows], [2, 1, 0])
+        self.assertEqual(
+            [r["content"] for r in rows], ["改了两次", "改过一次", "原文"]
+        )
+
+    def test_commit_preserves_history_across_restart(self):
+        # 回归：进程重启（内存清空）后再看到被改过的动态，中间版本不能丢
+        memory = {}
+        storage.dyn_commit("bili", "1", "a1", "原文", None, 100.0, memory)
+        storage.dyn_commit("bili", "1", "a1", "改过一次", None, 100.0, memory)
+        storage.close()  # 模拟重启：连接关掉，内存状态全丢
+        storage.dyn_commit("bili", "1", "a1", "改了两次", None, 100.0, {})
+        rows = self._rows()
+        self.assertEqual(
+            [r["content"] for r in rows], ["改了两次", "改过一次", "原文"]
+        )
+
+    def test_commit_revives_deleted_item_without_new_version(self):
+        # 回归：动态被误判删除后又回到 feed（删除检测只看 feed 内容，
+        # 平台少返回几条就会误判）——必须复活，且不能凭空多出一个版本
+        memory = {}
+        storage.dyn_commit("bili", "1", "a1", "v0", None, 100.0, memory)
+        storage.dyn_del("bili", "1", "a1")
+        self.assertEqual(storage.dyn_load("bili"), {})
+        self.assertEqual(
+            storage.dyn_commit("bili", "1", "a1", "v0", None, 100.0, memory), 0
+        )
+        rows = self._rows()
+        self.assertEqual(len(rows), 1)
+        self.assertFalse(rows[0]["deleted"])
+        self.assertEqual(rows[0]["content"], "v0")
+        self.assertEqual(storage.dyn_load("bili")["1"]["a1"][0], "v0")
+
+    def test_commit_ignores_image_signature_change(self):
+        # 图床换签名参数不是「换了图」，不该刷出版本行
+        memory = {}
+        storage.dyn_commit(
+            "bili", "1", "a1", "带图", ["https://x/a.jpg?sign=aaa"], 100.0, memory
+        )
+        rev = storage.dyn_commit(
+            "bili", "1", "a1", "带图", ["https://x/a.jpg?sign=bbb"], 100.0, memory
+        )
+        self.assertEqual(rev, 0)
+        self.assertEqual(len(self._rows()), 1)
+
+    def test_commit_detects_real_image_change(self):
+        memory = {}
+        storage.dyn_commit("bili", "1", "a1", "带图", ["https://x/a.jpg"], 100.0, memory)
+        rev = storage.dyn_commit(
+            "bili", "1", "a1", "带图", ["https://x/b.jpg"], 100.0, memory
+        )
+        self.assertEqual(rev, 1)
+        self.assertEqual(len(self._rows()), 2)
+
     def test_commit_updates_memory_and_table_together(self):
         memory = {}
         rev = storage.dyn_commit("bili", "1", "a1", "v0", None, 100.0, memory)
@@ -562,16 +523,6 @@ class DynCommitTests(unittest.TestCase):
         rows = storage.dyn_query("bili", uid="1", item_id="a1")
         self.assertEqual(rows[0]["content"], "v0")
 
-    def test_commit_appends_revision_and_updates_memory(self):
-        memory = {}
-        storage.dyn_commit("bili", "1", "a1", "v0", None, 100.0, memory)
-        rev = storage.dyn_commit("bili", "1", "a1", "v1", None, 100.0, memory)
-        self.assertEqual(rev, 1)
-        self.assertEqual(memory["a1"], ("v1", None, 100.0))
-        rows = storage.dyn_query("bili", uid="1", item_id="a1")
-        # dyn_query 按 ts DESC, revision DESC 排序
-        self.assertEqual([r["revision"] for r in rows], [1, 0])
-
     def test_commit_memory_keeps_old_ts_on_edit(self):
         # 编辑不改发布时间：内存与表都要沿用旧 ts，不能用本轮传入的 ts
         memory = {}
@@ -579,7 +530,7 @@ class DynCommitTests(unittest.TestCase):
         storage.dyn_commit("bili", "1", "a1", "v1", None, 200.0, memory)
         self.assertEqual(memory["a1"][2], 100.0)
         rows = storage.dyn_query("bili", uid="1", item_id="a1")
-        self.assertEqual(rows[-1]["ts"], 100.0)
+        self.assertEqual(rows[0]["ts"], 100.0)
 
     def test_commit_memory_ts_matches_table_ts(self):
         # 内存与表在 ts 上不能错位：否则下一轮比对会把发布时间当成变了
@@ -587,7 +538,7 @@ class DynCommitTests(unittest.TestCase):
         storage.dyn_commit("bili", "1", "a1", "v0", None, 100.0, memory)
         storage.dyn_commit("bili", "1", "a1", "v1", None, 999.0, memory)
         rows = storage.dyn_query("bili", uid="1", item_id="a1")
-        self.assertEqual(memory["a1"][2], rows[-1]["ts"])
+        self.assertEqual(memory["a1"][2], rows[0]["ts"])
 
     def test_commit_failure_still_updates_memory(self):
         # 落库失败不应该回滚内存：内存记录的是「本轮看到的样子」，

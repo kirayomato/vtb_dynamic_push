@@ -375,52 +375,6 @@ def _coerce_ts(ts):
         return 0.0
 
 
-def dyn_set(
-    platform: str,
-    uid,
-    item_id,
-    content,
-    pic_url,
-    ts,
-    revision=None,
-    edited_at=None,
-) -> None:
-    """写入/更新一条动态的当前版本。pic_url 可为 str/list/None。
-
-    revision 缺省时写到该 item 当前的最大版本行（首次写入即 0），保证
-    「刚写入的内容就是最新版本」，不会出现 rev0 比 revN 新、dyn_load 却取
-    revN 旧内容的错位。要保留历史版本请用 dyn_add_revision。
-    若该版本行此前被标记删除（软删除），重新写入时自动恢复为未删除。
-
-    注意：本函数是**覆盖**语义，会抹掉被覆盖行的编辑历史，且只恢复当前
-    这一行的删除标记（同一 item 的其它版本行仍标记为已删除）。常规的
-    「这条动态现在是什么样」写入请用 dyn_sync，它会先比对再决定写还是
-    追加，并统一复活该 item 的所有版本行。
-    """
-    try:
-        conn = _get_conn()
-        key = (platform, str(uid), str(item_id))
-        with _lock:
-            if revision is None:
-                revision = conn.execute(
-                    "SELECT COALESCE(MAX(revision), 0) FROM dynamics "
-                    "WHERE platform = ? AND uid = ? AND item_id = ?",
-                    key,
-                ).fetchone()[0]
-            conn.execute(
-                _DYN_UPSERT_SQL,
-                _dyn_row(
-                    platform, uid, item_id, revision, content, pic_url, ts, edited_at
-                ),
-            )
-            conn.commit()
-    except Exception as e:
-        _log(
-            "error",
-            f"写入动态失败 platform={platform} uid={uid} id={item_id}: {e}",
-        )
-
-
 def _sync_row(
     platform: str,
     uid,
@@ -428,7 +382,6 @@ def _sync_row(
     content,
     pic_url,
     ts,
-    edited_at=None,
 ):
     """同步一条动态到表，返回 (revision, 实际落库的 ts)。
 
@@ -465,7 +418,7 @@ def _sync_row(
                 conn.execute(
                     _DYN_UPSERT_SQL,
                     _dyn_row(
-                        platform, uid, item_id, 0, content, pic_url, ts, edited_at
+                        platform, uid, item_id, 0, content, pic_url, ts, None
                     ),
                 )
                 conn.commit()
@@ -507,7 +460,7 @@ def _sync_row(
                     content,
                     pic_url,
                     effective_ts,
-                    edited_at if edited_at is not None else time.time(),
+                    time.time(),
                 ),
             )
             conn.commit()
@@ -518,27 +471,6 @@ def _sync_row(
             f"同步动态失败 platform={platform} uid={uid} id={item_id}: {e}",
         )
         return -1, ts
-
-
-def dyn_sync(
-    platform: str,
-    uid,
-    item_id,
-    content,
-    pic_url,
-    ts,
-    edited_at=None,
-) -> int:
-    """把一条动态的当前状态同步进表，返回落库的 revision 号（失败返回 -1）。
-
-    判定与落库语义见 _sync_row。与相邻几个 API 的分工：
-        dyn_set           覆盖最新版本行（会抹掉编辑历史），仅用于强制对齐
-        dyn_add_revision  无条件追加一个版本（不比对，可能产生重复版本）
-        dyn_sync          先比对再决定写还是追加，常规写入走这条
-        dyn_commit        dyn_sync + 同步更新内存字典，查询层用这条
-    """
-    revision, _ = _sync_row(platform, uid, item_id, content, pic_url, ts, edited_at)
-    return revision
 
 
 def dyn_commit(platform: str, uid, item_id, content, pic_url, ts, memory: dict) -> int:
@@ -558,54 +490,12 @@ def dyn_commit(platform: str, uid, item_id, content, pic_url, ts, memory: dict) 
     return revision
 
 
-def dyn_add_revision(
-    platform: str, uid, item_id, content, pic_url, ts, edited_at=None
-) -> int:
-    """为一条动态追加编辑版本行，返回新的 revision 号（失败返回 -1）。
-
-    旧版本行原样保留在表里，即编辑记录本身。revision 取该 item_id 当前
-    最大值 +1；MAX 与 INSERT 在同一把锁内完成，多线程轮询不会撞号。
-    若这条动态此前被软删除过（删后又回到 feed），顺带把它的所有版本恢复为
-    未删除，避免 dyn_load 仍把它排除。
-    """
-    try:
-        conn = _get_conn()
-        key = (platform, str(uid), str(item_id))
-        if edited_at is None:
-            edited_at = time.time()
-        with _lock:
-            revision = conn.execute(
-                "SELECT COALESCE(MAX(revision), -1) + 1 FROM dynamics "
-                "WHERE platform = ? AND uid = ? AND item_id = ?",
-                key,
-            ).fetchone()[0]
-            conn.execute(
-                "UPDATE dynamics SET deleted = 0, deleted_at = NULL "
-                "WHERE platform = ? AND uid = ? AND item_id = ? AND deleted = 1",
-                key,
-            )
-            conn.execute(
-                _DYN_UPSERT_SQL,
-                _dyn_row(
-                    platform, uid, item_id, revision, content, pic_url, ts, edited_at
-                ),
-            )
-            conn.commit()
-        return revision
-    except Exception as e:
-        _log(
-            "error",
-            f"追加编辑版本失败 platform={platform} uid={uid} id={item_id}: {e}",
-        )
-        return -1
-
-
 def dyn_set_many(platform: str, uid, items: dict) -> None:
     """单事务批量写入同一 uid 的多条动态，供初始化等成批写入场景使用。
 
     items 形如 {item_id: (content, pic_url, ts)}，一律写成 revision=0。
     只补缺失行：已存在的 item_id 直接跳过，避免初始化重入时把 rev0 原始
-    版本或已有编辑历史覆盖掉。相比循环调用 dyn_set，这里只提交一次事务，
+    版本或已有编辑历史覆盖掉。相比循环调用，这里只提交一次事务，
     避免 N 次 commit 带来的 WAL 写入放大。
     """
     if not items:
