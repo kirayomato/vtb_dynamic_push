@@ -689,7 +689,9 @@ def query_live_status_batch(uid_list, reporter):
                 live_status = item_info["live_status"]
                 room_id = item_info["room_id"]
                 room_title = item_info["title"]
-                room_cover_url = item_info["cover_from_user"]
+                room_cover_url = item_info["cover_from_user"] or ROOM_COVER_DICT.get(
+                    uid, ""
+                )
                 keyframe = item_info["keyframe"]
             except (KeyError, TypeError):
                 logger.error(
