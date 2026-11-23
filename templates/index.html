@@ -853,15 +853,23 @@
             latestId: 0,
             oldestId: null,
             loading: false,
-            hasMore: true
+            hasMore: true,
+            polling: false
         };
         const $ = id => document.getElementById(id);
         const container = $('logContainer');
 
         // 初始化
         document.addEventListener('DOMContentLoaded', () => {
-            loadLogs('/logs/latest?limit=50', false);
-            setInterval(() => loadLogs(`/logs?since_id=${state.latestId}`, true), 1000);
+            // 首屏加载完成、latestId 有值后再开始轮询，否则会把同一批日志重复拉一遍
+            loadLogs('/logs/latest?limit=50', false).then(() => {
+                setInterval(async () => {
+                    if (state.polling) return;
+                    state.polling = true;
+                    try { await loadLogs(`/logs?since_id=${state.latestId}`, true); }
+                    finally { state.polling = false; }
+                }, 1000);
+            });
 
             container.addEventListener('scroll', () => {
                 const nearBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - 100;
@@ -925,10 +933,13 @@
                 const { logs } = await fetch(url).then(r => r.json());
                 if (!logs?.length) return;
 
-                if (container.querySelector('.loading')) container.innerHTML = '';
+                // 只移除首屏占位；#historyLoading 和已有日志不能被一起清掉
+                const placeholder = container.querySelector('.loading:not(#historyLoading)');
+                if (placeholder) placeholder.remove();
 
+                // prepend 是逐条插到首节点，需按 id 升序插入，最新一条才会停在上方
                 const sorted = [...logs].sort((a, b) => b.id - a.id);
-                sorted.forEach(log => addLog(log, prepend));
+                (prepend ? sorted.reverse() : sorted).forEach(log => addLog(log, prepend));
 
                 state.latestId = Math.max(state.latestId, ...logs.map(l => l.id));
                 if (!prepend && logs.length) state.oldestId = Math.min(...logs.map(l => l.id));
@@ -970,6 +981,9 @@
 
         // 添加日志条目
         function addLog(log, prepend = true) {
+            // 首屏、轮询、历史加载可能拿到同一条日志，已渲染的直接跳过
+            if (container.querySelector(`.log-entry[data-log-id="${log.id}"]`)) return;
+
             const div = document.createElement('div');
             div.className = 'log-entry';
             div.dataset.logId = log.id;
