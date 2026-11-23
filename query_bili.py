@@ -669,14 +669,14 @@ def query_live_status_batch(uid_list, reporter):
     result = resp.data
     if result["code"] != 0:
         logger.error(
-            f'请求返回数据code错误：{result["code"]}, 休眠一分钟, url: {query_url} \ndata:{result}',
+            f'请求返回数据code错误：{result["code"]}, 休眠五分钟, url: {query_url} \ndata:{result}',
             prefix,
         )
-        sleep(60)
+        sleep(300)
     else:
         live_status_list = result["data"]
         if not hasattr(live_status_list, "items"):
-            logger.error(
+            logger.warning(
                 f"返回数据不完整, 休眠一分钟, url: {query_url} \ndata:{result}", prefix
             )
             sleep(60)
